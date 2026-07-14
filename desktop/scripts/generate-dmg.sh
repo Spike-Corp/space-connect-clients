@@ -47,6 +47,16 @@ for QYH in $(find $QT_PREFIX "$HOME/work" -name qyieldcpu.h 2>/dev/null | sort -
   fi
 done
 
+# Workaround: Qt's .prl link metadata still references "-framework AGL", but Apple
+# removed the AGL (legacy OpenGL) framework from recent macOS SDKs (Xcode 16+),
+# which fails the final link. Strip it from the installed Qt metadata.
+echo "Stripping obsolete -framework AGL from Qt link metadata"
+if [ -n "$QT_PREFIX" ]; then
+  grep -rlF -- "-framework AGL" "$QT_PREFIX" 2>/dev/null | while read -r f; do
+    sed -i '' -E 's/-framework AGL//g' "$f" && echo "Stripped AGL: $f"
+  done
+fi
+
 echo Configuring the project
 pushd $BUILD_FOLDER
 qmake $SOURCE_ROOT/moonlight-qt.pro QMAKE_APPLE_DEVICE_ARCHS="x86_64 arm64" || fail "Qmake failed!"
