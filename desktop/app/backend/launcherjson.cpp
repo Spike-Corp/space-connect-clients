@@ -47,5 +47,7 @@ LauncherConnection LauncherJson::parseConnection(const QByteArray& json)
     connection.host = root.value(QStringLiteral("host")).toString();
     connection.ipv6 = root.value(QStringLiteral("ipv6")).toString();
     connection.port = root.value(QStringLiteral("port")).toInt();
+    connection.maxBitrateKbps = root.value(QStringLiteral("maxBitrateKbps")).toInt();
+    connection.recommendedBitrateKbps = root.value(QStringLiteral("recommendedBitrateKbps")).toInt();
     return connection;
 }

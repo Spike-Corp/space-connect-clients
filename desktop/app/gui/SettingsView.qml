@@ -8,6 +8,7 @@ import StreamingPreferences 1.0
 import ComputerManager 1.0
 import SdlGamepadKeyNavigation 1.0
 import SystemProperties 1.0
+import LauncherApi 1.0
 
 Flickable {
     id: settingsPage
@@ -706,7 +707,7 @@ Flickable {
                 Label {
                     width: parent.width
                     id: bitrateTierDesc
-                    text: qsTr("Up to 25 Mbps on standard hosts. Space Cloud's dedicated physical machines (newer GPUs) unlock up to 50 Mbps.")
+                    text: qsTr("Up to 25 Mbps on cloud hosts. Space Cloud's dedicated physical machines unlock up to 100 Mbps (50 Mbps recommended).")
                     font.pointSize: 9
                     font.italic: true
                     wrapMode: Text.Wrap
@@ -738,7 +739,17 @@ Flickable {
                     }
 
                     function updateMaxBitrate() {
-                        maxMbps = isHighTierGpu(ComputerManager.getPrimaryGpuModel()) ? 50 : 25
+                        // The backend reports the ceiling from the machine's provider/plan
+                        // (physical proxmox host = 100 Mbps, cloud VM = 25 Mbps) via the
+                        // launcher connection. Prefer it; fall back to the local GPU-model
+                        // heuristic only when the backend value hasn't been cached yet
+                        // (e.g. older backend, or connection not requested this run).
+                        var launcherMaxKbps = LauncherApi.maxBitrateKbps()
+                        if (launcherMaxKbps > 0) {
+                            maxMbps = Math.round(launcherMaxKbps / 1000)
+                        } else {
+                            maxMbps = isHighTierGpu(ComputerManager.getPrimaryGpuModel()) ? 50 : 25
+                        }
                     }
 
                     // Reads StreamingPreferences.bitrateKbps (which may be an uncapped "default"

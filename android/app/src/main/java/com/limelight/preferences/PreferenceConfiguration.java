@@ -402,8 +402,12 @@ public class PreferenceConfiguration {
     }
 
     public static final int MIN_BITRATE_KBPS = 500;
+    // Cloud VMs (GCP/AWS/IBM/etc) — capped to fit the remote provider's bandwidth/cost budget.
     public static final int MAX_BITRATE_KBPS_STANDARD = 25000;
-    public static final int MAX_BITRATE_KBPS_HIGH_TIER = 50000;
+    // Proxmox "physical machine" hosts (e.g. Eveo) — LAN-grade throughput, up to 100 Mbps
+    // (50 Mbps recommended). The real ceiling is reported per-machine by the backend and cached
+    // in "launcher_max_bitrate_kbps"; this stays as the fallback when that value isn't present.
+    public static final int MAX_BITRATE_KBPS_HIGH_TIER = 100000;
 
     // Clamps an arbitrary computed bitrate (Kbps) into the valid range for the free-form
     // bitrate editor (seekbar_bitrate_kbps), so a resolution/FPS/YUV444 change never
@@ -413,7 +417,7 @@ public class PreferenceConfiguration {
         return clampBitrate(computedKbps, false);
     }
 
-    // Same as above, but allows up to 50 Mbps when includeHighTier is true (i.e. the
+    // Same as above, but allows up to 100 Mbps when includeHighTier is true (i.e. the
     // connected PC is one of Space Cloud's dedicated physical-machine hosts).
     public static int clampBitrate(int computedKbps, boolean includeHighTier) {
         int max = includeHighTier ? MAX_BITRATE_KBPS_HIGH_TIER : MAX_BITRATE_KBPS_STANDARD;

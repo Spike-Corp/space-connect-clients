@@ -181,6 +181,13 @@ void LauncherApi::requestConnection()
                         LauncherJson::parseConnection(QJsonDocument(root).toJson(QJsonDocument::Compact));
                     if (connection.host.isEmpty() || connection.port <= 0)
                         throw std::runtime_error("Connection unavailable");
+                    if (connection.maxBitrateKbps > 0) {
+                        QSettings settings;
+                        settings.setValue(QStringLiteral("launchermaxbitratekbps"),
+                                          connection.maxBitrateKbps);
+                        settings.setValue(QStringLiteral("launcherrecommendedbitratekbps"),
+                                          connection.recommendedBitrateKbps);
+                    }
                     emit connectionReady(connection.host + QStringLiteral(":")
                                          + QString::number(connection.port));
                 }
@@ -188,6 +195,18 @@ void LauncherApi::requestConnection()
                     setError(QStringLiteral("Conexão Moonlight ainda não disponível"));
                 }
             });
+}
+
+int LauncherApi::maxBitrateKbps() const
+{
+    QSettings settings;
+    return settings.value(QStringLiteral("launchermaxbitratekbps"), 0).toInt();
+}
+
+int LauncherApi::recommendedBitrateKbps() const
+{
+    QSettings settings;
+    return settings.value(QStringLiteral("launcherrecommendedbitratekbps"), 0).toInt();
 }
 
 void LauncherApi::endSession()

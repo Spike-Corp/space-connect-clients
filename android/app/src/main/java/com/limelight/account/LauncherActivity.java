@@ -186,6 +186,16 @@ public class LauncherActivity extends Activity {
                 requestRunning = false;
                 progressBar.setVisibility(View.GONE);
                 pendingHost = connection.host + ":" + connection.port;
+                // Cache the plan-based bitrate ceiling from the backend so StreamSettings can
+                // raise/lower the bitrate slider max to match this machine's provider (proxmox
+                // physical = up to 100 Mbps, cloud = 25 Mbps) without needing an app update.
+                if (connection.maxBitrateKbps > 0) {
+                    android.preference.PreferenceManager.getDefaultSharedPreferences(LauncherActivity.this)
+                            .edit()
+                            .putInt("launcher_max_bitrate_kbps", connection.maxBitrateKbps)
+                            .putInt("launcher_recommended_bitrate_kbps", connection.recommendedBitrateKbps)
+                            .apply();
+                }
                 SharedPreferences prefs = getSharedPreferences(
                         "space_connect_launcher",
                         MODE_PRIVATE);

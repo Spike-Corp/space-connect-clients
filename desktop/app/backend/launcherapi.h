@@ -46,6 +46,10 @@ public:
     Q_INVOKABLE void endSession();
     Q_INVOKABLE void submitPairPin(const QString& pin);
     Q_INVOKABLE void logout();
+    // Bitrate ceiling (Kbps) cached from the last connection reported by the backend.
+    // 0 when never received; callers should fall back to a local heuristic.
+    Q_INVOKABLE int maxBitrateKbps() const;
+    Q_INVOKABLE int recommendedBitrateKbps() const;
 
 signals:
     void busyChanged();

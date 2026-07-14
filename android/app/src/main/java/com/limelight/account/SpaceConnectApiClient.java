@@ -294,6 +294,13 @@ public final class SpaceConnectApiClient {
         public String host;
         public String ipv6;
         public int port;
+        // Bitrate ceiling reported by the backend based on the machine's provider/plan
+        // (proxmox physical = 100 Mbps, cloud VMs = 25 Mbps). Used as the max of the
+        // bitrate slider so the limit follows the user's actual plan without an app update.
+        public String provider;
+        public String bitrateTier;
+        public int maxBitrateKbps;
+        public int recommendedBitrateKbps;
         public String expiresAt;
     }
 

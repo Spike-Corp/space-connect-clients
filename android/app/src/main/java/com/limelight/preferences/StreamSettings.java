@@ -471,21 +471,29 @@ public class StreamSettings extends Activity {
                 category.removePreference(findPreference("checkbox_usb_driver"));
             }
 
-            // Unlock a higher 50 Mbps bitrate ceiling if the connected PC is running on one of
-            // Space Cloud's dedicated "physical machine" tier GPUs (L4 / RTX 3080 Ti / A10),
-            // which is known to reliably sustain that much throughput. Shared/base tier hosts
-            // (T4) stay capped at 25 Mbps. The bitrate control itself is a free-form
-            // SeekBarPreference (any value the user wants within [min, max]), not a fixed
-            // preset list - this just moves the ceiling. The GPU model is cached in
-            // SharedPreferences by PcView whenever a fresh /serverinfo poll comes back, since
-            // this Activity has no direct access to the live ComputerDetails for the
-            // connected PC.
-            String lastKnownGpuModel = PreferenceManager.getDefaultSharedPreferences(getActivity())
-                    .getString("last_known_gpu_model", "");
-            highTierGpuUnlocked = PreferenceConfiguration.isHighTierGpu(lastKnownGpuModel);
+            // Set the bitrate slider ceiling from the plan/provider the backend reported for
+            // the connected machine (cached in "launcher_max_bitrate_kbps" by LauncherActivity):
+            // proxmox physical hosts get up to 100 Mbps, cloud VMs 25 Mbps. This is the source of
+            // truth — the limit follows the user's plan without needing an app update. If the
+            // value is absent (older backend / not connected via the launcher yet), fall back to
+            // the GPU-model heuristic (L4 / RTX 3080 Ti / A10 = high tier). The bitrate control
+            // itself is a free-form SeekBarPreference (any value within [min, max]); this just
+            // moves the ceiling.
+            SharedPreferences defPrefs = PreferenceManager.getDefaultSharedPreferences(getActivity());
+            int launcherMaxBitrate = defPrefs.getInt("launcher_max_bitrate_kbps", 0);
+            int maxBitrateKbps;
+            if (launcherMaxBitrate > 0) {
+                maxBitrateKbps = launcherMaxBitrate;
+                highTierGpuUnlocked = launcherMaxBitrate > PreferenceConfiguration.MAX_BITRATE_KBPS_STANDARD;
+            } else {
+                String lastKnownGpuModel = defPrefs.getString("last_known_gpu_model", "");
+                highTierGpuUnlocked = PreferenceConfiguration.isHighTierGpu(lastKnownGpuModel);
+                maxBitrateKbps = highTierGpuUnlocked ?
+                        PreferenceConfiguration.MAX_BITRATE_KBPS_HIGH_TIER :
+                        PreferenceConfiguration.MAX_BITRATE_KBPS_STANDARD;
+            }
             SeekBarPreference bitratePref = (SeekBarPreference) findPreference(PreferenceConfiguration.BITRATE_PREF_STRING);
-            bitratePref.setMaxValue(highTierGpuUnlocked ?
-                    PreferenceConfiguration.MAX_BITRATE_KBPS_HIGH_TIER : PreferenceConfiguration.MAX_BITRATE_KBPS_STANDARD);
+            bitratePref.setMaxValue(maxBitrateKbps);
 
             // Ported from Artemis: lets the user type an arbitrary "WIDTHxHEIGHT" custom
             // resolution (e.g. "3440x1440" for ultrawide) which gets added to the resolution

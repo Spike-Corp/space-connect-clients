@@ -22,6 +22,10 @@ struct LauncherConnection
     QString host;
     QString ipv6;
     int port = 0;
+    // Bitrate ceiling (Kbps) reported by the backend from the machine's provider/plan:
+    // proxmox physical host = 100000, cloud VM = 25000. 0 when an older backend omits it.
+    int maxBitrateKbps = 0;
+    int recommendedBitrateKbps = 0;
 };
 
 class LauncherJson
