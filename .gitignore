@@ -1,0 +1,36 @@
+# Build outputs
+build/
+deploy/
+**/*.o
+**/moc_*.cpp
+**/moc_*.h
+**/qrc_*.cpp
+**/*.pro.user
+**/.qmake.stash
+desktop/**/debug/
+desktop/**/release/
+desktop/**/Makefile
+desktop/**/Makefile.*
+
+# Android
+android/.gradle/
+android/app/build/
+android/local.properties
+android/**/*.iml
+
+# mic-bridge (.NET)
+mic-bridge/bin/
+mic-bridge/obj/
+
+# Secrets / signing (never commit)
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+*-signing.env
+*.env
+
+# OS cruft
+.DS_Store
+Thumbs.db
+.github/workflows/build-desktop.yml

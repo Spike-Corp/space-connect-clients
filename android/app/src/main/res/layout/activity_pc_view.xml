@@ -1,0 +1,94 @@
+<!-- Portrait orientation only -->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".PcView" >
+
+    <RelativeLayout
+        android:id="@+id/pcFragmentContainer"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:layout_below="@+id/gamesButton"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentBottom="true"
+        >
+
+        <RelativeLayout
+            android:id="@+id/no_pc_found_layout"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingLeft="@dimen/activity_horizontal_margin"
+            android:paddingRight="@dimen/activity_horizontal_margin"
+            android:layout_centerInParent="true"
+            android:layout_centerVertical="true"
+            android:layout_centerHorizontal="true">
+            <ImageView
+                android:id="@+id/pcs_loading"
+                android:layout_width="75dp"
+                android:layout_height="75dp"
+                android:src="@drawable/ic_loader"
+                android:contentDescription="@null"/>
+            <ImageView
+                android:id="@+id/pcs_loading_pulse"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_alignTop="@id/pcs_loading"
+                android:layout_alignBottom="@id/pcs_loading"
+                android:layout_alignLeft="@id/pcs_loading"
+                android:layout_alignRight="@id/pcs_loading"
+                android:layout_margin="23dp"
+                android:src="@drawable/ic_signal"
+                android:contentDescription="@null"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_toRightOf="@+id/pcs_loading"
+                android:layout_toEndOf="@+id/pcs_loading"
+                android:layout_marginLeft="10dp"
+                android:layout_marginStart="10dp"
+                android:layout_centerVertical="true"
+                android:textAppearance="?android:attr/textAppearanceLarge"
+                android:gravity="center"
+                android:text="@string/searching_pc"/>
+        </RelativeLayout>
+
+    </RelativeLayout>
+
+    <ImageButton
+        android:id="@+id/settingsButton"
+        android:layout_width="70dp"
+        android:layout_height="65dp"
+        android:layout_margin="6dp"
+        android:cropToPadding="false"
+        android:scaleType="centerInside"
+        android:padding="14dp"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentTop="true"
+        android:nextFocusForward="@id/gamesButton"
+        android:src="@drawable/ic_settings"
+        android:background="@drawable/bg_button_purple"
+        android:preferKeepClear="true"/>
+
+    <ImageButton
+        android:id="@+id/gamesButton"
+        android:layout_width="70dp"
+        android:layout_height="65dp"
+        android:layout_margin="6dp"
+        android:cropToPadding="false"
+        android:scaleType="centerInside"
+        android:padding="14dp"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentTop="true"
+        android:src="@drawable/ic_games"
+        android:background="@drawable/bg_button_teal"
+        android:contentDescription="@string/games_button_description"
+        android:preferKeepClear="true"/>
+
+</RelativeLayout>

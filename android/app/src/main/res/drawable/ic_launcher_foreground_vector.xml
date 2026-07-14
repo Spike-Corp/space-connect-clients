@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Keycap / terminal key silhouette -->
+    <path
+        android:fillColor="@color/moonlight_border"
+        android:pathData="M24,32 a8,8 0,0 1,8 -8 h44 a8,8 0,0 1,8 8 v44 a8,8 0,0 1,-8 8 h-44 a8,8 0,0 1,-8 -8 z" />
+    <!-- Four window panes (generic OS/window glyph) -->
+    <path
+        android:fillColor="@color/moonlight_purple"
+        android:pathData="M38,38 h15 v15 h-15z M55,38 h15 v15 h-15z M38,55 h15 v15 h-15z M55,55 h15 v15 h-15z" />
+</vector>

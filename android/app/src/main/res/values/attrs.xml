@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Custom theme attributes so custom drawables/layouts (cards, buttons, grid text) follow
+         the active Dark/Light appearance setting (see UiHelper.applyPreferredTheme) instead of
+         hardcoding one palette. Defined once here; values/styles.xml's AppBaseTheme/AppTheme.Light
+         and the values-v21/values-v29 AppBaseTheme buckets all provide values for these. -->
+    <attr name="appBackgroundColor" format="color"/>
+    <attr name="appSurfaceColor" format="color"/>
+    <attr name="appSurface2Color" format="color"/>
+    <attr name="appForegroundColor" format="color"/>
+    <attr name="appMutedForegroundColor" format="color"/>
+    <attr name="appBorderColor" format="color"/>
+    <!-- The app window's background - a drawable (not just a color) so the Dark theme can use a
+         decorative gradient while the Light theme just uses a flat color (colors are valid
+         drawable references in Android, so no separate drawable file is needed for Light). Kept
+         separate from appBackgroundColor (still a plain color) since statusBarColor/
+         colorPrimaryDark/colorBackground require an actual color, not an arbitrary drawable. -->
+    <attr name="appBackgroundDrawable" format="reference"/>
+    <!-- Whether system status/nav bar icons should render dark-on-light (true, Light theme) or
+         light-on-dark (false, Dark theme). Only consumed on API29+ (see values-v29/styles.xml)
+         since windowLightStatusBar/NavigationBar need API23+/27+ and values-v21 covers devices
+         below that floor. -->
+    <attr name="appLightSystemBars" format="boolean"/>
+</resources>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Minimalist input field: subtle filled panel with a thin bright accent line at the bottom,
+     replacing the default plain underline EditText look. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="?attr/appSurface2Color"/>
+            <corners android:radius="10dp"/>
+        </shape>
+    </item>
+    <item android:gravity="bottom">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/moonlight_purple"/>
+            <size android:height="2dp"/>
+        </shape>
+    </item>
+</layer-list>

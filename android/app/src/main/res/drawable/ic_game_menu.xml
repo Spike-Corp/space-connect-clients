@@ -1,0 +1,12 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Vertical 3-dot "more options" glyph, matching the standard Android overflow menu icon -->
+    <path
+        android:fillColor="@color/moonlight_foreground"
+        android:pathData="M12,5 m-2,0 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0
+                           M12,12 m-2,0 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0
+                           M12,19 m-2,0 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0"/>
+</vector>

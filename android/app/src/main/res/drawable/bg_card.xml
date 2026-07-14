@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Minimalist card: flat surface fill with a thin accent border - sleek "gamer HUD" panel look,
+     no cartoon sticker shadow. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="?attr/appSurfaceColor"/>
+    <stroke
+        android:width="@dimen/cartoon_border_width"
+        android:color="?attr/appBorderColor"/>
+    <corners android:radius="@dimen/card_corner_radius"/>
+</shape>

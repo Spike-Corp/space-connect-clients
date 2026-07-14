@@ -1,0 +1,31 @@
+<resources>
+    <style name="AppBaseTheme" parent="android:Theme.Material">
+        <!-- This bucket completely replaces the base AppBaseTheme on API29+, so it must
+             redeclare the appXxxColor defaults (dark) itself - AppTheme.Light (defined once in
+             values/styles.xml) overrides just those attrs on top, and every android:* item below
+             indirects through them so the Light override cascades here automatically. -->
+        <item name="appBackgroundColor">@color/moonlight_background</item>
+        <item name="appSurfaceColor">@color/moonlight_surface</item>
+        <item name="appSurface2Color">@color/moonlight_surface_2</item>
+        <item name="appForegroundColor">@color/moonlight_foreground</item>
+        <item name="appMutedForegroundColor">@color/moonlight_muted_foreground</item>
+        <item name="appBorderColor">@color/moonlight_border</item>
+        <item name="appLightSystemBars">false</item>
+        <item name="appBackgroundDrawable">@drawable/bg_app_gradient</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <!-- API29+ only (safe: always >=API23/27), so status/nav bar icons flip dark-on-light
+             automatically together with the rest of the Light theme. -->
+        <item name="android:windowLightStatusBar">?attr/appLightSystemBars</item>
+        <item name="android:windowLightNavigationBar">?attr/appLightSystemBars</item>
+        <!-- Avoid some systems like MIUI which break the visibility of games title -->
+        <item name="android:forceDarkAllowed">false</item>
+        <item name="android:windowBackground">?attr/appBackgroundDrawable</item>
+        <item name="android:colorBackground">?attr/appBackgroundColor</item>
+        <item name="android:colorPrimary">?attr/appSurfaceColor</item>
+        <item name="android:colorPrimaryDark">?attr/appBackgroundColor</item>
+        <item name="android:colorAccent">@color/moonlight_purple</item>
+        <item name="android:textColorPrimary">?attr/appForegroundColor</item>
+        <item name="android:textColorSecondary">?attr/appMutedForegroundColor</item>
+    </style>
+</resources>

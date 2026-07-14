@@ -1,0 +1,123 @@
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".Game" >
+
+    <View
+        android:id="@+id/backgroundTouchView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="center" />
+
+    <com.limelight.ui.StreamView
+        android:id="@+id/surfaceView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="center"
+        android:focusable="true"
+        android:focusableInTouchMode="true"
+        android:focusedByDefault="true"
+        android:defaultFocusHighlightEnabled="false">
+        <requestFocus />
+    </com.limelight.ui.StreamView>
+
+    <!-- Draggable performance/stats overlay. Collapsed by default to a small floating icon
+         (perfOverlayIcon) - tapping it (without dragging) expands perfOverlayPanel, tapping again
+         collapses it back. The whole thing can be dragged anywhere on screen. -->
+    <FrameLayout
+        android:id="@+id/perfOverlayContainer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="10dp"
+        android:layout_marginStart="10dp"
+        android:layout_marginTop="10dp"
+        android:layout_gravity="left|top"
+        android:preferKeepClear="true"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/perfOverlayIcon"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:padding="10dp"
+            android:background="@drawable/bg_button_purple"
+            android:src="@drawable/ic_activity"
+            android:contentDescription="@string/perf_overlay_toggle_desc"/>
+
+        <LinearLayout
+            android:id="@+id/perfOverlayPanel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#CC140F1F"
+            android:padding="10dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/perfOverlayExtra"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="?android:attr/textAppearanceSmall"
+                android:textColor="@color/moonlight_purple"
+                android:textStyle="bold"
+                android:gravity="left" />
+
+            <TextView
+                android:id="@+id/performanceOverlay"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textAppearance="?android:attr/textAppearanceSmall"
+                android:textColor="#FFFFFF"
+                android:gravity="left" />
+
+        </LinearLayout>
+
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/notificationOverlay"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginRight="10dp"
+        android:layout_marginEnd="10dp"
+        android:layout_marginTop="10dp"
+        android:layout_gravity="right"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:gravity="right"
+        android:background="#80000000"
+        android:preferKeepClear="true"
+        android:visibility="gone" />
+
+    <ImageButton
+        android:id="@+id/gameMenuButton"
+        android:layout_width="52dp"
+        android:layout_height="52dp"
+        android:layout_gravity="bottom|right"
+        android:layout_marginRight="14dp"
+        android:layout_marginBottom="76dp"
+        android:padding="12dp"
+        android:scaleType="centerInside"
+        android:alpha="0.55"
+        android:background="@drawable/bg_button_purple"
+        android:src="@drawable/ic_game_menu"
+        android:contentDescription="@string/game_menu_button_desc"
+        android:preferKeepClear="true" />
+
+    <ImageButton
+        android:id="@+id/specialKeysButton"
+        android:layout_width="52dp"
+        android:layout_height="52dp"
+        android:layout_gravity="bottom|right"
+        android:layout_marginRight="14dp"
+        android:layout_marginBottom="14dp"
+        android:padding="12dp"
+        android:scaleType="centerInside"
+        android:alpha="0.55"
+        android:background="@drawable/bg_button_teal"
+        android:src="@drawable/ic_keyboard"
+        android:contentDescription="@string/game_special_keys_button_desc"
+        android:preferKeepClear="true" />
+
+</merge>

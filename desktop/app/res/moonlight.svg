@@ -1,0 +1,12 @@
+<?xml version="1.0" standalone="no"?>
+<!-- "Space Connect" app icon: dark keycap/terminal-key silhouette with a purple 2x2 window-pane
+     glyph - same design language as the Android client's launcher icon, for cross-platform
+     brand consistency. Original artwork, not derived from the previous Moonlight logo. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <rect x="0" y="0" width="256" height="256" rx="56" fill="#140F1F"/>
+  <rect x="64" y="64" width="128" height="128" rx="20" fill="#E4D9FF"/>
+  <rect x="84" y="84" width="40" height="40" fill="#9B6BFF"/>
+  <rect x="132" y="84" width="40" height="40" fill="#9B6BFF"/>
+  <rect x="84" y="132" width="40" height="40" fill="#9B6BFF"/>
+  <rect x="132" y="132" width="40" height="40" fill="#9B6BFF"/>
+</svg>

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+        Base application theme, dependent on API level. This theme is replaced
+        by AppBaseTheme from res/values-vXX/styles.xml on newer devices.
+
+    -->
+    <style name="AppBaseTheme" parent="android:Theme">
+        <!--
+            Theme customizations available in newer API levels can go in
+            res/values-vXX/styles.xml, while customizations related to
+            backward-compatibility can go here.
+
+        -->
+        <item name="appBackgroundColor">@color/moonlight_background</item>
+        <item name="appSurfaceColor">@color/moonlight_surface</item>
+        <item name="appSurface2Color">@color/moonlight_surface_2</item>
+        <item name="appForegroundColor">@color/moonlight_foreground</item>
+        <item name="appMutedForegroundColor">@color/moonlight_muted_foreground</item>
+        <item name="appBorderColor">@color/moonlight_border</item>
+        <item name="appLightSystemBars">false</item>
+        <item name="appBackgroundDrawable">@drawable/bg_app_gradient</item>
+        <item name="android:windowBackground">?attr/appBackgroundDrawable</item>
+        <item name="android:textColorPrimary">?attr/appForegroundColor</item>
+        <item name="android:textColorSecondary">?attr/appMutedForegroundColor</item>
+    </style>
+
+    <!-- Application theme. -->
+    <style name="AppTheme" parent="AppBaseTheme">
+        <!-- All customizations that are NOT specific to a particular API-level can go here. -->
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+
+    <!-- Light theme variant, selectable via the "Appearance" setting. Overrides only the custom
+         appXxxColor attrs (+ appLightSystemBars) - every android:/Material attribute in
+         AppBaseTheme (all API buckets) is itself wired to ?attr/appXxxColor, so overriding these
+         6 values here is enough to cascade the Light palette into every themed screen, dialog,
+         status bar, and custom drawable/layout that references the same attrs. -->
+    <style name="AppTheme.Light" parent="AppTheme">
+        <item name="appBackgroundColor">@color/moonlight_background_light</item>
+        <item name="appSurfaceColor">@color/moonlight_surface_light</item>
+        <item name="appSurface2Color">@color/moonlight_surface_2_light</item>
+        <item name="appForegroundColor">@color/moonlight_foreground_light</item>
+        <item name="appMutedForegroundColor">@color/moonlight_muted_foreground_light</item>
+        <item name="appBorderColor">@color/moonlight_border_light</item>
+        <item name="appLightSystemBars">true</item>
+        <!-- Flat color, not the Dark theme's neon gradient - a loud sunset doesn't fit the
+             light/clean mode. A color resource is a valid drawable reference, so no extra file
+             is needed here. -->
+        <item name="appBackgroundDrawable">@color/moonlight_background_light</item>
+    </style>
+
+    <style name="StreamBaseTheme" parent="AppBaseTheme">
+        <!-- Transparent streaming background to avoid extra overdraw -->
+        <item name="android:windowBackground">@android:color/transparent</item>
+    </style>
+
+    <!-- Stream activity theme -->
+    <style name="StreamTheme" parent="StreamBaseTheme">
+        <!-- All customizations that are NOT specific to a particular API-level can go here. -->
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+
+</resources>

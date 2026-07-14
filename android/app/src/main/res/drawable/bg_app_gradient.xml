@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Original "Vice-City sunset" mood gradient for the Dark theme's app window background.
+     This is an ORIGINAL design (hand-picked colors + simple shape gradient) - it does not use,
+     copy, or trace any copyrighted artwork. Night-sky indigo at the top, fading through neon
+     purple, down to a warm pink/orange horizon glow at the bottom. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:type="linear"
+        android:angle="270"
+        android:startColor="@color/moonlight_sunset_top"
+        android:centerColor="@color/moonlight_sunset_mid"
+        android:endColor="@color/moonlight_sunset_horizon"/>
+</shape>

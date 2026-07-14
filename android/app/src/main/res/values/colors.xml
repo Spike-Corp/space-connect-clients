@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- "Space Connect" theme palette - dark terminal background with neon purple accents -->
+    <color name="moonlight_background">#140F1F</color>
+    <color name="moonlight_surface">#201A33</color>
+    <color name="moonlight_surface_2">#1A1528</color>
+    <color name="moonlight_foreground">#F1EDFB</color>
+    <color name="moonlight_muted_foreground">#A79BC9</color>
+    <color name="moonlight_gold">#FF8C32</color>
+    <color name="moonlight_gold_soft">#FFB25E</color>
+    <color name="moonlight_gold_foreground">#FFFFFF</color>
+    <color name="moonlight_gold_shadow">#D9601A</color>
+    <color name="moonlight_border">#E4D9FF</color>
+    <color name="moonlight_danger">#FF5D5D</color>
+    <color name="moonlight_teal">#2EC4B6</color>
+    <color name="moonlight_teal_shadow">#1F9187</color>
+    <color name="moonlight_purple">#9B6BFF</color>
+    <color name="moonlight_purple_shadow">#6B3FD4</color>
+
+    <!-- Original "Vice-City sunset" mood gradient stops for the app's Dark-theme window
+         background (see bg_app_gradient.xml) - hand-picked original values, not sampled from any
+         copyrighted artwork. Night-sky indigo at the top, fading through neon purple to a warm
+         pink/orange horizon glow at the bottom. -->
+    <color name="moonlight_sunset_top">#1B1030</color>
+    <color name="moonlight_sunset_mid">#8B3FD4</color>
+    <color name="moonlight_sunset_horizon">#FF6F5E</color>
+    <color name="moonlight_skyline_silhouette">#140A24</color>
+
+    <!-- Light theme variant (selectable via the "Appearance" setting) - same accent colors,
+         swapped background/surface/text luminance. -->
+    <color name="moonlight_background_light">#F5F0FF</color>
+    <color name="moonlight_surface_light">#FFFFFF</color>
+    <color name="moonlight_surface_2_light">#ECE3FA</color>
+    <color name="moonlight_foreground_light">#241C35</color>
+    <color name="moonlight_muted_foreground_light">#8B7FA8</color>
+    <color name="moonlight_border_light">#241C35</color>
+</resources>
+

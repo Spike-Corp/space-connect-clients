@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Original, hand-drawn silhouette (simple rectangles + triangular palm fronds) - NOT traced
+     or copied from any copyrighted artwork. Used only on the Splash screen, anchored to the
+     bottom of the frame, sitting in front of the bg_app_gradient sunset background. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="400dp"
+    android:height="200dp"
+    android:viewportWidth="400"
+    android:viewportHeight="200">
+
+    <!-- City skyline blocks -->
+    <path
+        android:fillColor="@color/moonlight_skyline_silhouette"
+        android:pathData="M0,200 L0,145 L35,145 L35,200 Z
+                           M35,200 L35,115 L63,115 L63,200 Z
+                           M63,200 L63,155 L85,155 L85,200 Z
+                           M85,200 L85,100 L127,100 L127,200 Z
+                           M104,100 L104,80 L108,80 L108,100 Z
+                           M127,200 L127,135 L157,135 L157,200 Z
+                           M157,200 L157,160 L182,160 L182,200 Z
+                           M182,200 L182,110 L228,110 L228,200 Z
+                           M228,200 L228,145 L258,145 L258,200 Z
+                           M258,200 L258,125 L294,125 L294,200 Z
+                           M294,200 L294,150 L324,150 L324,200 Z
+                           M324,200 L324,130 L364,130 L364,200 Z
+                           M364,200 L364,142 L400,142 L400,200 Z"/>
+
+    <!-- Left palm tree -->
+    <path
+        android:fillColor="@color/moonlight_skyline_silhouette"
+        android:pathData="M21,200 L23,160 L31,128 L35,129 L27,161 L29,200 Z
+                           M29,127 L-10,100 L35,130 Z
+                           M30,129 L-15,140 L36,132 Z
+                           M29,128 L31,90 L37,128 Z
+                           M34,129 L70,125 L38,133 Z
+                           M33,127 L68,95 L39,131 Z"/>
+
+    <!-- Right palm tree (mirrored) -->
+    <path
+        android:fillColor="@color/moonlight_skyline_silhouette"
+        android:pathData="M379,200 L377,160 L369,128 L365,129 L373,161 L371,200 Z
+                           M371,127 L410,100 L365,130 Z
+                           M370,129 L415,140 L364,132 Z
+                           M371,128 L369,90 L363,128 Z
+                           M366,129 L330,125 L362,133 Z
+                           M367,127 L332,95 L361,131 Z"/>
+
+</vector>
