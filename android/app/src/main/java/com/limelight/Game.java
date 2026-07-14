@@ -167,7 +167,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private static final int MIC_PERMISSION_REQUEST_CODE = 4200;
 
     private long sessionStartTimeMs;
-    private boolean perfOverlayExpanded = false;
+    private boolean perfOverlayExpanded = true;
     private final Handler perfOverlayHandler = new Handler(Looper.getMainLooper());
     private Runnable perfOverlayTicker;
 
@@ -1809,13 +1809,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private void showPerfOverlay() {
         findViewById(R.id.perfOverlayContainer).setVisibility(View.VISIBLE);
         findViewById(R.id.perfOverlayIcon).setVisibility(perfOverlayExpanded ? View.GONE : View.VISIBLE);
-        performanceOverlayView.setVisibility(perfOverlayExpanded ? View.VISIBLE : View.GONE);
+        findViewById(R.id.perfOverlayPanel).setVisibility(perfOverlayExpanded ? View.VISIBLE : View.GONE);
     }
 
     private void togglePerfOverlayExpanded() {
         perfOverlayExpanded = !perfOverlayExpanded;
         findViewById(R.id.perfOverlayIcon).setVisibility(perfOverlayExpanded ? View.GONE : View.VISIBLE);
-        performanceOverlayView.setVisibility(perfOverlayExpanded ? View.VISIBLE : View.GONE);
+        findViewById(R.id.perfOverlayPanel).setVisibility(perfOverlayExpanded ? View.VISIBLE : View.GONE);
     }
 
     // Lets the user drag the whole overlay (icon or expanded panel) anywhere on screen, and
