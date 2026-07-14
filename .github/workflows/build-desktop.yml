@@ -76,7 +76,7 @@ jobs:
 
   macos:
     name: macOS universal
-    runs-on: macos-13
+    runs-on: macos-latest
     defaults:
       run:
         working-directory: desktop
