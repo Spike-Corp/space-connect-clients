@@ -26,3 +26,16 @@
 # jMDNS
 -dontwarn javax.jmdns.impl.DNSCache
 -dontwarn org.slf4j.**
+# Space Connect account/launcher API models (populated by Gson via reflection).
+# Without these keeps, R8 strips their fields/constructors — marking the model
+# classes abstract or removing them entirely — so gson.fromJson() throws
+# "Unable to instantiate class com.limelight.account.SpaceConnectApiClient$..."
+# on every login (success, invalid credentials, the 2FA challenge and refresh).
+-keep class com.limelight.account.SpaceConnectApiClient$* { *; }
+-keepclassmembers class com.limelight.account.SpaceConnectApiClient$* { *; }
+-keep class com.limelight.account.SecureSessionStore$* { *; }
+-keepclassmembers class com.limelight.account.SecureSessionStore$* { *; }
+
+# Gson relies on generic signatures and annotations
+-keepattributes Signature
+-keepattributes *Annotation*
