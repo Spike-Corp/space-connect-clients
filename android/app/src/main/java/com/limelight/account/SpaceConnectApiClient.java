@@ -34,7 +34,8 @@ public final class SpaceConnectApiClient {
         this.gson = new Gson();
     }
 
-    public AuthResponse login(String email, String password, DeviceInfo device) throws IOException, ApiException {
+    public AuthResponse login(String email, String password, DeviceInfo device, String recaptchaToken)
+            throws IOException, ApiException {
         LoginRequest input = new LoginRequest();
         input.email = email;
         input.password = password;
@@ -42,6 +43,7 @@ public final class SpaceConnectApiClient {
         input.name = device.name;
         input.platform = device.platform;
         input.appVersion = device.appVersion;
+        input.recaptchaToken = recaptchaToken;
         return post("auth/login", input, null, AuthResponse.class);
     }
 
@@ -188,6 +190,7 @@ public final class SpaceConnectApiClient {
         String name;
         String platform;
         String appVersion;
+        String recaptchaToken;
     }
 
     private static final class TwoFactorRequest {

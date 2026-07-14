@@ -34,18 +34,24 @@ void LauncherApi::login(const QString& email, const QString& password)
 
     setBusy(true);
     setError(QString());
-    QJsonObject body{
-        {QStringLiteral("email"), email.trimmed()},
-        {QStringLiteral("password"), password},
-        {QStringLiteral("deviceId"), deviceId()},
-        {QStringLiteral("name"), QSysInfo::prettyProductName()},
-        {QStringLiteral("platform"), platformName()},
-        {QStringLiteral("appVersion"), QCoreApplication::applicationVersion()},
-    };
-    request("POST", QStringLiteral("auth/login"), body, false,
-            [this](int status, const QJsonObject& root) {
-                setBusy(false);
-                handleAuthResponse(status, root);
+
+    const QString trimmedEmail = email.trimmed();
+    m_Recaptcha.fetch(QStringLiteral("login"),
+            [this, trimmedEmail, password](const QString& recaptchaToken) {
+                QJsonObject body{
+                    {QStringLiteral("email"), trimmedEmail},
+                    {QStringLiteral("password"), password},
+                    {QStringLiteral("recaptchaToken"), recaptchaToken},
+                    {QStringLiteral("deviceId"), deviceId()},
+                    {QStringLiteral("name"), QSysInfo::prettyProductName()},
+                    {QStringLiteral("platform"), platformName()},
+                    {QStringLiteral("appVersion"), QCoreApplication::applicationVersion()},
+                };
+                request("POST", QStringLiteral("auth/login"), body, false,
+                        [this](int status, const QJsonObject& root) {
+                            setBusy(false);
+                            handleAuthResponse(status, root);
+                        });
             });
 }
 

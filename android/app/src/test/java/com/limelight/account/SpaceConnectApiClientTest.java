@@ -48,7 +48,8 @@ public class SpaceConnectApiClientTest {
                         "device-1234",
                         "Pixel",
                         "android",
-                        "0.1.0"));
+                        "0.1.0"),
+                "recaptcha-tok");
 
         assertEquals("access-1", response.accessToken);
         assertEquals("refresh-1", response.refreshToken);
@@ -61,6 +62,7 @@ public class SpaceConnectApiClientTest {
         String body = request.getBody().readUtf8();
         assertEquals(true, body.contains("\"deviceId\":\"device-1234\""));
         assertEquals(true, body.contains("\"platform\":\"android\""));
+        assertEquals(true, body.contains("\"recaptchaToken\":\"recaptcha-tok\""));
     }
 
     @Test

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "recaptchafetcher.h"
+
 #include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QObject>
@@ -76,6 +78,7 @@ private:
 
     QNetworkAccessManager m_Network;
     QTimer m_RefreshTimer;
+    RecaptchaFetcher m_Recaptcha;
     QString m_AccessToken;
     QString m_RefreshToken;
     QString m_TempToken;

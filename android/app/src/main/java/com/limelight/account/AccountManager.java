@@ -59,22 +59,24 @@ public final class AccountManager {
             String password,
             LoginCallback callback) {
         Context appContext = context.getApplicationContext();
-        EXECUTOR.execute(() -> {
-            try {
-                SpaceConnectApiClient.DeviceInfo device = deviceInfo(appContext);
-                SpaceConnectApiClient.AuthResponse auth = API.login(email, password, device);
-                SESSION_STORE.save(appContext, auth, device.deviceId);
-                post(callback::onSuccess);
-            } catch (SpaceConnectApiClient.ApiException e) {
-                if ("TWO_FACTOR_REQUIRED".equals(e.code) && e.tempToken != null) {
-                    post(() -> callback.onTwoFactorRequired(e.tempToken));
-                } else {
-                    post(() -> callback.onError(e.getMessage()));
-                }
-            } catch (Exception e) {
-                post(() -> callback.onError(userMessage(e)));
-            }
-        });
+        RecaptchaClient.fetchToken(appContext, "login", token ->
+                EXECUTOR.execute(() -> {
+                    try {
+                        SpaceConnectApiClient.DeviceInfo device = deviceInfo(appContext);
+                        SpaceConnectApiClient.AuthResponse auth =
+                                API.login(email, password, device, token);
+                        SESSION_STORE.save(appContext, auth, device.deviceId);
+                        post(callback::onSuccess);
+                    } catch (SpaceConnectApiClient.ApiException e) {
+                        if ("TWO_FACTOR_REQUIRED".equals(e.code) && e.tempToken != null) {
+                            post(() -> callback.onTwoFactorRequired(e.tempToken));
+                        } else {
+                            post(() -> callback.onError(e.getMessage()));
+                        }
+                    } catch (Exception e) {
+                        post(() -> callback.onError(userMessage(e)));
+                    }
+                }));
     }
 
     public static void verifyTwoFactor(

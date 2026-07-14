@@ -182,6 +182,7 @@ SOURCES += \
     backend/micforwarder.cpp \
     backend/launcherapi.cpp \
     backend/launcherjson.cpp \
+    backend/recaptchafetcher.cpp \
     backend/nvcomputer.cpp \
     backend/nvhttp.cpp \
     backend/nvpairingmanager.cpp \
@@ -227,6 +228,7 @@ HEADERS += \
     backend/micforwarder.h \
     backend/launcherapi.h \
     backend/launcherjson.h \
+    backend/recaptchafetcher.h \
     backend/nvcomputer.h \
     backend/nvhttp.h \
     backend/nvpairingmanager.h \
@@ -542,11 +544,11 @@ unix:!macx: {
 
     target.path = $$PREFIX/$$BINDIR/
 
-    desktop.files = deploy/linux/gg.spacecloud.connect.desktop
+    desktop.files = deploy/linux/com.moonlight_stream.Moonlight.desktop
     desktop.path = $$PREFIX/$$DATADIR/applications/
 
-    icons.files = res/spaceconnect_icon_256.png
-    icons.path = $$PREFIX/$$DATADIR/icons/hicolor/256x256/apps/
+    icons.files = res/moonlight.svg
+    icons.path = $$PREFIX/$$DATADIR/icons/hicolor/scalable/apps/
 
     appstream.files = deploy/linux/com.moonlight_stream.Moonlight.appdata.xml
     appstream.path = $$PREFIX/$$DATADIR/metainfo/

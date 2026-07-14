@@ -39,3 +39,9 @@
 # Gson relies on generic signatures and annotations
 -keepattributes Signature
 -keepattributes *Annotation*
+
+# reCAPTCHA token bridge: these methods are only ever called from JavaScript in
+# the off-screen WebView, so R8 would otherwise shrink them away.
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
