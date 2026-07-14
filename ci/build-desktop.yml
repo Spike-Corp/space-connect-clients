@@ -1,0 +1,110 @@
+name: Build Desktop Clients
+
+# Builds the Space Connect desktop client (Qt / Moonlight fork) for
+# Windows x64 and macOS universal (x86_64 + arm64).
+#
+# macOS DMGs produced here are ad-hoc signed (not Apple-notarized). To ship a
+# notarized build, set the SIGNING_IDENTITY / NOTARY_KEYCHAIN_PROFILE secrets
+# and scripts/generate-dmg.sh will sign + notarize automatically.
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/build-desktop.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows x64
+    runs-on: windows-2022
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSVC (x64)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.7.3'
+          host: windows
+          target: desktop
+          arch: win64_msvc2019_64
+          cache: true
+
+      - name: Build (Release, x64)
+        shell: cmd
+        run: |
+          qmake moonlight-qt.pro CONFIG+=release || exit /b 1
+          scripts\jom.exe release || exit /b 1
+
+      - name: Deploy
+        shell: cmd
+        run: |
+          mkdir deploy || exit /b 1
+          copy /Y app\release\SpaceConnect.exe deploy\ || exit /b 1
+          copy /Y libs\windows\lib\x64\*.dll deploy\ || exit /b 1
+          copy /Y AntiHooking\release\AntiHooking.dll deploy\ || exit /b 1
+          copy /Y app\SDL_GameControllerDB\gamecontrollerdb.txt deploy\ || exit /b 1
+          windeployqt --release --qmldir app\gui --no-opengl-sw --no-compiler-runtime --no-sql --no-system-d3d-compiler --no-system-dxc-compiler --skip-plugin-types qmltooling,generic --no-ffmpeg --no-quickcontrols2fusion --no-quickcontrols2imagine --no-quickcontrols2universal deploy\SpaceConnect.exe || exit /b 1
+
+      - name: Package portable zip
+        shell: pwsh
+        run: |
+          $version = (Get-Content app/version.txt).Trim()
+          $out = "SpaceConnect-$version-windows-x64.zip"
+          Compress-Archive -Path deploy/* -DestinationPath "../$out" -Force
+          echo "ARTIFACT_NAME=SpaceConnect-$version-windows-x64" >> $env:GITHUB_ENV
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: SpaceConnect-*-windows-x64.zip
+          if-no-files-found: error
+
+  macos:
+    name: macOS universal
+    runs-on: macos-13
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install create-dmg
+        run: |
+          brew install node || true
+          npm install --global create-dmg
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.7.3'
+          host: mac
+          target: desktop
+          arch: clang_64
+          cache: true
+
+      - name: Build universal DMG (Release)
+        run: bash scripts/generate-dmg.sh Release
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpaceConnect-macos-universal
+          path: desktop/build/installer-Release/SpaceConnect-*.dmg
+          compression-level: 0
+          if-no-files-found: error
