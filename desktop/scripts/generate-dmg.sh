@@ -33,6 +33,20 @@ mkdir $BUILD_ROOT
 mkdir $BUILD_FOLDER
 mkdir $INSTALLER_FOLDER
 
+# Workaround: Qt <= 6.8's qyieldcpu.h calls the ARM ACLE intrinsic __yield()
+# without including <arm_acle.h>. Apple Clang 16 (macOS 15 runners) treats the
+# resulting implicit declaration as an error under -Werror, breaking the arm64
+# slice of the universal build. Inject the header at file scope, guarded by arch,
+# so x86_64 is unaffected. Idempotent and applied to the installed Qt only.
+echo "Applying Qt qyieldcpu.h <arm_acle.h> workaround"
+QT_PREFIX=$(qmake -query QT_INSTALL_PREFIX 2>/dev/null)
+for QYH in $(find $QT_PREFIX "$HOME/work" -name qyieldcpu.h 2>/dev/null | sort -u); do
+  if ! grep -q "arm_acle.h" "$QYH"; then
+    perl -0777 -pi -e 's{(#include <QtCore/qtconfigmacros.h>\n)}{$1\n#if defined(__has_include)\n#  if defined(__aarch64__) || defined(__arm__)\n#    if __has_include(<arm_acle.h>)\n#      include <arm_acle.h>\n#    endif\n#  endif\n#endif\n}' "$QYH"
+    echo "Patched: $QYH"
+  fi
+done
+
 echo Configuring the project
 pushd $BUILD_FOLDER
 qmake $SOURCE_ROOT/moonlight-qt.pro QMAKE_APPLE_DEVICE_ARCHS="x86_64 arm64" || fail "Qmake failed!"
