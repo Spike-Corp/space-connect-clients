@@ -49,6 +49,14 @@
             android:entries="@array/fps_names"
             android:entryValues="@array/fps_values"
             android:defaultValue="60" />
+        <ListPreference
+            android:key="bitrate_machine_profile"
+            android:icon="@drawable/ic_computer"
+            android:title="@string/title_bitrate_profile"
+            android:summary="%s"
+            android:entries="@array/bitrate_profile_names"
+            android:entryValues="@array/bitrate_profile_values"
+            android:defaultValue="cloud" />
         <com.limelight.preferences.SeekBarPreference
             android:key="seekbar_bitrate_kbps"
             android:icon="@drawable/ic_signal"

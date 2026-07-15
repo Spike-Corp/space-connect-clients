@@ -409,6 +409,18 @@ public class PreferenceConfiguration {
     // in "launcher_max_bitrate_kbps"; this stays as the fallback when that value isn't present.
     public static final int MAX_BITRATE_KBPS_HIGH_TIER = 100000;
 
+    // Two explicit machine profiles the user can pick in settings (bitrate_machine_profile),
+    // each with its own bitrate ceiling and a recommended starting value: "physical" = a
+    // dedicated Proxmox host (e.g. Eveo) with LAN-grade throughput (up to 100 Mbps, 50 Mbps
+    // recommended); "cloud" = a regular cloud VM (GCP/AWS/etc), capped at 25 Mbps to fit the
+    // remote provider's bandwidth/cost budget.
+    public static final String BITRATE_PROFILE_PREF_STRING = "bitrate_machine_profile";
+    public static final String BITRATE_PROFILE_PHYSICAL = "physical";
+    public static final String BITRATE_PROFILE_CLOUD = "cloud";
+    public static final String DEFAULT_BITRATE_PROFILE = BITRATE_PROFILE_CLOUD;
+    public static final int RECOMMENDED_BITRATE_KBPS_PHYSICAL = 50000;
+    public static final int RECOMMENDED_BITRATE_KBPS_CLOUD = 20000;
+
     // Clamps an arbitrary computed bitrate (Kbps) into the valid range for the free-form
     // bitrate editor (seekbar_bitrate_kbps), so a resolution/FPS/YUV444 change never
     // silently produces a value outside what the user can actually select - or worse, an
@@ -422,6 +434,51 @@ public class PreferenceConfiguration {
     public static int clampBitrate(int computedKbps, boolean includeHighTier) {
         int max = includeHighTier ? MAX_BITRATE_KBPS_HIGH_TIER : MAX_BITRATE_KBPS_STANDARD;
         return Math.max(MIN_BITRATE_KBPS, Math.min(max, computedKbps));
+    }
+
+    // Heals a legacy String-typed value stored under the int-backed bitrate SeekBarPreference
+    // key. Older builds (and resetBitrateToDefault before it was fixed) wrote this key with
+    // putString; Android's Preference.persistInt() compares against getPersistedInt() before
+    // writing, so saving the bitrate slider throws ClassCastException on any install whose value
+    // is still a String. Rewriting it as an int makes saving safe. Returns true if it healed a
+    // String value. Must run before the SeekBarPreference is displayed/saved.
+    public static boolean normalizeBitratePreferenceType(SharedPreferences prefs) {
+        if (prefs == null || !prefs.contains(BITRATE_PREF_STRING)) {
+            return false;
+        }
+        try {
+            prefs.getInt(BITRATE_PREF_STRING, 0);
+            return false; // already an int — nothing to do
+        } catch (ClassCastException notAnInt) {
+            int healed = 0;
+            try {
+                String stored = prefs.getString(BITRATE_PREF_STRING, null);
+                if (stored != null) {
+                    healed = Integer.parseInt(stored.trim());
+                }
+            } catch (ClassCastException | NumberFormatException ignored) {
+                healed = 0;
+            }
+            SharedPreferences.Editor editor = prefs.edit().remove(BITRATE_PREF_STRING);
+            if (healed > 0) {
+                editor.putInt(BITRATE_PREF_STRING, clampBitrate(healed, true));
+            }
+            editor.apply();
+            return true;
+        }
+    }
+
+    // The bitrate ceiling (Kbps) for a machine profile: 100 Mbps for a dedicated physical host,
+    // 25 Mbps for a regular cloud VM. Unknown/null profiles fall back to the safer cloud ceiling.
+    public static int getProfileCeilingKbps(String profile) {
+        return BITRATE_PROFILE_PHYSICAL.equals(profile)
+                ? MAX_BITRATE_KBPS_HIGH_TIER : MAX_BITRATE_KBPS_STANDARD;
+    }
+
+    // The recommended starting bitrate (Kbps) applied when the user switches machine profile.
+    public static int getProfileRecommendedBitrateKbps(String profile) {
+        return BITRATE_PROFILE_PHYSICAL.equals(profile)
+                ? RECOMMENDED_BITRATE_KBPS_PHYSICAL : RECOMMENDED_BITRATE_KBPS_CLOUD;
     }
 
     public static boolean getDefaultSmallMode(Context context) {

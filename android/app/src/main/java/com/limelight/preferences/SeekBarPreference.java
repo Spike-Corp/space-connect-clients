@@ -185,6 +185,20 @@ public class SeekBarPreference extends DialogPreference
         return currentValue;
     }
 
+    // Programmatically sets the current value (e.g. when a machine-profile preset applies its
+    // recommended bitrate), clamping into [min, max], persisting it as an int, and refreshing
+    // the seekbar if the dialog is showing.
+    public void setValue(int value) {
+        value = Math.max(minValue, Math.min(maxValue, value));
+        currentValue = value;
+        if (shouldPersist()) {
+            persistInt(value);
+        }
+        if (seekBar != null) {
+            seekBar.setProgress(value);
+        }
+    }
+
     // Dynamically lowers or raises the maximum selectable value (e.g. based on the
     // connected PC's detected GPU tier), clamping and re-persisting the current value if
     // it now exceeds the new max. Unlike most fields here, maxValue isn't fixed from XML

@@ -191,6 +191,9 @@
     <string name="title_seekbar_bitrate">Video bitrate</string>
     <string name="summary_seekbar_bitrate">Increase for better image quality. Decrease to improve performance on slower connections.</string>
     <string name="suffix_seekbar_bitrate_mbps">Mbps</string>
+    <string name="title_bitrate_profile">Machine profile</string>
+    <string name="bitrate_profile_physical">Physical VM (up to 100 Mbps)</string>
+    <string name="bitrate_profile_cloud">Cloud VM (up to 25 Mbps)</string>
     <string name="bitrate_8mbps">8 Mbps (Data saver)</string>
     <string name="bitrate_15mbps">15 Mbps (Recommended)</string>
     <string name="bitrate_25mbps">25 Mbps (Best quality)</string>

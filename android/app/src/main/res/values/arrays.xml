@@ -187,4 +187,12 @@
         <item>right</item>
         <item>left</item>
     </string-array>
+    <string-array name="bitrate_profile_names">
+        <item>@string/bitrate_profile_physical</item>
+        <item>@string/bitrate_profile_cloud</item>
+    </string-array>
+    <string-array name="bitrate_profile_values" translatable="false">
+        <item>physical</item>
+        <item>cloud</item>
+    </string-array>
 </resources>

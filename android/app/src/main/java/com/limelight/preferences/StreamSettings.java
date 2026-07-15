@@ -273,10 +273,15 @@ public class StreamSettings extends Activity {
                 fps = prefs.getString(PreferenceConfiguration.FPS_PREF_STRING, PreferenceConfiguration.DEFAULT_FPS);
             }
 
+            // The bitrate key is an int-backed SeekBarPreference. It MUST be persisted with
+            // putInt: the framework's Preference.persistInt() (used when the user saves the
+            // slider) reads the current value back via getPersistedInt() first, which throws
+            // ClassCastException if this key holds a String. Writing a String here is what made
+            // the app crash on "OK" right after changing resolution/FPS.
             prefs.edit()
-                    .putString(PreferenceConfiguration.BITRATE_PREF_STRING,
-                            String.valueOf(PreferenceConfiguration.clampBitrate(
-                                    PreferenceConfiguration.getDefaultBitrate(res, fps), highTierGpuUnlocked)))
+                    .putInt(PreferenceConfiguration.BITRATE_PREF_STRING,
+                            PreferenceConfiguration.clampBitrate(
+                                    PreferenceConfiguration.getDefaultBitrate(res, fps), highTierGpuUnlocked))
                     .apply();
         }
 
@@ -471,29 +476,56 @@ public class StreamSettings extends Activity {
                 category.removePreference(findPreference("checkbox_usb_driver"));
             }
 
-            // Set the bitrate slider ceiling from the plan/provider the backend reported for
-            // the connected machine (cached in "launcher_max_bitrate_kbps" by LauncherActivity):
-            // proxmox physical hosts get up to 100 Mbps, cloud VMs 25 Mbps. This is the source of
-            // truth — the limit follows the user's plan without needing an app update. If the
-            // value is absent (older backend / not connected via the launcher yet), fall back to
-            // the GPU-model heuristic (L4 / RTX 3080 Ti / A10 = high tier). The bitrate control
-            // itself is a free-form SeekBarPreference (any value within [min, max]); this just
-            // moves the ceiling.
+            // Two explicit machine profiles drive the bitrate ceiling: "VM Física" (a dedicated
+            // Proxmox host, up to 100 Mbps) and "Cloud VM comum" (a regular cloud VM, up to
+            // 25 Mbps). The user picks one directly (bitrate_machine_profile) and the slider still
+            // fine-tunes within the chosen ceiling. On first run we seed the default from whatever
+            // the backend last reported for the connected machine (launcher_max_bitrate_kbps) or
+            // the GPU-model heuristic, so existing users keep a sensible ceiling; after that the
+            // user's explicit choice wins.
             SharedPreferences defPrefs = PreferenceManager.getDefaultSharedPreferences(getActivity());
-            int launcherMaxBitrate = defPrefs.getInt("launcher_max_bitrate_kbps", 0);
-            int maxBitrateKbps;
-            if (launcherMaxBitrate > 0) {
-                maxBitrateKbps = launcherMaxBitrate;
-                highTierGpuUnlocked = launcherMaxBitrate > PreferenceConfiguration.MAX_BITRATE_KBPS_STANDARD;
-            } else {
-                String lastKnownGpuModel = defPrefs.getString("last_known_gpu_model", "");
-                highTierGpuUnlocked = PreferenceConfiguration.isHighTierGpu(lastKnownGpuModel);
-                maxBitrateKbps = highTierGpuUnlocked ?
-                        PreferenceConfiguration.MAX_BITRATE_KBPS_HIGH_TIER :
-                        PreferenceConfiguration.MAX_BITRATE_KBPS_STANDARD;
+            // Heal any legacy String-typed bitrate value before touching the SeekBarPreference.
+            // Saving the slider goes through the framework's persistInt(), which reads the current
+            // value back as an int first and would otherwise crash with ClassCastException.
+            PreferenceConfiguration.normalizeBitratePreferenceType(defPrefs);
+
+            if (!defPrefs.contains(PreferenceConfiguration.BITRATE_PROFILE_PREF_STRING)) {
+                int launcherMaxBitrate = defPrefs.getInt("launcher_max_bitrate_kbps", 0);
+                boolean physical;
+                if (launcherMaxBitrate > 0) {
+                    physical = launcherMaxBitrate > PreferenceConfiguration.MAX_BITRATE_KBPS_STANDARD;
+                } else {
+                    physical = PreferenceConfiguration.isHighTierGpu(defPrefs.getString("last_known_gpu_model", ""));
+                }
+                defPrefs.edit().putString(PreferenceConfiguration.BITRATE_PROFILE_PREF_STRING,
+                        physical ? PreferenceConfiguration.BITRATE_PROFILE_PHYSICAL
+                                 : PreferenceConfiguration.BITRATE_PROFILE_CLOUD).apply();
             }
-            SeekBarPreference bitratePref = (SeekBarPreference) findPreference(PreferenceConfiguration.BITRATE_PREF_STRING);
-            bitratePref.setMaxValue(maxBitrateKbps);
+
+            String machineProfile = defPrefs.getString(PreferenceConfiguration.BITRATE_PROFILE_PREF_STRING,
+                    PreferenceConfiguration.DEFAULT_BITRATE_PROFILE);
+            highTierGpuUnlocked = PreferenceConfiguration.BITRATE_PROFILE_PHYSICAL.equals(machineProfile);
+
+            final SeekBarPreference bitratePref =
+                    (SeekBarPreference) findPreference(PreferenceConfiguration.BITRATE_PREF_STRING);
+            bitratePref.setMaxValue(PreferenceConfiguration.getProfileCeilingKbps(machineProfile));
+
+            // Switching the machine profile re-caps the slider and snaps the bitrate to the
+            // recommended value for that profile; the slider still allows fine-tuning afterwards.
+            ListPreference machineProfilePref =
+                    (ListPreference) findPreference(PreferenceConfiguration.BITRATE_PROFILE_PREF_STRING);
+            if (machineProfilePref != null) {
+                machineProfilePref.setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
+                    @Override
+                    public boolean onPreferenceChange(Preference preference, Object newValue) {
+                        String profile = (String) newValue;
+                        highTierGpuUnlocked = PreferenceConfiguration.BITRATE_PROFILE_PHYSICAL.equals(profile);
+                        bitratePref.setMaxValue(PreferenceConfiguration.getProfileCeilingKbps(profile));
+                        bitratePref.setValue(PreferenceConfiguration.getProfileRecommendedBitrateKbps(profile));
+                        return true;
+                    }
+                });
+            }
 
             // Ported from Artemis: lets the user type an arbitrary "WIDTHxHEIGHT" custom
             // resolution (e.g. "3440x1440" for ultrawide) which gets added to the resolution
