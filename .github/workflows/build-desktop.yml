@@ -74,6 +74,36 @@ jobs:
           path: SpaceConnect-*-windows-x64.zip
           if-no-files-found: error
 
+      - name: Build MSI installer
+        # Note: deploy\ is harvested as-is (same contents as the portable zip).
+        # The VC++ redist DLLs are intentionally NOT added here: they're
+        # Microsoft-signed and the project's own build-arch.bat (Bundle.wxs
+        # path) avoids harvesting them into the MSI directly, relying instead
+        # on the official redist installer. This simple x64-only MSI has the
+        # same runtime prerequisite as the existing zip (pre-existing, unrelated
+        # to this change).
+        shell: cmd
+        env:
+          BUILD_FOLDER: ${{ github.workspace }}\desktop
+          DEPLOY_FOLDER: ${{ github.workspace }}\desktop\deploy
+        run: |
+          msbuild -restore wix\Moonlight\Moonlight.wixproj /p:Configuration=release /p:Platform=x64 /p:MSBuildProjectExtensionsPath=%BUILD_FOLDER%\ || exit /b 1
+
+      - name: Package MSI
+        shell: pwsh
+        run: |
+          $version = (Get-Content app/version.txt).Trim()
+          $msiOut = "SpaceConnect-$version-windows-x64.msi"
+          Copy-Item "Moonlight.msi" "../$msiOut"
+          echo "MSI_ARTIFACT_NAME=SpaceConnect-$version-windows-x64-msi" >> $env:GITHUB_ENV
+
+      - name: Upload MSI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.MSI_ARTIFACT_NAME }}
+          path: SpaceConnect-*-windows-x64.msi
+          if-no-files-found: error
+
   macos:
     name: macOS universal
     runs-on: macos-latest
