@@ -224,7 +224,8 @@ FFmpegVideoDecoder::FFmpegVideoDecoder(bool testOnly)
       m_VideoFormat(0),
       m_NeedsSpsFixup(false),
       m_TestOnly(testOnly),
-      m_DecoderThread(nullptr)
+      m_DecoderThread(nullptr),
+      m_SessionStartTicks(0)
 {
     SDL_zero(m_ActiveWndVideoStats);
     SDL_zero(m_LastWndVideoStats);
@@ -706,6 +707,28 @@ void FFmpegVideoDecoder::stringifyVideoStats(VIDEO_STATS& stats, char* output, i
     // Start with an empty string
     output[offset] = 0;
 
+    // Session time counter, mirroring the Android app's perf overlay
+    // (perf_overlay_session_time in android/app/src/main/res/values-pt-rBR/strings.xml).
+    // Starts counting from this decoder's first stats update.
+    if (m_SessionStartTicks == 0) {
+        m_SessionStartTicks = SDL_GetTicks();
+    }
+    {
+        Uint32 elapsedSec = (SDL_GetTicks() - m_SessionStartTicks) / 1000;
+        ret = snprintf(&output[offset],
+                       length - offset,
+                       "Tempo de sessao: %02u:%02u:%02u\n",
+                       elapsedSec / 3600,
+                       (elapsedSec % 3600) / 60,
+                       elapsedSec % 60);
+        if (ret < 0 || ret >= length - offset) {
+            SDL_assert(false);
+            return;
+        }
+
+        offset += ret;
+    }
+
     switch (m_VideoFormat)
     {
     case VIDEO_FORMAT_H264:
@@ -778,7 +801,7 @@ void FFmpegVideoDecoder::stringifyVideoStats(VIDEO_STATS& stats, char* output, i
         if (m_VideoDecoderCtx != nullptr) {
             ret = snprintf(&output[offset],
                            length - offset,
-                           "Video stream: %dx%d %.2f FPS (Codec: %s)\n",
+                           "Transmissao de video: %dx%d %.2f FPS (codec: %s)\n",
                            m_VideoDecoderCtx->width,
                            m_VideoDecoderCtx->height,
                            stats.totalFps,
@@ -793,9 +816,9 @@ void FFmpegVideoDecoder::stringifyVideoStats(VIDEO_STATS& stats, char* output, i
 
         ret = snprintf(&output[offset],
                        length - offset,
-                       "Incoming frame rate from network: %.2f FPS\n"
-                       "Decoding frame rate: %.2f FPS\n"
-                       "Rendering frame rate: %.2f FPS\n",
+                       "Taxa de quadros recebidos pela rede: %.2f FPS\n"
+                       "Taxa de quadros decodificados: %.2f FPS\n"
+                       "Taxa de quadros renderizados: %.2f FPS\n",
                        stats.receivedFps,
                        stats.decodedFps,
                        stats.renderedFps);
@@ -810,7 +833,7 @@ void FFmpegVideoDecoder::stringifyVideoStats(VIDEO_STATS& stats, char* output, i
     if (stats.framesWithHostProcessingLatency > 0) {
         ret = snprintf(&output[offset],
                        length - offset,
-                       "Host processing latency min/max/average: %.1f/%.1f/%.1f ms\n",
+                       "Latencia de processamento do host min/max/media: %.1f/%.1f/%.1f ms\n",
                        (float)stats.minHostProcessingLatency / 10,
                        (float)stats.maxHostProcessingLatency / 10,
                        (float)stats.totalHostProcessingLatency / 10 / stats.framesWithHostProcessingLatency);
@@ -826,20 +849,20 @@ void FFmpegVideoDecoder::stringifyVideoStats(VIDEO_STATS& stats, char* output, i
         char rttString[32];
 
         if (stats.lastRtt != 0) {
-            snprintf(rttString, sizeof(rttString), "%u ms (variance: %u ms)", stats.lastRtt, stats.lastRttVariance);
+            snprintf(rttString, sizeof(rttString), "%u ms (variacao: %u ms)", stats.lastRtt, stats.lastRttVariance);
         }
         else {
-            snprintf(rttString, sizeof(rttString), "N/A");
+            snprintf(rttString, sizeof(rttString), "N/D");
         }
 
         ret = snprintf(&output[offset],
                        length - offset,
-                       "Frames dropped by your network connection: %.2f%%\n"
-                       "Frames dropped due to network jitter: %.2f%%\n"
-                       "Average network latency: %s\n"
-                       "Average decoding time: %.2f ms\n"
-                       "Average frame queue delay: %.2f ms\n"
-                       "Average rendering time (including monitor V-sync latency): %.2f ms\n",
+                       "Quadros perdidos pela sua conexao de rede: %.2f%%\n"
+                       "Quadros perdidos por instabilidade da rede (jitter): %.2f%%\n"
+                       "Latencia media da rede: %s\n"
+                       "Tempo medio de decodificacao: %.2f ms\n"
+                       "Atraso medio na fila de quadros: %.2f ms\n"
+                       "Tempo medio de renderizacao (incluindo V-sync do monitor): %.2f ms\n",
                        (float)stats.networkDroppedFrames / stats.totalFrames * 100,
                        (float)stats.pacerDroppedFrames / stats.decodedFrames * 100,
                        rttString,

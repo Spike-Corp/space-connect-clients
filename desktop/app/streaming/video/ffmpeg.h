@@ -111,6 +111,11 @@ private:
     SDL_Thread* m_DecoderThread;
     SDL_atomic_t m_DecoderThreadShouldQuit;
 
+    // SDL_GetTicks() timestamp of the first stats update with real (non-test) video
+    // flowing, used to show a "session time" counter in the Ctrl+Shift+S debug overlay
+    // (mirrors the Android app's perf_overlay_session_time). 0 means not started yet.
+    Uint32 m_SessionStartTicks;
+
     // Data buffers in the queued DU are not valid
     QQueue<DECODE_UNIT> m_FrameInfoQueue;
 

@@ -9,7 +9,9 @@ OverlayManager::OverlayManager() :
 {
     memset(m_Overlays, 0, sizeof(m_Overlays));
 
-    m_Overlays[OverlayType::OverlayDebug].color = {0xD0, 0xD0, 0x00, 0xFF};
+    // Matches the Android app's perf overlay accent color (@color/moonlight_purple in
+    // android/app/src/main/res/values/colors.xml) for a consistent look across clients.
+    m_Overlays[OverlayType::OverlayDebug].color = {0x9B, 0x6B, 0xFF, 0xFF};
     m_Overlays[OverlayType::OverlayDebug].fontSize = 20;
 
     m_Overlays[OverlayType::OverlayStatusUpdate].color = {0xCC, 0x00, 0x00, 0xFF};
@@ -154,8 +156,12 @@ void OverlayManager::notifyOverlayUpdated(OverlayType type)
     }
 
     if (m_Overlays[type].enabled) {
-        // The _Wrapped variant is required for line breaks to work
-        SDL_Surface* surface = TTF_RenderText_Blended_Wrapped(m_Overlays[type].font,
+        // The _Wrapped variant is required for line breaks to work. UTF8 (not the
+        // Latin1-only "Text" variant) is used so multi-byte characters decode correctly.
+        // Note: current overlay strings are intentionally accent-free PT-BR (e.g. "sessao",
+        // not "sessão") because ModeSeven.ttf has no accented glyphs; this switch still
+        // matters for any other non-ASCII text and future-proofs against a font change.
+        SDL_Surface* surface = TTF_RenderUTF8_Blended_Wrapped(m_Overlays[type].font,
                                                               m_Overlays[type].text,
                                                               m_Overlays[type].color,
                                                               1024);
