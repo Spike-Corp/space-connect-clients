@@ -112,7 +112,9 @@
            as the "Moonlight" component. DeployDir also contains a copy of the
            exe (needed for the portable zip build step), so without this
            exclusion WiX generates a duplicate GUID for the same file. -->
-      <Files Include="$(var.DeployDir)\**" Exclude="$(var.DeployDir)\SpaceConnect.exe" />
+      <Files Include="$(var.DeployDir)\**">
+        <Exclude Files="$(var.DeployDir)\SpaceConnect.exe" />
+      </Files>
     </ComponentGroup>
 
     <Feature Id="ProductFeature" Title="Space Connect" Level="1" ConfigurableDirectory="INSTALLFOLDER">
