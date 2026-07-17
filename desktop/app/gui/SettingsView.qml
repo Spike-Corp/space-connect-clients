@@ -722,9 +722,21 @@ Flickable {
                     property int maxMbps: 25
                     to: maxMbps
 
+                    // True only when "maxMbps" reflects a ceiling actually confirmed by the
+                    // launcher/backend for this host (launcherMaxKbps > 0). False means "to" is
+                    // just the local GPU-string fallback used while we're still waiting for that
+                    // confirmation - see updateMaxBitrate()/syncFromPreferences() below.
+                    property bool maxMbpsConfirmed: false
+
                     // Guards against re-entrant writes while syncFromPreferences() is
                     // itself assigning "value" below.
                     property bool syncingFromPreferences: false
+
+                    // True while updateMaxBitrate() is changing "to", which can trigger the
+                    // spin box's own internal clamp of "value" (firing onValueChanged) before
+                    // syncFromPreferences() ever runs. Lets onValueChanged tell that automatic
+                    // clamp apart from the user directly editing the control.
+                    property bool updatingMaxBitrate: false
 
                     textFromValue: function(value, locale) { return value + " Mbps" }
                     valueFromText: function(text, locale) { return parseInt(text) || 0 }
@@ -745,26 +757,41 @@ Flickable {
                         // heuristic only when the backend value hasn't been cached yet
                         // (e.g. older backend, or connection not requested this run).
                         var launcherMaxKbps = LauncherApi.maxBitrateKbps()
+                        updatingMaxBitrate = true
                         if (launcherMaxKbps > 0) {
                             maxMbps = Math.round(launcherMaxKbps / 1000)
+                            maxMbpsConfirmed = true
                         } else {
                             maxMbps = isHighTierGpu(ComputerManager.getPrimaryGpuModel()) ? 50 : 25
+                            maxMbpsConfirmed = false
                         }
+                        updatingMaxBitrate = false
                     }
 
                     // Reads StreamingPreferences.bitrateKbps (which may be an uncapped "default"
                     // value just computed by a resolution/FPS/YUV444 change elsewhere on this
-                    // page), clamps it into whole Mbps within [from, to], updates the spin box,
-                    // and always writes the (possibly clamped) result back so the persisted/
-                    // actually-streamed bitrate always matches what's displayed here. Replaces
-                    // the old fixed-tier ComboBox's selectClosestTier().
+                    // page), clamps it into whole Mbps within [from, to], and updates the spin
+                    // box. Replaces the old fixed-tier ComboBox's selectClosestTier().
+                    //
+                    // Only writes the (possibly clamped) result back to StreamingPreferences when
+                    // "to" is a confirmed ceiling, or when clamping didn't actually change
+                    // anything. computerStateChanged fires repeatedly in the background (PC
+                    // status polling), and until the launcher/backend confirms the real ceiling
+                    // for this host, "to" is just the local GPU-string fallback (25/50). Without
+                    // this guard, a poll landing before that confirmation arrives would clamp a
+                    // legitimately higher saved bitrate (e.g. 60 Mbps on a 100 Mbps physical host)
+                    // down to the fallback and persist that lower value permanently - the real
+                    // ceiling arriving moments later can no longer restore what was overwritten.
                     function syncFromPreferences() {
                         syncingFromPreferences = true
                         var mbps = Math.round(StreamingPreferences.bitrateKbps / 1000)
-                        value = Math.max(from, Math.min(to, mbps))
+                        var clamped = Math.max(from, Math.min(to, mbps))
+                        value = clamped
                         syncingFromPreferences = false
 
-                        StreamingPreferences.bitrateKbps = value * 1000
+                        if (maxMbpsConfirmed || clamped === mbps) {
+                            StreamingPreferences.bitrateKbps = clamped * 1000
+                        }
                     }
 
                     onValueModified: {
@@ -774,9 +801,13 @@ Flickable {
                     onValueChanged: {
                         // "to" shrinking (e.g. GPU tier info arriving after this page was
                         // already open, or dropping from high-tier to standard) can silently
-                        // re-clamp "value" without going through syncFromPreferences() - make
-                        // sure that clamped result still gets persisted.
-                        if (!syncingFromPreferences) {
+                        // re-clamp "value" without going through syncFromPreferences(). Persist
+                        // that clamp only when the new ceiling is confirmed by the launcher/
+                        // backend (maxMbpsConfirmed) - an unconfirmed GPU-heuristic fallback
+                        // ceiling must not permanently overwrite a legitimately higher saved
+                        // bitrate, since the real ceiling can still arrive moments later and
+                        // needs the original value to still be there to restore.
+                        if (!syncingFromPreferences && (!updatingMaxBitrate || maxMbpsConfirmed)) {
                             StreamingPreferences.bitrateKbps = value * 1000
                         }
                     }
