@@ -1,0 +1,63 @@
+name: Build Android (AAB)
+
+# Builds the signed Play Store bundle (nonRoot flavor, release) for Space Connect.
+# The upload keystore is injected from repo secrets and never committed.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - '.github/workflows/build-android.yml'
+
+jobs:
+  android:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK packages (API 35 + NDK)
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;23.2.8568313"
+
+      - name: Decode upload keystore
+        run: |
+          echo "${{ secrets.SC_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          echo "SC_KEYSTORE_PATH=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
+
+      - name: Build release AAB
+        working-directory: android
+        env:
+          SC_KEYSTORE_PASSWORD: ${{ secrets.SC_KEYSTORE_PASSWORD }}
+          SC_KEY_ALIAS: ${{ secrets.SC_KEY_ALIAS }}
+          SC_KEY_PASSWORD: ${{ secrets.SC_KEY_PASSWORD }}
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:bundleNonRootRelease -x lintVitalNonRootRelease --no-daemon --stacktrace
+
+      - name: Stage artifact
+        working-directory: android
+        run: |
+          VERSION=$(grep -E 'versionName' app/build.gradle | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+          SRC=app/build/outputs/bundle/nonRootRelease/app-nonRoot-release.aab
+          OUT="SpaceConnect-${VERSION}-release.aab"
+          cp "$SRC" "$OUT"
+          echo "Built $OUT"; ls -la "$OUT"
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: space-connect-android-aab
+          path: android/SpaceConnect-*.aab
+          if-no-files-found: error

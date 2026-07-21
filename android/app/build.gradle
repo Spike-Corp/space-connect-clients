@@ -3,13 +3,14 @@ apply plugin: 'com.android.application'
 android {
     ndkVersion "23.2.8568313"
 
-    compileSdk 34
+    compileSdk 35
+    buildToolsVersion "35.0.0"
 
     namespace 'com.limelight'
 
     defaultConfig {
         minSdk 23
-        targetSdk 34
+        targetSdk 35
 
         versionName "0.1.0"
         versionCode = 6
@@ -79,6 +80,19 @@ android {
         }
     }
 
+    signingConfigs {
+        release {
+            // Credentials are injected via environment (CI secrets); never committed.
+            def ksPath = System.getenv("SC_KEYSTORE_PATH")
+            if (ksPath != null && !ksPath.isEmpty()) {
+                storeFile file(ksPath)
+                storePassword System.getenv("SC_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("SC_KEY_ALIAS")
+                keyPassword System.getenv("SC_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix ".debug"
@@ -121,6 +135,10 @@ android {
             // TL;DR: Leave the following line alone!
             resValue "string", "app_label", "Space Connect"
             resValue "string", "app_label_root", "Space Connect (Root)"
+
+            if (System.getenv("SC_KEYSTORE_PATH") != null && !System.getenv("SC_KEYSTORE_PATH").isEmpty()) {
+                signingConfig signingConfigs.release
+            }
 
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
