@@ -544,11 +544,11 @@ unix:!macx: {
 
     target.path = $$PREFIX/$$BINDIR/
 
-    desktop.files = deploy/linux/com.moonlight_stream.Moonlight.desktop
+    desktop.files = deploy/linux/gg.spacecloud.connect.desktop
     desktop.path = $$PREFIX/$$DATADIR/applications/
 
-    icons.files = res/moonlight.svg
-    icons.path = $$PREFIX/$$DATADIR/icons/hicolor/scalable/apps/
+    icons.files = res/spaceconnect_icon_256.png
+    icons.path = $$PREFIX/$$DATADIR/icons/hicolor/256x256/apps/
 
     appstream.files = deploy/linux/com.moonlight_stream.Moonlight.appdata.xml
     appstream.path = $$PREFIX/$$DATADIR/metainfo/

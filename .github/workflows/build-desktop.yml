@@ -1,7 +1,7 @@
 name: Build Desktop Clients
 
 # Builds the Space Connect desktop client (Qt / Moonlight fork) for
-# Windows x64 and macOS universal (x86_64 + arm64).
+# Windows x64, macOS universal (x86_64 + arm64) and Linux (AppImage x86_64).
 #
 # macOS DMGs produced here are ad-hoc signed (not Apple-notarized). To ship a
 # notarized build, set the SIGNING_IDENTITY / NOTARY_KEYCHAIN_PROFILE secrets
@@ -136,5 +136,65 @@ jobs:
         with:
           name: SpaceConnect-macos-universal
           path: desktop/build/installer-Release/SpaceConnect-*.dmg
+          compression-level: 0
+          if-no-files-found: error
+
+  linux:
+    name: Linux AppImage (x86_64)
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.7.3'
+          host: linux
+          target: desktop
+          arch: linux_gcc_64
+          cache: true
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            libgl1-mesa-dev libegl1-mesa-dev libgles2-mesa-dev \
+            libsdl2-dev libsdl2-ttf-dev libopus-dev libssl-dev \
+            libavcodec-dev libavformat-dev libavutil-dev libswscale-dev \
+            libva-dev libvdpau-dev libdrm-dev \
+            libx11-dev libxext-dev libxrandr-dev libxkbcommon-dev \
+            libfuse2
+
+      - name: Install linuxdeploy
+        run: |
+          cd /usr/local/bin
+          sudo wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage -O linuxdeploy
+          sudo wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage -O linuxdeploy-plugin-qt
+          sudo chmod +x linuxdeploy linuxdeploy-plugin-qt
+
+      - name: Build AppImage
+        env:
+          # CI runners have no FUSE; make bundled AppImage tools extract-and-run.
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: bash scripts/build-appimage.sh
+
+      - name: Package AppImage
+        run: |
+          version=$(tr -d '[:space:]' < app/version.txt)
+          src=$(ls build/installer-release/*.AppImage | head -n1)
+          out="SpaceConnect-${version}-x86_64.AppImage"
+          cp "$src" "$out"
+          echo "APPIMAGE_ARTIFACT_NAME=SpaceConnect-${version}-linux-appimage" >> "$GITHUB_ENV"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APPIMAGE_ARTIFACT_NAME }}
+          path: desktop/SpaceConnect-*-x86_64.AppImage
           compression-level: 0
           if-no-files-found: error

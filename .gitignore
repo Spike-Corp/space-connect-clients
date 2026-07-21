@@ -1,6 +1,14 @@
 # Build outputs
 build/
 deploy/
+# ...but keep the Linux AppImage packaging SOURCE files under app/deploy/linux
+# (the broad "deploy/" rule above would otherwise ignore them and break the
+# AppImage build from a clean checkout / CI). Everything else under app/deploy
+# (e.g. steamlink) stays ignored.
+!desktop/app/deploy/
+desktop/app/deploy/*
+!desktop/app/deploy/linux/
+!desktop/app/deploy/linux/**
 **/*.o
 **/moc_*.cpp
 **/moc_*.h

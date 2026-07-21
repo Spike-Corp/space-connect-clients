@@ -14,7 +14,7 @@ INSTALLER_FOLDER=$BUILD_ROOT/installer-$BUILD_CONFIG
 VERSION=`cat $SOURCE_ROOT/app/version.txt`
 
 command -v qmake >/dev/null 2>&1 || fail "Unable to find 'qmake' in your PATH!"
-command -v linuxdeployqt >/dev/null 2>&1 || fail "Unable to find 'linuxdeployqt' in your PATH!"
+command -v linuxdeploy >/dev/null 2>&1 || fail "Unable to find 'linuxdeploy' in your PATH!"
 
 echo Cleaning output directories
 rm -rf $BUILD_FOLDER
@@ -49,7 +49,16 @@ popd
 
 echo Creating AppImage
 pushd $INSTALLER_FOLDER
-VERSION=$VERSION linuxdeployqt $DEPLOY_FOLDER/usr/share/applications/com.moonlight_stream.Moonlight.desktop -qmldir=$SOURCE_ROOT/app/gui -appimage || fail "linuxdeployqt failed!"
+# Use linuxdeploy + the Qt plugin (actively maintained, handles Qt6 QML well)
+# instead of the unmaintained linuxdeployqt. QML_SOURCES_PATHS tells the Qt
+# plugin where to scan our QML so it bundles the right QtQuick modules.
+export VERSION=$VERSION
+export QML_SOURCES_PATHS=$SOURCE_ROOT/app/gui
+linuxdeploy --appdir $DEPLOY_FOLDER \
+	--desktop-file $DEPLOY_FOLDER/usr/share/applications/gg.spacecloud.connect.desktop \
+	--icon-file $DEPLOY_FOLDER/usr/share/icons/hicolor/256x256/apps/spaceconnect_icon_256.png \
+	--plugin qt \
+	--output appimage || fail "linuxdeploy failed!"
 popd
 
 echo Build successful
