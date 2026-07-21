@@ -14,9 +14,9 @@
   <Bundle Name="Space Connect Streaming Client"
           Version="!(bind.PackageVersion.Moonlight_x64)"
           Manufacturer="Space Connect"
-          UpgradeCode="466fa35d-4be4-40ef-9ce5-afadc3b63bc5"
-          HelpUrl="https://github.com/moonlight-stream/moonlight-docs/wiki/Setup-Guide"
-          UpdateUrl="https://github.com/moonlight-stream/moonlight-qt/releases"
+          UpgradeCode="98bb7137-f082-4b9e-b7f5-7a5b3e744e1e"
+          HelpUrl="https://spacecloud.gg"
+          UpdateUrl="https://spacecloud.gg"
           DisableModify="yes"
           IconSourceFile="..\..\app\moonlight.ico">
 

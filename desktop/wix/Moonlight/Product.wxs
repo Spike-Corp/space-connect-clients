@@ -11,7 +11,7 @@
            Language="1033"
            Version="!(bind.fileVersion.MoonlightExe)"
            Manufacturer="Space Connect"
-           UpgradeCode="5c09f94e-f809-4c6a-9b7b-597c99f041fe">
+           UpgradeCode="c3c38c26-16ee-4823-b448-de05a9e5b6ca">
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." Schedule="afterInstallInitialize" />
     <MediaTemplate CompressionLevel="high" EmbedCab="yes" />
 
