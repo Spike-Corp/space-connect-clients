@@ -738,6 +738,17 @@ Flickable {
                     // clamp apart from the user directly editing the control.
                     property bool updatingMaxBitrate: false
 
+                    // False until Component.onCompleted has run the initial updateMaxBitrate()/
+                    // syncFromPreferences() pair. A stock Qt SpinBox coerces its default value
+                    // (0) up to "from" (1 Mbps) while the control is still being constructed -
+                    // i.e. before that initial sync - and that coercion fires onValueChanged.
+                    // Without this guard the coercion persisted a bogus 1 Mbps to
+                    // StreamingPreferences.bitrateKbps, clobbering the real saved value every
+                    // single time the Settings page was opened: the user could raise the bitrate
+                    // but it snapped back to 1 Mbps on reopen. onValueChanged must not persist
+                    // anything until the real value has actually been loaded.
+                    property bool preferencesLoaded: false
+
                     textFromValue: function(value, locale) { return value + " Mbps" }
                     valueFromText: function(text, locale) { return parseInt(text) || 0 }
 
@@ -785,6 +796,20 @@ Flickable {
                     function syncFromPreferences() {
                         syncingFromPreferences = true
                         var mbps = Math.round(StreamingPreferences.bitrateKbps / 1000)
+
+                        // Self-heal a bitrate that an older build poisoned down to the 1 Mbps
+                        // floor (see preferencesLoaded above). Once the real ceiling is
+                        // confirmed by the launcher/backend, an implausible <= 1 Mbps saved
+                        // value is treated as "unset" and restored to the host's recommended
+                        // default (cloud 25 / physical 50) instead of being clamped to - and
+                        // re-persisted at - 1 Mbps. Guarded by maxMbpsConfirmed so an
+                        // unconfirmed fallback ceiling never triggers the heal.
+                        if (maxMbpsConfirmed && mbps <= 1) {
+                            var recommendedMbps = Math.round(LauncherApi.recommendedBitrateKbps() / 1000)
+                            if (recommendedMbps > mbps)
+                                mbps = recommendedMbps
+                        }
+
                         var clamped = Math.max(from, Math.min(to, mbps))
                         value = clamped
                         syncingFromPreferences = false
@@ -807,7 +832,7 @@ Flickable {
                         // ceiling must not permanently overwrite a legitimately higher saved
                         // bitrate, since the real ceiling can still arrive moments later and
                         // needs the original value to still be there to restore.
-                        if (!syncingFromPreferences && (!updatingMaxBitrate || maxMbpsConfirmed)) {
+                        if (preferencesLoaded && !syncingFromPreferences && (!updatingMaxBitrate || maxMbpsConfirmed)) {
                             StreamingPreferences.bitrateKbps = value * 1000
                         }
                     }
@@ -815,6 +840,10 @@ Flickable {
                     Component.onCompleted: {
                         updateMaxBitrate()
                         syncFromPreferences()
+
+                        // The real value is now loaded, so onValueChanged may persist genuine
+                        // user/programmatic changes from here on (see preferencesLoaded above).
+                        preferencesLoaded = true
 
                         // GPU model info may not have arrived yet from /serverinfo if this
                         // page is opened right after launch - re-check whenever a computer's
