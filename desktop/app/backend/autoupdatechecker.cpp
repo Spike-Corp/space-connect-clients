@@ -29,16 +29,6 @@ AutoUpdateChecker::AutoUpdateChecker(QObject *parent) :
 
 void AutoUpdateChecker::start()
 {
-    // Space Connect doesn't have its own update manifest endpoint yet, so this
-    // check is disabled for now. The code below (kept but compiled out) queried
-    // moonlight-stream.org's manifest, which incorrectly told our users to
-    // download the upstream Moonlight app instead of Space Connect. Once
-    // there's a real manifest URL hosted on our own backend (same JSON schema:
-    // an array of {platform, arch, version, browser_url[, kernel_version_at_least]}
-    // objects), flip this to #if 1 and point the QUrl below at it.
-    qDebug() << "Update checking is disabled (no Space Connect update manifest configured)";
-
-#if 0
     if (!m_Nam) {
         Q_ASSERT(m_Nam);
         return;
@@ -53,8 +43,12 @@ void AutoUpdateChecker::start()
     QT_WARNING_POP
 #endif
 
-    // We'll get a callback when this is finished
-    QUrl url("https://moonlight-stream.org/updates/qt.json");
+    // Space Connect's own update manifest, served by the SpaceCloud backend and
+    // kept in sync with the published GitHub releases. Same JSON schema as the
+    // upstream qt.json: an array of {platform, arch, version, browser_url
+    // [, kernel_version_at_least]} objects. This replaces moonlight-stream.org's
+    // manifest, which used to (wrongly) point our users at the upstream app.
+    QUrl url("https://spacecloud.gg/api/launcher/v1/update-manifest");
     QNetworkRequest request(url);
 #if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
     request.setAttribute(QNetworkRequest::Http2AllowedAttribute, true);
@@ -62,7 +56,8 @@ void AutoUpdateChecker::start()
     request.setAttribute(QNetworkRequest::HTTP2AllowedAttribute, true);
 #endif
     m_Nam->get(request);
-#endif
+#else
+    qDebug() << "Update checking is not needed on this platform (handled by the app store)";
 #endif
 }
 
