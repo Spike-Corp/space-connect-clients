@@ -35,23 +35,48 @@ void LauncherApi::login(const QString& email, const QString& password)
     setBusy(true);
     setError(QString());
 
-    const QString trimmedEmail = email.trimmed();
-    m_Recaptcha.fetch(QStringLiteral("login"),
-            [this, trimmedEmail, password](const QString& recaptchaToken) {
-                QJsonObject body{
-                    {QStringLiteral("email"), trimmedEmail},
-                    {QStringLiteral("password"), password},
-                    {QStringLiteral("recaptchaToken"), recaptchaToken},
-                    {QStringLiteral("deviceId"), deviceId()},
-                    {QStringLiteral("name"), QSysInfo::prettyProductName()},
-                    {QStringLiteral("platform"), platformName()},
-                    {QStringLiteral("appVersion"), QCoreApplication::applicationVersion()},
-                };
-                request("POST", QStringLiteral("auth/login"), body, false,
-                        [this](int status, const QJsonObject& root) {
-                            setBusy(false);
-                            handleAuthResponse(status, root);
-                        });
+    // Try logging in directly first, without minting a reCAPTCHA token — most
+    // logins are legitimate and don't need one, so this avoids popping open a
+    // browser window on every single attempt. The backend only replies with
+    // RECAPTCHA_REQUIRED (handled in attemptLogin() below) once this e-mail has
+    // shown recent suspicious activity, at which point we step up and fetch one.
+    attemptLogin(email.trimmed(), password, QString());
+}
+
+void LauncherApi::attemptLogin(const QString& email, const QString& password, const QString& recaptchaToken)
+{
+    QJsonObject body{
+        {QStringLiteral("email"), email},
+        {QStringLiteral("password"), password},
+        {QStringLiteral("deviceId"), deviceId()},
+        {QStringLiteral("name"), QSysInfo::prettyProductName()},
+        {QStringLiteral("platform"), platformName()},
+        {QStringLiteral("appVersion"), QCoreApplication::applicationVersion()},
+    };
+    if (!recaptchaToken.isEmpty()) {
+        body.insert(QStringLiteral("recaptchaToken"), recaptchaToken);
+    }
+
+    request("POST", QStringLiteral("auth/login"), body, false,
+            [this, email, password](int status, const QJsonObject& root) {
+                const QJsonObject error = errorObject(root);
+                if (status == 400
+                        && error.value(QStringLiteral("code")).toString() == QStringLiteral("RECAPTCHA_REQUIRED")) {
+                    // Step up: this is the only path that opens a browser window.
+                    m_Recaptcha.fetch(QStringLiteral("login"),
+                            [this, email, password](const QString& recaptchaToken) {
+                                if (recaptchaToken.isEmpty()) {
+                                    setBusy(false);
+                                    setError(QStringLiteral(
+                                            "Não foi possível concluir a verificação de segurança. Tente novamente."));
+                                    return;
+                                }
+                                attemptLogin(email, password, recaptchaToken);
+                            });
+                    return;
+                }
+                setBusy(false);
+                handleAuthResponse(status, root);
             });
 }
 

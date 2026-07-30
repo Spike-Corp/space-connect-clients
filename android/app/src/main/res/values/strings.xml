@@ -19,6 +19,8 @@
     <string name="pcview_menu_pair_pc">Pair with PC</string>
     <string name="pcview_menu_unpair_pc">Unpair</string>
     <string name="pcview_menu_send_wol">Send Wake-On-LAN request</string>
+    <string name="pcview_menu_power_on">Turn on my VM</string>
+    <string name="pcview_menu_power_off">Turn off my VM</string>
     <string name="pcview_menu_delete_pc">Delete PC</string>
     <string name="pcview_menu_test_network">Test Network Connection</string>
     <string name="pcview_menu_details">View Details</string>
@@ -52,6 +54,11 @@
 	    If it doesn\'t, make sure it\'s configured properly for Wake-On-LAN.
     </string>
     <string name="wol_fail">Failed to send Wake-On-LAN packets</string>
+
+    <!-- Space Connect power controls -->
+    <string name="power_on_starting">Turning on your VM…</string>
+    <string name="power_off_confirmation">Turn off your VM now? This will end your current session.</string>
+    <string name="power_off_ending">Ending your session…</string>
 
     <!-- Unpair messages -->
     <string name="unpairing">Unpairing…</string>

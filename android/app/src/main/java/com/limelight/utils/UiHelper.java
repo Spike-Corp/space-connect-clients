@@ -277,6 +277,33 @@ public class UiHelper {
                 .show();
     }
 
+    public static void displayPowerOffConfirmationDialog(Activity parent, final Runnable onYes, final Runnable onNo) {
+        DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                switch (which){
+                    case DialogInterface.BUTTON_POSITIVE:
+                        if (onYes != null) {
+                            onYes.run();
+                        }
+                        break;
+
+                    case DialogInterface.BUTTON_NEGATIVE:
+                        if (onNo != null) {
+                            onNo.run();
+                        }
+                        break;
+                }
+            }
+        };
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(parent);
+        builder.setMessage(parent.getResources().getString(R.string.power_off_confirmation))
+                .setPositiveButton(parent.getResources().getString(R.string.yes), dialogClickListener)
+                .setNegativeButton(parent.getResources().getString(R.string.no), dialogClickListener)
+                .show();
+    }
+
     public static void displayDeletePcConfirmationDialog(Activity parent, ComputerDetails computer, final Runnable onYes, final Runnable onNo) {
         DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
             @Override

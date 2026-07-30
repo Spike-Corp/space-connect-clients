@@ -59,24 +59,44 @@ public final class AccountManager {
             String password,
             LoginCallback callback) {
         Context appContext = context.getApplicationContext();
-        RecaptchaClient.fetchToken(appContext, "login", token ->
-                EXECUTOR.execute(() -> {
-                    try {
-                        SpaceConnectApiClient.DeviceInfo device = deviceInfo(appContext);
-                        SpaceConnectApiClient.AuthResponse auth =
-                                API.login(email, password, device, token);
-                        SESSION_STORE.save(appContext, auth, device.deviceId);
-                        post(callback::onSuccess);
-                    } catch (SpaceConnectApiClient.ApiException e) {
-                        if ("TWO_FACTOR_REQUIRED".equals(e.code) && e.tempToken != null) {
-                            post(() -> callback.onTwoFactorRequired(e.tempToken));
-                        } else {
+        // Try logging in directly first, without a reCAPTCHA token — most logins
+        // don't need one. The backend only asks for step-up verification
+        // (RECAPTCHA_REQUIRED, handled below) once this e-mail has shown recent
+        // suspicious activity, so the WebView challenge is skipped in the common case.
+        attemptLogin(appContext, email, password, null, callback);
+    }
+
+    private static void attemptLogin(
+            Context appContext,
+            String email,
+            String password,
+            String recaptchaToken,
+            LoginCallback callback) {
+        EXECUTOR.execute(() -> {
+            try {
+                SpaceConnectApiClient.DeviceInfo device = deviceInfo(appContext);
+                SpaceConnectApiClient.AuthResponse auth =
+                        API.login(email, password, device, recaptchaToken);
+                SESSION_STORE.save(appContext, auth, device.deviceId);
+                post(callback::onSuccess);
+            } catch (SpaceConnectApiClient.ApiException e) {
+                if ("TWO_FACTOR_REQUIRED".equals(e.code) && e.tempToken != null) {
+                    post(() -> callback.onTwoFactorRequired(e.tempToken));
+                } else if ("RECAPTCHA_REQUIRED".equals(e.code)) {
+                    RecaptchaClient.fetchToken(appContext, "login", token -> {
+                        if (token == null || token.isEmpty()) {
                             post(() -> callback.onError(e.getMessage()));
+                            return;
                         }
-                    } catch (Exception e) {
-                        post(() -> callback.onError(userMessage(e)));
-                    }
-                }));
+                        attemptLogin(appContext, email, password, token, callback);
+                    });
+                } else {
+                    post(() -> callback.onError(e.getMessage()));
+                }
+            } catch (Exception e) {
+                post(() -> callback.onError(userMessage(e)));
+            }
+        });
     }
 
     public static void verifyTwoFactor(

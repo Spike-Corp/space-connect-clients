@@ -39,6 +39,11 @@
     <string name="check_ports_msg">Verifique o firewall e permita a(s) seguinte(s) para porta(s):</string>
     <string name="wol_no_mac">Não foi possível acordar o PC porque o host não enviou um endereço MAC</string>
     <string name="wol_waking_msg">Pode levar alguns segundos para o seu PC acordar. Se isso não acontecer, verifique se ele está configurado corretamente para Wake-On-LAN.</string>
+
+    <!-- Controles de energia do Space Connect -->
+    <string name="power_on_starting">Ligando sua VM…</string>
+    <string name="power_off_confirmation">Desligar sua VM agora? Isso vai encerrar sua sessão atual.</string>
+    <string name="power_off_ending">Encerrando sua sessão…</string>
     <string name="error_404">O host GameStream retornou um erro HTTP 404. Verifique se o seu PC está executando uma GPU compatível. O uso do software de área de trabalho remota também pode causar esse erro. Tente reiniciar sua máquina ou reinstalar o software do servidor GameStream.</string>
     <string name="message_decoding_error">Space Connect crashou devido a uma incompatibilidade com o decodificador de vídeo deste dispositivo. Certifique-se de que o software do servidor GameStream esteja atualizado para a versão mais recente em seu PC. Tente ajustar as configurações de transmissão se as falhas continuarem.</string>
     <string name="message_decoding_reset">O decodificador de vídeo do seu dispositivo continua crashando nas configurações de transmissão selecionadas. Suas configurações de transmissão foram redefinidas para o padrão.</string>
@@ -115,6 +120,8 @@
     <string name="nettest_title_done">Teste de Internet Completo</string>
     <string name="pcview_menu_pair_pc">Parear com o PC</string>
     <string name="pcview_menu_send_wol">Enviar Wake-On-LAN</string>
+    <string name="pcview_menu_power_on">Ligar minha VM</string>
+    <string name="pcview_menu_power_off">Desligar minha VM</string>
     <string name="nettest_text_waiting">O Space Connect está testando a sua internet para determinar se o GameStream está bloqueado.
 \n
 \nIsso pode levar alguns segundos…</string>

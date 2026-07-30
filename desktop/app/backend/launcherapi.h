@@ -70,6 +70,7 @@ private:
         const QJsonObject& body,
         bool authenticated,
         ResponseHandler handler);
+    void attemptLogin(const QString& email, const QString& password, const QString& recaptchaToken);
     void handleAuthResponse(int status, const QJsonObject& root);
     void scheduleRefresh(int expiresInSeconds);
     void refreshTokens();

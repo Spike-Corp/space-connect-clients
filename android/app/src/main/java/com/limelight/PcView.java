@@ -15,15 +15,14 @@ import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.http.PairingManager;
 import com.limelight.account.AccountManager;
+import com.limelight.account.SpaceConnectApiClient;
 import com.limelight.nvstream.http.PairingManager.PairState;
-import com.limelight.nvstream.wol.WakeOnLanSender;
 import com.limelight.preferences.GlPreferences;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.preferences.StreamSettings;
 import com.limelight.ui.AdapterFragment;
 import com.limelight.ui.AdapterFragmentCallbacks;
 import com.limelight.utils.Dialog;
-import com.limelight.utils.HelpLauncher;
 import com.limelight.utils.ServerHelper;
 import com.limelight.utils.ShortcutHelper;
 import com.limelight.utils.UiHelper;
@@ -115,14 +114,14 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
 
     private final static int PAIR_ID = 2;
     private final static int UNPAIR_ID = 3;
-    private final static int WOL_ID = 4;
+    private final static int POWER_ON_ID = 4;
     private final static int DELETE_ID = 5;
     private final static int RESUME_ID = 6;
     private final static int QUIT_ID = 7;
     private final static int VIEW_DETAILS_ID = 8;
     private final static int FULL_APP_LIST_ID = 9;
     private final static int TEST_NETWORK_ID = 10;
-    private final static int GAMESTREAM_EOL_ID = 11;
+    private final static int POWER_OFF_ID = 11;
 
     private void initializeViews() {
         setContentView(R.layout.activity_pc_view);
@@ -384,14 +383,11 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         // Inflate the context menu
         if (computer.details.state == ComputerDetails.State.OFFLINE ||
             computer.details.state == ComputerDetails.State.UNKNOWN) {
-            menu.add(Menu.NONE, WOL_ID, 1, getResources().getString(R.string.pcview_menu_send_wol));
-            menu.add(Menu.NONE, GAMESTREAM_EOL_ID, 2, getResources().getString(R.string.pcview_menu_eol));
+            menu.add(Menu.NONE, POWER_ON_ID, 1, getResources().getString(R.string.pcview_menu_power_on));
         }
         else if (computer.details.pairState != PairState.PAIRED) {
             menu.add(Menu.NONE, PAIR_ID, 1, getResources().getString(R.string.pcview_menu_pair_pc));
-            if (computer.details.nvidiaServer) {
-                menu.add(Menu.NONE, GAMESTREAM_EOL_ID, 2, getResources().getString(R.string.pcview_menu_eol));
-            }
+            menu.add(Menu.NONE, POWER_OFF_ID, 2, getResources().getString(R.string.pcview_menu_power_off));
         }
         else {
             if (computer.details.runningGameId != 0) {
@@ -399,9 +395,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                 menu.add(Menu.NONE, QUIT_ID, 2, getResources().getString(R.string.applist_menu_quit));
             }
 
-            if (computer.details.nvidiaServer) {
-                menu.add(Menu.NONE, GAMESTREAM_EOL_ID, 3, getResources().getString(R.string.pcview_menu_eol));
-            }
+            menu.add(Menu.NONE, POWER_OFF_ID, 3, getResources().getString(R.string.pcview_menu_power_off));
 
             menu.add(Menu.NONE, FULL_APP_LIST_ID, 4, getResources().getString(R.string.pcview_menu_app_list));
         }
@@ -525,37 +519,45 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         }).start();
     }
 
-    private void doWakeOnLan(final ComputerDetails computer) {
-        if (computer.state == ComputerDetails.State.ONLINE) {
-            Toast.makeText(PcView.this, getResources().getString(R.string.wol_pc_online), Toast.LENGTH_SHORT).show();
-            return;
-        }
+    // Liga a VM na nuvem do usuário (entra na fila/inicia a sessão) - substitui o antigo
+    // Wake-On-LAN (que não fazia sentido pra uma VM cloud sem MAC de LAN acessível).
+    private void doPowerOn() {
+        AccountManager.joinQueue(PcView.this, new AccountManager.ResultCallback<SpaceConnectApiClient.StatusResponse>() {
+            @Override
+            public void onSuccess(SpaceConnectApiClient.StatusResponse result) {
+                Toast.makeText(PcView.this, getResources().getString(R.string.power_on_starting), Toast.LENGTH_SHORT).show();
+                // LauncherActivity já está por baixo na back stack (nunca chamou finish()
+                // ao abrir esta tela) - fechar aqui volta pra ela, que já mostra fila/boot.
+                finish();
+            }
 
-        if (computer.macAddress == null) {
-            Toast.makeText(PcView.this, getResources().getString(R.string.wol_no_mac), Toast.LENGTH_SHORT).show();
-            return;
-        }
+            @Override
+            public void onError(String message) {
+                Toast.makeText(PcView.this, message, Toast.LENGTH_LONG).show();
+            }
+        });
+    }
 
-        new Thread(new Runnable() {
+    // Desliga a VM (encerra a sessão) - substitui o antigo aviso de "Fim de Serviço do
+    // NVIDIA GameStream", que era só um link informativo sem nenhuma ação real.
+    private void doPowerOff() {
+        UiHelper.displayPowerOffConfirmationDialog(PcView.this, new Runnable() {
             @Override
             public void run() {
-                String message;
-                try {
-                    WakeOnLanSender.sendWolPacket(computer);
-                    message = getResources().getString(R.string.wol_waking_msg);
-                } catch (IOException e) {
-                    message = getResources().getString(R.string.wol_fail);
-                }
-
-                final String toastMessage = message;
-                runOnUiThread(new Runnable() {
+                AccountManager.endSession(PcView.this, new AccountManager.ResultCallback<SpaceConnectApiClient.EndSessionResponse>() {
                     @Override
-                    public void run() {
-                        Toast.makeText(PcView.this, toastMessage, Toast.LENGTH_LONG).show();
+                    public void onSuccess(SpaceConnectApiClient.EndSessionResponse result) {
+                        Toast.makeText(PcView.this, getResources().getString(R.string.power_off_ending), Toast.LENGTH_SHORT).show();
+                        finish();
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        Toast.makeText(PcView.this, message, Toast.LENGTH_LONG).show();
                     }
                 });
             }
-        }).start();
+        }, null);
     }
 
     private void doUnpair(final ComputerDetails computer) {
@@ -641,8 +643,8 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                 doUnpair(computer.details);
                 return true;
 
-            case WOL_ID:
-                doWakeOnLan(computer.details);
+            case POWER_ON_ID:
+                doPowerOn();
                 return true;
 
             case DELETE_ID:
@@ -699,8 +701,8 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                 ServerHelper.doNetworkTest(PcView.this);
                 return true;
 
-            case GAMESTREAM_EOL_ID:
-                HelpLauncher.launchGameStreamEolFaq(PcView.this);
+            case POWER_OFF_ID:
+                doPowerOff();
                 return true;
 
             default:

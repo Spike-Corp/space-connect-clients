@@ -190,9 +190,18 @@ CenteredGridView {
                 }
                 NavigableMenuItem {
                     parentMenu: pcContextMenu
-                    text: qsTr("Wake PC")
-                    onTriggered: computerModel.wakeComputer(index)
-                    visible: !model.online && model.wakeable
+                    text: qsTr("Turn on my VM")
+                    onTriggered: {
+                        LauncherApi.joinQueue()
+                        stackView.replace("qrc:/gui/LauncherView.qml")
+                    }
+                    visible: !model.online
+                }
+                NavigableMenuItem {
+                    parentMenu: pcContextMenu
+                    text: qsTr("Turn off my VM")
+                    onTriggered: powerOffDialog.open()
+                    visible: model.online
                 }
                 NavigableMenuItem {
                     parentMenu: pcContextMenu
@@ -330,6 +339,17 @@ CenteredGridView {
 
         onAccepted: {
             computerModel.deleteComputer(pcIndex)
+        }
+    }
+
+    NavigableMessageDialog {
+        id: powerOffDialog
+        text: qsTr("Turn off your VM now? This will end your current session.")
+        standardButtons: Dialog.Yes | Dialog.No
+
+        onAccepted: {
+            LauncherApi.endSession()
+            stackView.replace("qrc:/gui/LauncherView.qml")
         }
     }
 
