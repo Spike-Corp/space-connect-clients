@@ -61,3 +61,31 @@ jobs:
           name: space-connect-android-aab
           path: android/SpaceConnect-*.aab
           if-no-files-found: error
+
+      # A AAB acima é só pra Play Store (não instala direto). O download direto
+      # do site (sideload, fora da Play Store) usa um APK de verdade, então
+      # geramos os dois com o MESMO keystore/assinatura já configurado acima.
+      - name: Build release APK (direct download)
+        working-directory: android
+        env:
+          SC_KEYSTORE_PASSWORD: ${{ secrets.SC_KEYSTORE_PASSWORD }}
+          SC_KEY_ALIAS: ${{ secrets.SC_KEY_ALIAS }}
+          SC_KEY_PASSWORD: ${{ secrets.SC_KEY_PASSWORD }}
+        run: |
+          ./gradlew :app:assembleNonRootRelease -x lintVitalNonRootRelease --no-daemon --stacktrace
+
+      - name: Stage APK artifact
+        working-directory: android
+        run: |
+          VERSION=$(grep -E 'versionName' app/build.gradle | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+          SRC=$(ls app/build/outputs/apk/nonRoot/release/*.apk | head -n1)
+          OUT="SpaceConnect-${VERSION}-android.apk"
+          cp "$SRC" "$OUT"
+          echo "Built $OUT"; ls -la "$OUT"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: space-connect-android-apk
+          path: android/SpaceConnect-*.apk
+          if-no-files-found: error
