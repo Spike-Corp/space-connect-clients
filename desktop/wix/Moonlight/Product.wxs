@@ -29,8 +29,20 @@
     <Property Id="APPDATAFOLDER" Value="%LOCALAPPDATA%\Space Connect" />
 
     <!-- There's no way to delete a registry key on uninstall but not major upgrade, so
-        we have to roll our own deletion via custom action -->
+        we have to roll our own deletion via custom action. This is a per-machine
+        install (ProgramFiles6432Folder), so the settings below live under HKLM
+        (see HKMU note further down); Impersonate="no" so the deferred action runs
+        with the elevated install token instead of the invoking user's, which
+        would otherwise lack rights to HKLM. -->
     <CustomAction Id="DeleteRegistryKey"
+                  Directory="ProgramFiles6432Folder"
+                  ExeCommand="reg.exe delete &quot;HKLM\Software\Space Connect&quot; /f"
+                  Execute="deferred"
+                  Return="ignore"
+                  Impersonate="no" />
+    <!-- Best-effort cleanup of the old per-user location used by installs from
+         before this key was moved to HKMU/HKLM (see below). -->
+    <CustomAction Id="DeleteLegacyUserRegistryKey"
                   Directory="ProgramFiles6432Folder"
                   ExeCommand="reg.exe delete &quot;HKCU\Software\Space Connect&quot; /f"
                   Execute="deferred"
@@ -38,6 +50,9 @@
                   Impersonate="yes" />
     <InstallExecuteSequence>
       <Custom Action="DeleteRegistryKey"
+              Before="InstallFinalize"
+              Condition="Installed AND REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+      <Custom Action="DeleteLegacyUserRegistryKey"
               Before="InstallFinalize"
               Condition="Installed AND REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
     </InstallExecuteSequence>
@@ -55,7 +70,13 @@
       <util:RemoveFolderEx Id="CleanupAppDataFolder"
                            On="uninstall"
                            Property="APPDATAFOLDER" />
-      <RegistryValue Root="HKCU"
+      <!-- HKMU resolves to HKLM for this per-machine install. Plain HKCU here
+           made the Windows Installer service (running elevated/as SYSTEM)
+           resolve "current user" to HKEY_USERS\.DEFAULT, whose ACLs are
+           locked down on many machines -> "Could not write value ... Verify
+           that you have sufficient access to that key" even when the user
+           installing is an administrator. -->
+      <RegistryValue Root="HKMU"
                      Key="Software\Space Connect"
                      Name="Installed"
                      Type="integer"
@@ -73,7 +94,7 @@
       <RemoveFolder Id="CleanupDesktopShortcut"
                     Directory="DesktopFolder"
                     On="uninstall" />
-      <RegistryValue Root="HKCU"
+      <RegistryValue Root="HKMU"
                      Key="Software\Space Connect"
                      Name="DesktopShortcutInstalled"
                      Type="integer"
@@ -85,7 +106,7 @@
          the desktop shortcut should installed by default when upgrading the
          product -->
     <Component Id="MoonlightDesktopShortcutState" Directory="INSTALLFOLDER">
-      <RegistryValue Root="HKCU"
+      <RegistryValue Root="HKMU"
                      Key="Software\Space Connect"
                      Name="DesktopShortcutInstallState"
                      Type="integer"

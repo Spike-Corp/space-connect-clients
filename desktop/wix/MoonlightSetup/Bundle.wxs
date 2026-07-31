@@ -31,9 +31,11 @@
     <!-- Set checkbox's state as checked by default -->
     <Variable Name="AddDesktopShortcutCheckbox" Type="numeric" Value="1" />
     <!-- Get checkbox's state from registry if present. The registry value
-         "DesktopShortcutInstallState" is set in Product.wxs. -->
-    <util:RegistrySearch Variable="HasDesktopShortcutInstallStateRegKey" Root="HKCU" Key="Software\Space Connect" Value="DesktopShortcutInstallState" Result="exists" />
-    <util:RegistrySearch Variable="AddDesktopShortcutCheckbox" Root="HKCU" Key="Software\Space Connect" Value="DesktopShortcutInstallState" Condition="HasDesktopShortcutInstallStateRegKey" />
+         "DesktopShortcutInstallState" is set in Product.wxs under HKMU, which
+         resolves to HKLM for this per-machine install (util:RegistrySearch has
+         no HKMU pseudo-root, so HKLM is spelled out here to match). -->
+    <util:RegistrySearch Variable="HasDesktopShortcutInstallStateRegKey" Root="HKLM" Key="Software\Space Connect" Value="DesktopShortcutInstallState" Result="exists" />
+    <util:RegistrySearch Variable="AddDesktopShortcutCheckbox" Root="HKLM" Key="Software\Space Connect" Value="DesktopShortcutInstallState" Condition="HasDesktopShortcutInstallStateRegKey" />
 
     <util:ProductSearch Id="VCREDIST_14_x64"
                         UpgradeCode="$(var.VCREDIST_X64_UPGRADE_CODE)"
