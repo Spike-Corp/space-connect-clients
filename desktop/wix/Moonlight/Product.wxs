@@ -31,9 +31,9 @@
     <!-- There's no way to delete a registry key on uninstall but not major upgrade, so
         we have to roll our own deletion via custom action. This is a per-machine
         install (ProgramFiles6432Folder), so the settings below live under HKLM
-        (see HKMU note further down); Impersonate="no" so the deferred action runs
-        with the elevated install token instead of the invoking user's, which
-        would otherwise lack rights to HKLM. -->
+        (see the RegistryValue comments further down); Impersonate="no" so the
+        deferred action runs with the elevated install token instead of the
+        invoking user's, which would otherwise lack rights to HKLM. -->
     <CustomAction Id="DeleteRegistryKey"
                   Directory="ProgramFiles6432Folder"
                   ExeCommand="reg.exe delete &quot;HKLM\Software\Space Connect&quot; /f"
@@ -41,7 +41,7 @@
                   Return="ignore"
                   Impersonate="no" />
     <!-- Best-effort cleanup of the old per-user location used by installs from
-         before this key was moved to HKMU/HKLM (see below). -->
+         before this key was moved to HKLM (see below). -->
     <CustomAction Id="DeleteLegacyUserRegistryKey"
                   Directory="ProgramFiles6432Folder"
                   ExeCommand="reg.exe delete &quot;HKCU\Software\Space Connect&quot; /f"
@@ -70,13 +70,20 @@
       <util:RemoveFolderEx Id="CleanupAppDataFolder"
                            On="uninstall"
                            Property="APPDATAFOLDER" />
-      <!-- HKMU resolves to HKLM for this per-machine install. Plain HKCU here
-           made the Windows Installer service (running elevated/as SYSTEM)
-           resolve "current user" to HKEY_USERS\.DEFAULT, whose ACLs are
-           locked down on many machines -> "Could not write value ... Verify
-           that you have sufficient access to that key" even when the user
-           installing is an administrator. -->
-      <RegistryValue Root="HKMU"
+      <!-- This install is always per-machine (ProgramFiles6432Folder, no
+           per-user Scope), so the keypath must be a concrete HKLM rather than
+           the ambiguous HKMU pseudo-root: this component also owns a
+           non-advertised Shortcut (StartMenuShortcut, targeting the "Moonlight"
+           component's file directly), and WiX's ICE57 validation rejects any
+           component that mixes a non-advertised shortcut with a keypath whose
+           context (HKCU vs HKLM) isn't fixed at authoring time. Plain HKCU
+           (the original bug) made the Windows Installer service (running
+           elevated/as SYSTEM) resolve "current user" to HKEY_USERS\.DEFAULT,
+           whose ACLs are locked down on many machines -> "Could not write
+           value ... Verify that you have sufficient access to that key" even
+           when the user installing is an administrator. HKLM fixes that same
+           bug without the ICE57 ambiguity that HKMU introduced. -->
+      <RegistryValue Root="HKLM"
                      Key="Software\Space Connect"
                      Name="Installed"
                      Type="integer"
@@ -94,7 +101,10 @@
       <RemoveFolder Id="CleanupDesktopShortcut"
                     Directory="DesktopFolder"
                     On="uninstall" />
-      <RegistryValue Root="HKMU"
+      <!-- Same ICE57 reasoning as MoonlightShortcuts above: this component
+           also owns a non-advertised Shortcut, so the keypath root must be
+           the concrete HKLM instead of HKMU. -->
+      <RegistryValue Root="HKLM"
                      Key="Software\Space Connect"
                      Name="DesktopShortcutInstalled"
                      Type="integer"
