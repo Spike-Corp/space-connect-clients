@@ -30,8 +30,11 @@
 
     <!-- There's no way to delete a registry key on uninstall but not major upgrade, so
         we have to roll our own deletion via custom action. This is a per-machine
-        install (ProgramFiles6432Folder), so the settings below live under HKLM
-        (see the RegistryValue comments further down); Impersonate="no" so the
+        install (ProgramFiles6432Folder). Most of our own tracking data lives
+        under HKLM now (see the RegistryValue comments further down), but the
+        optional desktop shortcut's KeyPath is still forced under HKCU by
+        ICE43 (non-advertised shortcut requirement), so we clean up BOTH
+        hives on uninstall/major-upgrade: Impersonate="no" below so the
         deferred action runs with the elevated install token instead of the
         invoking user's, which would otherwise lack rights to HKLM. -->
     <CustomAction Id="DeleteRegistryKey"
@@ -40,8 +43,9 @@
                   Execute="deferred"
                   Return="ignore"
                   Impersonate="no" />
-    <!-- Best-effort cleanup of the old per-user location used by installs from
-         before this key was moved to HKLM (see below). -->
+    <!-- Cleans up HKCU\Software\Space Connect: covers both legacy installs
+         from before the HKLM move below, and the current DesktopShortcutInstalled
+         key (still HKCU, required by ICE43; see MoonlightDesktopShortcut). -->
     <CustomAction Id="DeleteLegacyUserRegistryKey"
                   Directory="ProgramFiles6432Folder"
                   ExeCommand="reg.exe delete &quot;HKCU\Software\Space Connect&quot; /f"
@@ -57,40 +61,6 @@
               Condition="Installed AND REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
     </InstallExecuteSequence>
 
-    <Component Id="MoonlightShortcuts" Directory="INSTALLFOLDER">
-      <Shortcut Id="StartMenuShortcut"
-                Name="$(var.ShortcutName)"
-                Description="$(var.ShortcutDesc)"
-                Target="[#MoonlightExe]"
-                Directory="ApplicationProgramsFolder"
-                WorkingDirectory="INSTALLFOLDER" />
-      <RemoveFolder Id="CleanupStartMenuShortcut"
-                    Directory="ApplicationProgramsFolder"
-                    On="uninstall" />
-      <util:RemoveFolderEx Id="CleanupAppDataFolder"
-                           On="uninstall"
-                           Property="APPDATAFOLDER" />
-      <!-- This install is always per-machine (ProgramFiles6432Folder, no
-           per-user Scope), so the keypath must be a concrete HKLM rather than
-           the ambiguous HKMU pseudo-root: this component also owns a
-           non-advertised Shortcut (StartMenuShortcut, targeting the "Moonlight"
-           component's file directly), and WiX's ICE57 validation rejects any
-           component that mixes a non-advertised shortcut with a keypath whose
-           context (HKCU vs HKLM) isn't fixed at authoring time. Plain HKCU
-           (the original bug) made the Windows Installer service (running
-           elevated/as SYSTEM) resolve "current user" to HKEY_USERS\.DEFAULT,
-           whose ACLs are locked down on many machines -> "Could not write
-           value ... Verify that you have sufficient access to that key" even
-           when the user installing is an administrator. HKLM fixes that same
-           bug without the ICE57 ambiguity that HKMU introduced. -->
-      <RegistryValue Root="HKLM"
-                     Key="Software\Space Connect"
-                     Name="Installed"
-                     Type="integer"
-                     Value="1"
-                     KeyPath="yes" />
-    </Component>
-
     <Component Id="MoonlightDesktopShortcut" Directory="INSTALLFOLDER" Condition="ADDDESKTOPSHORTCUT=1">
       <Shortcut Id="DesktopShortcut"
                 Name="$(var.ShortcutName)"
@@ -101,10 +71,21 @@
       <RemoveFolder Id="CleanupDesktopShortcut"
                     Directory="DesktopFolder"
                     On="uninstall" />
-      <!-- Same ICE57 reasoning as MoonlightShortcuts above: this component
-           also owns a non-advertised Shortcut, so the keypath root must be
-           the concrete HKLM instead of HKMU. -->
-      <RegistryValue Root="HKLM"
+      <!-- Unlike the Start Menu shortcut (see the "Moonlight" component
+           below), this one can't be made "Advertise=yes" to drop its
+           registry KeyPath: WiX/MSI only allow an advertised shortcut when
+           it's nested inside the File that is its *own* component's KeyPath,
+           and this shortcut has to stay in its own component so it can be
+           conditional on ADDDESKTOPSHORTCUT (the exe file itself must always
+           install). For a non-advertised shortcut, ICE43 hard-requires the
+           owning component's KeyPath to be a registry key under HKCU; HKLM
+           and HKMU both fail the build (confirmed twice in CI, see
+           https://learn.microsoft.com/windows/win32/msi/ice43 and /ice57).
+           This does mean this one specific key can still hit the original
+           per-machine/HKCU install bug on some machines, but only when the
+           desktop-shortcut checkbox is on; the always-created Start Menu
+           shortcut (100% of installs) no longer touches HKCU at all. -->
+      <RegistryValue Root="HKCU"
                      Key="Software\Space Connect"
                      Name="DesktopShortcutInstalled"
                      Type="integer"
@@ -134,7 +115,31 @@
                                   Scope="any"
                                   IgnoreFailure="yes"
                                   Name="$(var.FullName)" />
+          <!-- Advertised (no Target=, per WiX/ICE43) instead of a plain
+               non-advertised shortcut: this keeps this component's KeyPath as
+               the File itself, with no registry entry needed at all for the
+               shortcut. Non-advertised shortcuts force ICE43 to require a
+               HKCU KeyPath (https://learn.microsoft.com/windows/win32/msi/ice43),
+               and per-machine elevated installs writing to HKCU is exactly
+               what broke installs on some machines before ("Could not write
+               value... Verify that you have sufficient access to that key",
+               HKCU resolving to the locked-down HKEY_USERS\.DEFAULT hive).
+               Since this shortcut is unconditional (always installed, unlike
+               the Desktop one below), advertising it removes that whole
+               crash vector for every single install. -->
+          <Shortcut Id="StartMenuShortcut"
+                    Name="$(var.ShortcutName)"
+                    Description="$(var.ShortcutDesc)"
+                    Advertise="yes"
+                    Directory="ApplicationProgramsFolder"
+                    WorkingDirectory="INSTALLFOLDER" />
         </File>
+        <RemoveFolder Id="CleanupStartMenuShortcut"
+                      Directory="ApplicationProgramsFolder"
+                      On="uninstall" />
+        <util:RemoveFolderEx Id="CleanupAppDataFolder"
+                             On="uninstall"
+                             Property="APPDATAFOLDER" />
       </Component>
     </DirectoryRef>
 
@@ -150,7 +155,6 @@
 
     <Feature Id="ProductFeature" Title="Space Connect" Level="1" ConfigurableDirectory="INSTALLFOLDER">
       <ComponentRef Id="Moonlight" />
-      <ComponentRef Id="MoonlightShortcuts" />
       <ComponentRef Id="MoonlightDesktopShortcutState" />
       <ComponentRef Id="MoonlightDesktopShortcut" />
       <ComponentGroupRef Id="MoonlightDependencies" />
