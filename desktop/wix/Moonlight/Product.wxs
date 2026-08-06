@@ -28,6 +28,19 @@
 
     <Property Id="APPDATAFOLDER" Value="%LOCALAPPDATA%\Space Connect" />
 
+    <!-- Default for the "add desktop shortcut" flag. Only the raw Moonlight.msi
+         is actually published to users today (see spaceConnectReleases.ts /
+         the download page); MoonlightSetup/Bundle.wxs, which is the ONLY place
+         that ever set ADDDESKTOPSHORTCUT (via the checkbox), is not shipped.
+         Without this default the property stayed undefined on every real
+         install, so both Condition="ADDDESKTOPSHORTCUT=1" below evaluated
+         false AND the (now-removed) integer RegistryValue that persisted this
+         flag was written as an empty string — a likely contributor to the
+         "Could not write value ... insufficient access" install crash some
+         users hit. Defaulting to "1" restores the intended "shortcut on by
+         default" behavior for direct .msi installs too. -->
+    <Property Id="ADDDESKTOPSHORTCUT" Value="1" />
+
     <!-- There's no way to delete a registry key on uninstall but not major upgrade, so
         we have to roll our own deletion via custom action. This is a per-machine
         install (ProgramFiles6432Folder). Most of our own tracking data lives
@@ -52,6 +65,32 @@
                   Execute="deferred"
                   Return="ignore"
                   Impersonate="yes" />
+
+    <!-- Writes the "DesktopShortcutInstallState" bookkeeping value (read back by
+         Bundle.wxs to default the desktop-shortcut checkbox on future upgrades).
+         This used to be a plain <RegistryValue> KeyPath under HKMU on an
+         always-installed component (MoonlightDesktopShortcutState, ran on 100%
+         of installs, unlike the conditional MoonlightDesktopShortcut below).
+         MSI treats a native RegistryValue write failure as fatal and rolls back
+         the WHOLE install, which is exactly the "Could not write value Desktop
+         ShortcutInstallState to key \Software\Space Connect... insufficient
+         access" crash reported by users — for a value that is purely cosmetic
+         and never read by the app itself. Rewritten as a deferred, best-effort
+         reg.exe call (Return="ignore", same forgiving pattern as the two
+         delete actions above) so a permission hiccup on this one throwaway key
+         (AV/EDR heuristics, leftover ACLs from very old installs, etc.) can
+         never block setup again. Impersonate="no" so it runs with the elevated
+         install token, matching DeleteRegistryKey above. -->
+    <CustomAction Id="SetDesktopShortcutInstallStateData"
+                  Property="SetDesktopShortcutInstallState"
+                  Value="[ADDDESKTOPSHORTCUT]" />
+    <CustomAction Id="SetDesktopShortcutInstallState"
+                  Directory="ProgramFiles6432Folder"
+                  ExeCommand="reg.exe add &quot;HKLM\Software\Space Connect&quot; /v DesktopShortcutInstallState /t REG_DWORD /d [CustomActionData] /f"
+                  Execute="deferred"
+                  Return="ignore"
+                  Impersonate="no" />
+
     <InstallExecuteSequence>
       <Custom Action="DeleteRegistryKey"
               Before="InstallFinalize"
@@ -59,6 +98,12 @@
       <Custom Action="DeleteLegacyUserRegistryKey"
               Before="InstallFinalize"
               Condition="Installed AND REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+      <Custom Action="SetDesktopShortcutInstallStateData"
+              Before="SetDesktopShortcutInstallState"
+              Condition="NOT REMOVE~=&quot;ALL&quot;" />
+      <Custom Action="SetDesktopShortcutInstallState"
+              Before="InstallFinalize"
+              Condition="NOT REMOVE~=&quot;ALL&quot;" />
     </InstallExecuteSequence>
 
     <Component Id="MoonlightDesktopShortcut" Directory="INSTALLFOLDER" Condition="ADDDESKTOPSHORTCUT=1">
@@ -93,17 +138,12 @@
                      KeyPath="yes" />
     </Component>
 
-    <!-- Persist desktop shortcut's installed state to let Bundle.wxs know if
-         the desktop shortcut should installed by default when upgrading the
-         product -->
-    <Component Id="MoonlightDesktopShortcutState" Directory="INSTALLFOLDER">
-      <RegistryValue Root="HKMU"
-                     Key="Software\Space Connect"
-                     Name="DesktopShortcutInstallState"
-                     Type="integer"
-                     Value="[ADDDESKTOPSHORTCUT]"
-                     KeyPath="yes" />
-    </Component>
+    <!-- "DesktopShortcutInstallState" bookkeeping value is now written by the
+         best-effort SetDesktopShortcutInstallState deferred CustomAction above
+         (InstallExecuteSequence), not by a native RegistryValue component, so
+         a write failure can no longer fail the whole install. See the
+         CustomAction definitions near the top of this file for the full
+         rationale. -->
 
     <DirectoryRef Id="INSTALLFOLDER">
       <Component Id="Moonlight">
@@ -155,7 +195,6 @@
 
     <Feature Id="ProductFeature" Title="Space Connect" Level="1" ConfigurableDirectory="INSTALLFOLDER">
       <ComponentRef Id="Moonlight" />
-      <ComponentRef Id="MoonlightDesktopShortcutState" />
       <ComponentRef Id="MoonlightDesktopShortcut" />
       <ComponentGroupRef Id="MoonlightDependencies" />
     </Feature>
