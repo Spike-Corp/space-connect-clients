@@ -104,6 +104,92 @@ jobs:
           path: SpaceConnect-*-windows-x64.msi
           if-no-files-found: error
 
+  windows-legacy:
+    name: Windows x64 (legacy, Win7/8/8.1)
+    # Qt 6 dropped support for Windows 7/8/8.1 (requires Windows 10+), which is
+    # why users on those OSes can't run the regular Space Connect build. This
+    # job builds a second client with Qt 5.15 (last LTS supporting Win7 SP1+
+    # and Win8/8.1) so those users have a working option.
+    runs-on: windows-2022
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSVC (x64)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install Qt 5.15 (legacy)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '5.15.2'
+          host: windows
+          target: desktop
+          arch: win64_msvc2019_64
+          cache: true
+
+      - name: Build (Release, x64, Qt5)
+        shell: cmd
+        run: |
+          qmake moonlight-qt.pro CONFIG+=release || exit /b 1
+          scripts\jom.exe release || exit /b 1
+
+      - name: Deploy
+        shell: cmd
+        run: |
+          mkdir deploy || exit /b 1
+          copy /Y app\release\SpaceConnect.exe deploy\ || exit /b 1
+          copy /Y libs\windows\lib\x64\*.dll deploy\ || exit /b 1
+          copy /Y AntiHooking\release\AntiHooking.dll deploy\ || exit /b 1
+          copy /Y app\SDL_GameControllerDB\gamecontrollerdb.txt deploy\ || exit /b 1
+          windeployqt --release --qmldir app\gui --no-opengl-sw --no-compiler-runtime --no-sql --skip-plugin-types qmltooling,generic --no-quickcontrols2fusion --no-quickcontrols2imagine --no-quickcontrols2universal deploy\SpaceConnect.exe || exit /b 1
+
+      - name: Package portable zip
+        shell: pwsh
+        run: |
+          $version = (Get-Content app/version.txt).Trim()
+          $out = "SpaceConnect-$version-windows-legacy-x64.zip"
+          Compress-Archive -Path deploy/* -DestinationPath "../$out" -Force
+          echo "ARTIFACT_NAME=SpaceConnect-$version-windows-legacy-x64" >> $env:GITHUB_ENV
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: SpaceConnect-*-windows-legacy-x64.zip
+          if-no-files-found: error
+
+      - name: Build MSI installer
+        # Same UpgradeCode as the regular Windows MSI is intentional here: the
+        # legacy build only targets OSes (Win7/8/8.1) that can't run the
+        # regular Qt6 build in the first place, so there's no realistic
+        # same-machine collision between the two installers.
+        shell: cmd
+        env:
+          BUILD_FOLDER: ${{ github.workspace }}\desktop
+          DEPLOY_FOLDER: ${{ github.workspace }}\desktop\deploy
+        run: |
+          msbuild -restore wix\Moonlight\Moonlight.wixproj /p:Configuration=release /p:Platform=x64 /p:MSBuildProjectExtensionsPath=%BUILD_FOLDER%\ || exit /b 1
+
+      - name: Package MSI
+        shell: pwsh
+        run: |
+          $version = (Get-Content app/version.txt).Trim()
+          $msiOut = "SpaceConnect-$version-windows-legacy-x64.msi"
+          Copy-Item "Moonlight.msi" "../$msiOut"
+          echo "MSI_ARTIFACT_NAME=SpaceConnect-$version-windows-legacy-x64-msi" >> $env:GITHUB_ENV
+
+      - name: Upload MSI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.MSI_ARTIFACT_NAME }}
+          path: SpaceConnect-*-windows-legacy-x64.msi
+          if-no-files-found: error
+
   macos:
     name: macOS universal
     runs-on: macos-latest

@@ -1,7 +1,7 @@
 name: Build Desktop Clients
 
 # Builds the Space Connect desktop client (Qt / Moonlight fork) for
-# Windows x64 and macOS universal (x86_64 + arm64).
+# Windows x64, macOS universal (x86_64 + arm64) and Linux (AppImage x86_64).
 #
 # macOS DMGs produced here are ad-hoc signed (not Apple-notarized). To ship a
 # notarized build, set the SIGNING_IDENTITY / NOTARY_KEYCHAIN_PROFILE secrets
@@ -74,9 +74,125 @@ jobs:
           path: SpaceConnect-*-windows-x64.zip
           if-no-files-found: error
 
+      - name: Build MSI installer
+        # Note: deploy\ is harvested as-is (same contents as the portable zip).
+        # The VC++ redist DLLs are intentionally NOT added here: they're
+        # Microsoft-signed and the project's own build-arch.bat (Bundle.wxs
+        # path) avoids harvesting them into the MSI directly, relying instead
+        # on the official redist installer. This simple x64-only MSI has the
+        # same runtime prerequisite as the existing zip (pre-existing, unrelated
+        # to this change).
+        shell: cmd
+        env:
+          BUILD_FOLDER: ${{ github.workspace }}\desktop
+          DEPLOY_FOLDER: ${{ github.workspace }}\desktop\deploy
+        run: |
+          msbuild -restore wix\Moonlight\Moonlight.wixproj /p:Configuration=release /p:Platform=x64 /p:MSBuildProjectExtensionsPath=%BUILD_FOLDER%\ || exit /b 1
+
+      - name: Package MSI
+        shell: pwsh
+        run: |
+          $version = (Get-Content app/version.txt).Trim()
+          $msiOut = "SpaceConnect-$version-windows-x64.msi"
+          Copy-Item "Moonlight.msi" "../$msiOut"
+          echo "MSI_ARTIFACT_NAME=SpaceConnect-$version-windows-x64-msi" >> $env:GITHUB_ENV
+
+      - name: Upload MSI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.MSI_ARTIFACT_NAME }}
+          path: SpaceConnect-*-windows-x64.msi
+          if-no-files-found: error
+
+  windows-legacy:
+    name: Windows x64 (legacy, Win7/8/8.1)
+    # Qt 6 dropped support for Windows 7/8/8.1 (requires Windows 10+), which is
+    # why users on those OSes can't run the regular Space Connect build. This
+    # job builds a second client with Qt 5.15 (last LTS supporting Win7 SP1+
+    # and Win8/8.1) so those users have a working option.
+    runs-on: windows-2022
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSVC (x64)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install Qt 5.15 (legacy)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '5.15.2'
+          host: windows
+          target: desktop
+          arch: win64_msvc2019_64
+          cache: true
+
+      - name: Build (Release, x64, Qt5)
+        shell: cmd
+        run: |
+          qmake moonlight-qt.pro CONFIG+=release || exit /b 1
+          scripts\jom.exe release || exit /b 1
+
+      - name: Deploy
+        shell: cmd
+        run: |
+          mkdir deploy || exit /b 1
+          copy /Y app\release\SpaceConnect.exe deploy\ || exit /b 1
+          copy /Y libs\windows\lib\x64\*.dll deploy\ || exit /b 1
+          copy /Y AntiHooking\release\AntiHooking.dll deploy\ || exit /b 1
+          copy /Y app\SDL_GameControllerDB\gamecontrollerdb.txt deploy\ || exit /b 1
+          windeployqt --release --qmldir app\gui --no-opengl-sw --no-compiler-runtime --no-sql --skip-plugin-types qmltooling,generic --no-quickcontrols2fusion --no-quickcontrols2imagine --no-quickcontrols2universal deploy\SpaceConnect.exe || exit /b 1
+
+      - name: Package portable zip
+        shell: pwsh
+        run: |
+          $version = (Get-Content app/version.txt).Trim()
+          $out = "SpaceConnect-$version-windows-legacy-x64.zip"
+          Compress-Archive -Path deploy/* -DestinationPath "../$out" -Force
+          echo "ARTIFACT_NAME=SpaceConnect-$version-windows-legacy-x64" >> $env:GITHUB_ENV
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: SpaceConnect-*-windows-legacy-x64.zip
+          if-no-files-found: error
+
+      - name: Build MSI installer
+        # Same UpgradeCode as the regular Windows MSI is intentional here: the
+        # legacy build only targets OSes (Win7/8/8.1) that can't run the
+        # regular Qt6 build in the first place, so there's no realistic
+        # same-machine collision between the two installers.
+        shell: cmd
+        env:
+          BUILD_FOLDER: ${{ github.workspace }}\desktop
+          DEPLOY_FOLDER: ${{ github.workspace }}\desktop\deploy
+        run: |
+          msbuild -restore wix\Moonlight\Moonlight.wixproj /p:Configuration=release /p:Platform=x64 /p:MSBuildProjectExtensionsPath=%BUILD_FOLDER%\ || exit /b 1
+
+      - name: Package MSI
+        shell: pwsh
+        run: |
+          $version = (Get-Content app/version.txt).Trim()
+          $msiOut = "SpaceConnect-$version-windows-legacy-x64.msi"
+          Copy-Item "Moonlight.msi" "../$msiOut"
+          echo "MSI_ARTIFACT_NAME=SpaceConnect-$version-windows-legacy-x64-msi" >> $env:GITHUB_ENV
+
+      - name: Upload MSI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.MSI_ARTIFACT_NAME }}
+          path: SpaceConnect-*-windows-legacy-x64.msi
+          if-no-files-found: error
+
   macos:
     name: macOS universal
-    runs-on: macos-13
+    runs-on: macos-latest
     defaults:
       run:
         working-directory: desktop
@@ -106,5 +222,65 @@ jobs:
         with:
           name: SpaceConnect-macos-universal
           path: desktop/build/installer-Release/SpaceConnect-*.dmg
+          compression-level: 0
+          if-no-files-found: error
+
+  linux:
+    name: Linux AppImage (x86_64)
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.7.3'
+          host: linux
+          target: desktop
+          arch: linux_gcc_64
+          cache: true
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            libgl1-mesa-dev libegl1-mesa-dev libgles2-mesa-dev \
+            libsdl2-dev libsdl2-ttf-dev libopus-dev libssl-dev \
+            libavcodec-dev libavformat-dev libavutil-dev libswscale-dev \
+            libva-dev libvdpau-dev libdrm-dev \
+            libx11-dev libxext-dev libxrandr-dev libxkbcommon-dev \
+            libfuse2
+
+      - name: Install linuxdeploy
+        run: |
+          cd /usr/local/bin
+          sudo wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage -O linuxdeploy
+          sudo wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage -O linuxdeploy-plugin-qt
+          sudo chmod +x linuxdeploy linuxdeploy-plugin-qt
+
+      - name: Build AppImage
+        env:
+          # CI runners have no FUSE; make bundled AppImage tools extract-and-run.
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: bash scripts/build-appimage.sh
+
+      - name: Package AppImage
+        run: |
+          version=$(tr -d '[:space:]' < app/version.txt)
+          src=$(ls build/installer-release/*.AppImage | head -n1)
+          out="SpaceConnect-${version}-x86_64.AppImage"
+          cp "$src" "$out"
+          echo "APPIMAGE_ARTIFACT_NAME=SpaceConnect-${version}-linux-appimage" >> "$GITHUB_ENV"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APPIMAGE_ARTIFACT_NAME }}
+          path: desktop/SpaceConnect-*-x86_64.AppImage
           compression-level: 0
           if-no-files-found: error
