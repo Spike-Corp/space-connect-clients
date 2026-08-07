@@ -146,7 +146,7 @@ jobs:
           copy /Y libs\windows\lib\x64\*.dll deploy\ || exit /b 1
           copy /Y AntiHooking\release\AntiHooking.dll deploy\ || exit /b 1
           copy /Y app\SDL_GameControllerDB\gamecontrollerdb.txt deploy\ || exit /b 1
-          windeployqt --release --qmldir app\gui --no-opengl-sw --no-compiler-runtime --no-sql --skip-plugin-types qmltooling,generic --no-quickcontrols2fusion --no-quickcontrols2imagine --no-quickcontrols2universal deploy\SpaceConnect.exe || exit /b 1
+          windeployqt --release --qmldir app\gui --no-opengl-sw --no-compiler-runtime --no-sql deploy\SpaceConnect.exe || exit /b 1
 
       - name: Package portable zip
         shell: pwsh
