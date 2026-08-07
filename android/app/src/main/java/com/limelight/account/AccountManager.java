@@ -134,6 +134,22 @@ public final class AccountManager {
         executeAuthenticated(context, API::leaveQueue, callback);
     }
 
+    public static void getMachines(
+            Context context,
+            ResultCallback<SpaceConnectApiClient.MachinesResponse> callback) {
+        executeAuthenticated(context, API::getMachines, callback);
+    }
+
+    // Provisiona a VM dedicada do usuário (self-service), igual ao botão "Criar
+    // VM" do site — necessário pra usuários sem VM ainda conseguirem jogar
+    // pelo app, em vez de ficarem presos num loop de fila sem VM nenhuma.
+    public static void createMachine(
+            Context context,
+            String password,
+            ResultCallback<SpaceConnectApiClient.CreateMachineResponse> callback) {
+        executeAuthenticated(context, token -> API.createMachine(token, password), callback);
+    }
+
     public static void getConnection(
             Context context,
             ResultCallback<SpaceConnectApiClient.ConnectionResponse> callback) {

@@ -237,6 +237,12 @@
     <string name="launcher_end_session">End session</string>
     <string name="launcher_refresh">Refresh status</string>
     <string name="launcher_logout">Sign out</string>
+    <string name="launcher_no_machine_details">You don\'t have a dedicated PC yet. Create it to start playing.</string>
+    <string name="launcher_create_machine">Create my PC</string>
+    <string name="launcher_create_machine_title">Create your PC</string>
+    <string name="launcher_create_machine_message">Confirm your password to create your dedicated SpaceCloud PC. This may take a few minutes.</string>
+    <string name="launcher_create_machine_password_hint">Password</string>
+    <string name="launcher_create_machine_success">Your PC is being created. This may take a few minutes.</string>
 
     <string-array name="splash_loading_tips">
         <item>Connecting you to your PC…</item>

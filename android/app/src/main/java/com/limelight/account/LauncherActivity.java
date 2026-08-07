@@ -6,6 +6,7 @@ import com.limelight.preferences.AddComputerManually;
 import com.limelight.utils.UiHelper;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -13,6 +14,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -29,6 +31,8 @@ public class LauncherActivity extends Activity {
     private ProgressBar progressBar;
     private boolean requestRunning;
     private String pendingHost;
+    private Boolean hasMachine;
+    private SpaceConnectApiClient.StatusResponse lastStatus;
 
     private final Runnable pollStatus = new Runnable() {
         @Override
@@ -98,6 +102,7 @@ public class LauncherActivity extends Activity {
     }
 
     private void render(SpaceConnectApiClient.StatusResponse status) {
+        lastStatus = status;
         endSessionButton.setVisibility(View.GONE);
         primaryButton.setVisibility(View.VISIBLE);
         primaryButton.setEnabled(true);
@@ -140,9 +145,75 @@ public class LauncherActivity extends Activity {
         }
 
         statusText.setText(R.string.launcher_status_idle);
-        detailsText.setText(R.string.launcher_idle_details);
-        primaryButton.setText(R.string.launcher_join_queue);
-        primaryButton.setOnClickListener(v -> joinQueue());
+        if (Boolean.FALSE.equals(hasMachine)) {
+            detailsText.setText(R.string.launcher_no_machine_details);
+            primaryButton.setText(R.string.launcher_create_machine);
+            primaryButton.setOnClickListener(v -> promptCreateMachine());
+        } else {
+            detailsText.setText(R.string.launcher_idle_details);
+            primaryButton.setText(R.string.launcher_join_queue);
+            primaryButton.setOnClickListener(v -> joinQueue());
+        }
+        if (hasMachine == null) {
+            checkMachines();
+        }
+    }
+
+    // Descobre se o usuário já tem alguma VM dedicada provisionada. Sem isso o
+    // app só sabe oferecer "entrar na fila", que falha silenciosamente (loop)
+    // pra quem nunca teve VM criada — precisa oferecer "Criar minha VM" antes.
+    private void checkMachines() {
+        AccountManager.getMachines(this, new AccountManager.ResultCallback<SpaceConnectApiClient.MachinesResponse>() {
+            @Override
+            public void onSuccess(SpaceConnectApiClient.MachinesResponse result) {
+                hasMachine = result.machines != null && result.machines.length > 0;
+                render(lastStatus);
+            }
+
+            @Override
+            public void onError(String message) {
+                // Se a checagem falhar, não bloqueia o fluxo normal de fila.
+            }
+        });
+    }
+
+    private void promptCreateMachine() {
+        final EditText passwordField = new EditText(this);
+        passwordField.setHint(R.string.launcher_create_machine_password_hint);
+        passwordField.setInputType(
+                android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.launcher_create_machine_title)
+                .setMessage(R.string.launcher_create_machine_message)
+                .setView(passwordField)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.launcher_confirm, (dialog, which) ->
+                        createMachine(passwordField.getText().toString()))
+                .show();
+    }
+
+    private void createMachine(String password) {
+        if (requestRunning) return;
+        requestRunning = true;
+        progressBar.setVisibility(View.VISIBLE);
+        AccountManager.createMachine(this, password, new AccountManager.ResultCallback<SpaceConnectApiClient.CreateMachineResponse>() {
+            @Override
+            public void onSuccess(SpaceConnectApiClient.CreateMachineResponse result) {
+                requestRunning = false;
+                progressBar.setVisibility(View.GONE);
+                hasMachine = null;
+                Toast.makeText(LauncherActivity.this, R.string.launcher_create_machine_success, Toast.LENGTH_LONG).show();
+                refreshStatus(true);
+            }
+
+            @Override
+            public void onError(String message) {
+                requestRunning = false;
+                progressBar.setVisibility(View.GONE);
+                Toast.makeText(LauncherActivity.this, message, Toast.LENGTH_LONG).show();
+            }
+        });
     }
 
     private void joinQueue() {

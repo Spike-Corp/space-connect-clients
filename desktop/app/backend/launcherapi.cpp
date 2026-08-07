@@ -142,6 +142,8 @@ void LauncherApi::refreshStatus()
                 setBusy(false);
                 if (status >= 200 && status < 300) {
                     applyStatus(root);
+                    if (m_State == QStringLiteral("idle"))
+                        fetchMachines();
                 }
                 else if (status == 401) {
                     refreshTokens();
@@ -149,6 +151,52 @@ void LauncherApi::refreshStatus()
                 else {
                     setError(errorObject(root).value(QStringLiteral("message")).toString(
                         QStringLiteral("Não foi possível atualizar o status")));
+                }
+            });
+}
+
+void LauncherApi::fetchMachines()
+{
+    if (!m_LoggedIn)
+        return;
+
+    request("GET", QStringLiteral("machines"), QJsonObject(), true,
+            [this](int status, const QJsonObject& root) {
+                if (status >= 200 && status < 300) {
+                    m_HasMachine = root.value(QStringLiteral("machines")).toArray().size() > 0;
+                    m_MachinesLoaded = true;
+                    emit machinesChanged();
+                }
+                // Falha ao buscar máquinas não deve travar a UI: fica no estado
+                // "ainda não sabemos" (machinesLoaded=false) e tenta de novo no
+                // próximo refreshStatus().
+            });
+}
+
+void LauncherApi::createMachine(const QString& password)
+{
+    if (!m_LoggedIn || m_Busy)
+        return;
+    if (password.size() < 5 || password.size() > 64) {
+        setError(QStringLiteral("Senha deve ter entre 5 e 64 caracteres"));
+        return;
+    }
+
+    setBusy(true);
+    setError(QString());
+    request("POST", QStringLiteral("create-machine"),
+            QJsonObject{{QStringLiteral("password"), password}},
+            true,
+            [this](int status, const QJsonObject& root) {
+                setBusy(false);
+                if (status >= 200 && status < 300) {
+                    // VM entrando em provisionamento/boot: refresca status (que por sua
+                    // vez já re-checa machines) pra UI sair do estado "sem VM".
+                    refreshStatus();
+                }
+                else {
+                    setError(errorObject(root).value(QStringLiteral("message")).toString(
+                        QStringLiteral("Não foi possível criar sua VM")));
                 }
             });
 }

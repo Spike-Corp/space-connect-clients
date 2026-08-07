@@ -9,7 +9,15 @@ Item {
     objectName: qsTr("SpaceCloud")
     property bool addingComputer: false
 
+    function needsMachine() {
+        return LauncherApi.state === "idle" && LauncherApi.machinesLoaded && !LauncherApi.hasMachine
+    }
+
     function primaryAction() {
+        if (needsMachine()) {
+            createMachineDialog.open()
+            return
+        }
         if (LauncherApi.state === "queued")
             LauncherApi.leaveQueue()
         else if (LauncherApi.state === "ready")
@@ -19,6 +27,7 @@ Item {
     }
 
     function statusTitle() {
+        if (needsMachine()) return qsTr("Create your PC")
         if (LauncherApi.state === "queued") return qsTr("You are in the queue")
         if (LauncherApi.state === "starting") return qsTr("Your PC is starting")
         if (LauncherApi.state === "ready") return qsTr("Your PC is ready")
@@ -27,6 +36,8 @@ Item {
     }
 
     function statusDetails() {
+        if (needsMachine())
+            return qsTr("You don't have a dedicated PC yet. Create one to start playing.")
         if (LauncherApi.state === "queued")
             return qsTr("Position %1 of %2").arg(LauncherApi.queuePosition).arg(LauncherApi.queueTotal)
         if (LauncherApi.machineName)
@@ -35,6 +46,7 @@ Item {
     }
 
     function primaryText() {
+        if (needsMachine()) return qsTr("Create your VM")
         if (LauncherApi.state === "queued") return qsTr("Leave queue")
         if (LauncherApi.state === "ready") return qsTr("Connect with Moonlight")
         if (LauncherApi.state === "idle") return qsTr("Join queue")
@@ -141,7 +153,8 @@ Item {
                     highlighted: true
                     enabled: !LauncherApi.busy
                              && !addingComputer
-                             && (LauncherApi.state === "idle"
+                             && (needsMachine()
+                                 || LauncherApi.state === "idle"
                                  || LauncherApi.state === "queued"
                                  || LauncherApi.state === "ready")
                     Layout.fillWidth: true
@@ -167,6 +180,45 @@ Item {
             Button {
                 text: qsTr("Sign out")
                 onClicked: LauncherApi.logout()
+            }
+        }
+    }
+
+    Dialog {
+        id: createMachineDialog
+        title: qsTr("Create your VM")
+        standardButtons: Dialog.Cancel
+        anchors.centerIn: parent
+        modal: true
+
+        ColumnLayout {
+            width: 320
+            spacing: 12
+
+            Label {
+                text: qsTr("Choose a password for your PC (used for Windows login too).")
+                wrapMode: Text.WordWrap
+                color: "#A79BC9"
+                Layout.fillWidth: true
+            }
+
+            TextField {
+                id: machinePasswordField
+                echoMode: TextInput.Password
+                placeholderText: qsTr("Password (5-64 characters)")
+                Layout.fillWidth: true
+            }
+
+            Button {
+                text: qsTr("Create VM")
+                highlighted: true
+                enabled: machinePasswordField.text.length >= 5 && machinePasswordField.text.length <= 64
+                Layout.fillWidth: true
+                onClicked: {
+                    LauncherApi.createMachine(machinePasswordField.text)
+                    machinePasswordField.text = ""
+                    createMachineDialog.close()
+                }
             }
         }
     }

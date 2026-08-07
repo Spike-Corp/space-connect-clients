@@ -83,6 +83,20 @@ public final class SpaceConnectApiClient {
         return delete("queue", accessToken, StatusResponse.class);
     }
 
+    public MachinesResponse getMachines(String accessToken) throws IOException, ApiException {
+        return get("machines", accessToken, MachinesResponse.class);
+    }
+
+    // Provisiona a VM dedicada do usuário (self-service), igual ao botão "Criar
+    // VM" do site. Necessário antes de entrar na fila — a fila nunca cria VM
+    // sozinha, ela só serve quem já tem uma máquina dedicada.
+    public CreateMachineResponse createMachine(String accessToken, String password)
+            throws IOException, ApiException {
+        CreateMachineRequest input = new CreateMachineRequest();
+        input.password = password;
+        return post("create-machine", input, accessToken, CreateMachineResponse.class);
+    }
+
     public PairResponse pair(String accessToken, String pin) throws IOException, ApiException {
         PairRequest input = new PairRequest();
         input.pin = pin;
@@ -212,6 +226,10 @@ public final class SpaceConnectApiClient {
         String pin;
     }
 
+    private static final class CreateMachineRequest {
+        String password;
+    }
+
     private static final class EmptyRequest {
     }
 
@@ -314,6 +332,27 @@ public final class SpaceConnectApiClient {
     public static final class EndSessionResponse {
         public boolean accepted;
         public boolean alreadyEnding;
+    }
+
+    public static final class MachinesResponse {
+        public boolean locked;
+        public MachineListItem[] machines;
+    }
+
+    public static final class MachineListItem {
+        public String id;
+        public String name;
+        public String provider;
+        public String state;
+    }
+
+    public static final class CreateMachineResponse {
+        public boolean ok;
+        public String machineName;
+        public String status;
+        public boolean preExisting;
+        public boolean restored;
+        public String error;
     }
 
     public static final class ApiException extends Exception {

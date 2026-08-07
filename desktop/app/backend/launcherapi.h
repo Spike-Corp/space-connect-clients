@@ -22,6 +22,12 @@ class LauncherApi : public QObject
     Q_PROPERTY(QString planSlug READ planSlug NOTIFY statusChanged)
     Q_PROPERTY(QString machineName READ machineName NOTIFY statusChanged)
     Q_PROPERTY(qint64 remainingMinutes READ remainingMinutes NOTIFY statusChanged)
+    // Falso enquanto ainda não sabemos (undecided) ou o usuário realmente não
+    // tem nenhuma VM dedicada provisionada. Sem isso, o app só sabia "joinQueue",
+    // e usuários sem VM ficavam presos num loop de fila (o backend nunca cria
+    // VM a partir da fila — só o /create-machine faz isso, igual ao site).
+    Q_PROPERTY(bool hasMachine READ hasMachine NOTIFY machinesChanged)
+    Q_PROPERTY(bool machinesLoaded READ machinesLoaded NOTIFY machinesChanged)
 
 public:
     explicit LauncherApi(QObject* parent = nullptr);
@@ -36,6 +42,8 @@ public:
     QString planSlug() const { return m_PlanSlug; }
     QString machineName() const { return m_MachineName; }
     qint64 remainingMinutes() const { return m_RemainingMs / 60000; }
+    bool hasMachine() const { return m_HasMachine; }
+    bool machinesLoaded() const { return m_MachinesLoaded; }
 
     Q_INVOKABLE void login(const QString& email, const QString& password);
     Q_INVOKABLE void verifyTwoFactor(const QString& code);
@@ -44,6 +52,11 @@ public:
     Q_INVOKABLE void leaveQueue();
     Q_INVOKABLE void requestConnection();
     Q_INVOKABLE void endSession();
+    // Provisiona a VM dedicada do usuário (self-service), igual ao botão
+    // "Criar VM" do site. Necessário antes de conseguir entrar na fila —
+    // a fila nunca cria VM sozinha.
+    Q_INVOKABLE void createMachine(const QString& password);
+    Q_INVOKABLE void fetchMachines();
     Q_INVOKABLE void submitPairPin(const QString& pin);
     Q_INVOKABLE void logout();
     // Bitrate ceiling (Kbps) cached from the last connection reported by the backend.
@@ -57,6 +70,7 @@ signals:
     void emailChanged();
     void errorMessageChanged();
     void statusChanged();
+    void machinesChanged();
     void loginSucceeded();
     void twoFactorRequired();
     void connectionReady(QString address);
@@ -97,4 +111,6 @@ private:
     qint64 m_RemainingMs = 0;
     bool m_Busy = false;
     bool m_LoggedIn = false;
+    bool m_HasMachine = false;
+    bool m_MachinesLoaded = false;
 };
