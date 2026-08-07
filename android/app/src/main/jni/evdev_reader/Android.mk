@@ -11,6 +11,8 @@ ifeq (root,$(PRODUCT_FLAVOR))
     LOCAL_MODULE    := evdev_reader
     LOCAL_SRC_FILES := evdev_reader.c
     LOCAL_LDLIBS    := -llog
+    # 16 KB page size support for Android 15+ devices.
+    LOCAL_LDFLAGS   := -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384
 
 
     # This next portion of the makefile is mostly copied from build-executable.mk but

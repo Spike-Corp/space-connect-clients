@@ -57,6 +57,9 @@ LOCAL_LDLIBS := -llog
 
 LOCAL_STATIC_LIBRARIES := libopus libssl libcrypto cpufeatures
 LOCAL_LDFLAGS += -Wl,--exclude-libs,ALL
+# 16 KB page size support for Android 15+ devices (NDK r27 and earlier need
+# these flags explicitly; r28+ does this by default).
+LOCAL_LDFLAGS += -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384
 
 include $(BUILD_SHARED_LIBRARY)
 

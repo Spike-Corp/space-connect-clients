@@ -5,7 +5,9 @@ buildscript {
         google()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.2.2'
+        // 8.5.1+ required so the AAB aligns uncompressed native libs to 16 KB
+        // (Android 15+ 16 KB page size device support).
+        classpath 'com.android.tools.build:gradle:8.7.3'
     }
 }
 
