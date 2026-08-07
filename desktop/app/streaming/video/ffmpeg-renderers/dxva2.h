@@ -12,6 +12,8 @@ extern "C" {
 
 #include <wrl/client.h>
 
+#include <array>
+
 class DXVA2Renderer : public IFFmpegRenderer
 {
 public:

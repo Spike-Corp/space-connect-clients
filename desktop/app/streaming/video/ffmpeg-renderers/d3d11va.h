@@ -11,6 +11,8 @@ extern "C" {
 
 #include <wrl/client.h>
 
+#include <array>
+
 class D3D11VARenderer : public IFFmpegRenderer
 {
 public:
