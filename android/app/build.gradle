@@ -49,7 +49,7 @@ android {
                 }
             }
 
-            applicationId "gg.spacecloud.connect"
+            applicationId "gg.spacecloud.gg.connect"
             dimension "root"
             buildConfigField "boolean", "ROOT_BUILD", "false"
         }
