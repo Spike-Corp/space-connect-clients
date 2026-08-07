@@ -11,6 +11,8 @@
 #include <QSysInfo>
 #include <QUuid>
 
+#include <stdexcept>
+
 namespace {
 const QUrl kApiBase(QStringLiteral("https://spacecloud.gg/api/launcher/v1/"));
 
