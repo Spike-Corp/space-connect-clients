@@ -14,6 +14,7 @@ import com.limelight.binding.input.driver.UsbDriverService;
 import com.limelight.binding.input.evdev.EvdevListener;
 import com.limelight.binding.input.touch.TouchContext;
 import com.limelight.binding.input.virtual_controller.VirtualController;
+import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardLayoutController;
 import com.limelight.binding.video.CrashListener;
 import com.limelight.binding.video.MediaCodecDecoderRenderer;
 import com.limelight.binding.video.MediaCodecHelper;
@@ -124,6 +125,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private ControllerHandler controllerHandler;
     private KeyboardTranslator keyboardTranslator;
     private VirtualController virtualController;
+    // Custom-drawn full on-screen keyboard (own F1-F12 row, no reliance on the system IME/Gboard)
+    // - toggled via the specialKeysButton overlay button. See KeyBoardLayoutController.
+    private KeyBoardLayoutController fullKeyboardController;
+    private boolean wasFullKeyboardVisibleBeforePiP = false;
 
     private PreferenceConfiguration prefConfig;
     private SharedPreferences tombstonePrefs;
@@ -318,7 +323,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         findViewById(R.id.specialKeysButton).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                showSpecialKeysMenu();
+                toggleFullKeyboard();
             }
         });
 
@@ -596,6 +601,16 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             virtualController.show();
         }
 
+        // Custom-drawn full on-screen keyboard (its own F1-F12 row, no system IME involved).
+        // Always created (unlike the OSC above, it's opt-in per-touch via specialKeysButton, not
+        // permanently on-screen) and starts hidden until the user taps the keyboard button.
+        fullKeyboardController = new KeyBoardLayoutController(
+                (FrameLayout) streamView.getParent(),
+                this,
+                prefConfig);
+        fullKeyboardController.refreshLayout();
+        fullKeyboardController.hide();
+
         if (prefConfig.usbDriver) {
             // Start the USB driver
             bindService(new Intent(this, UsbDriverService.class),
@@ -734,6 +749,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             virtualController.refreshLayout();
         }
 
+        if (fullKeyboardController != null) {
+            // Refresh layout of the full keyboard for possible new screen size
+            fullKeyboardController.refreshLayout();
+        }
+
         // Hide on-screen overlays in PiP mode
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (isInPictureInPictureMode()) {
@@ -741,6 +761,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
                 if (virtualController != null) {
                     virtualController.hide();
+                }
+
+                if (fullKeyboardController != null) {
+                    wasFullKeyboardVisibleBeforePiP = fullKeyboardController.isKeyboardVisible();
+                    fullKeyboardController.hide();
                 }
 
                 findViewById(R.id.perfOverlayContainer).setVisibility(View.GONE);
@@ -759,6 +784,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
                 if (virtualController != null) {
                     virtualController.show();
+                }
+
+                if (fullKeyboardController != null && wasFullKeyboardVisibleBeforePiP) {
+                    fullKeyboardController.show();
                 }
 
                 if (prefConfig.enablePerfOverlay) {
@@ -1259,6 +1288,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             virtualController.hide();
         }
 
+        if (fullKeyboardController != null) {
+            fullKeyboardController.hide();
+        }
+
         if (conn != null) {
             int videoFormat = decoderRenderer.getActiveVideoFormat();
 
@@ -1667,6 +1700,15 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         LimeLog.info("Toggling keyboard overlay");
         InputMethodManager inputManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
         inputManager.toggleSoftInput(0, 0);
+    }
+
+    // Shows/hides the custom-drawn full on-screen keyboard (own F1-F12 row, etc.) - unlike
+    // toggleKeyboard() above, this doesn't involve the system IME/Gboard at all. Used by the
+    // specialKeysButton overlay button and the game menu's "Full keyboard" entry.
+    public void toggleFullKeyboard() {
+        if (fullKeyboardController != null) {
+            fullKeyboardController.toggleVisibility();
+        }
     }
 
     // Ported from Artemis (simplified: no clipboard sync since that needs their Apollo host
@@ -3143,6 +3185,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 stopConnection();
             }
         }
+    }
+
+    // Exposes the connection state to the full on-screen keyboard controller (different package),
+    // which needs to avoid forwarding input while not actively streaming.
+    public boolean isConnected() {
+        return connected;
     }
 
     @Override

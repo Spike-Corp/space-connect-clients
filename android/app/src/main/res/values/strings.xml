@@ -88,7 +88,7 @@
 
     <!-- Start application messages -->
     <string name="conn_establishing_title">Establishing Connection</string>
-    <string name="game_special_keys_button_desc">Special keys</string>
+    <string name="game_special_keys_button_desc">Full keyboard</string>
     <string name="game_special_keys_title">Special Keys</string>
     <string name="game_choose_keyboard">Choose Keyboard</string>
     <!-- Ported from Artemis: in-stream quick menu -->
@@ -96,6 +96,7 @@
     <string name="game_menu_title">Game Menu</string>
     <string name="game_menu_send_special_keys">Send special keys</string>
     <string name="game_menu_toggle_keyboard">Toggle keyboard</string>
+    <string name="game_menu_toggle_full_keyboard">Toggle full keyboard (F1-F12)</string>
     <string name="game_menu_select_mouse_mode">Select mouse mode</string>
     <string name="game_menu_toggle_local_cursor">Toggle local cursor visibility</string>
     <string name="mouse_mode_multi_touch">Multi touch</string>

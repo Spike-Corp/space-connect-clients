@@ -1,0 +1,208 @@
+{
+  "standardParam": {
+    "standardKeyWidth": 32.0,
+    "standardKeyHeight": 32.0,
+    "standardStartMargin": 32.0,
+    "standardTopMargin": 16.0
+  },
+  "keyRowList": [
+    {
+      "topMargin": 0.0,
+      "height": 1.0,
+      "keyItemList": [
+        {
+          "keyCode": 131,
+          "displayName": "F1",
+          "width": 2,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 132,
+          "displayName": "F2",
+          "width": 2,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 133,
+          "displayName": "F3",
+          "width": 2,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 134,
+          "displayName": "F4",
+          "width": 2,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 135,
+          "displayName": "F5",
+          "width": 2,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 136,
+          "displayName": "F6",
+          "width": 2,
+          "startMargin": 0.0
+        }
+      ]
+    },
+    {
+      "topMargin": 0.3,
+      "height": 1.0,
+      "keyItemList": [
+        {
+          "keyCode": 137,
+          "displayName": "F7",
+          "width": 2,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 138,
+          "displayName": "F8",
+          "width": 2,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 139,
+          "displayName": "F9",
+          "width": 2,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 140,
+          "displayName": "F10",
+          "width": 2,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 141,
+          "displayName": "F11",
+          "width": 2,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 142,
+          "displayName": "F12",
+          "width": 2,
+          "startMargin": 0.0
+        }
+      ]
+    },
+    {
+      "topMargin": 0.5,
+      "height": 1.0,
+      "keyItemList": [
+        {
+          "keyCode": 111,
+          "displayName": "Esc",
+          "width": 2,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 61,
+          "displayName": "Tab",
+          "width": 2,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 124,
+          "displayName": "Ins",
+          "width": 2,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 112,
+          "displayName": "Del",
+          "width": 2,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 120,
+          "displayName": "PrtSc",
+          "width": 2,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 116,
+          "displayName": "ScrLk",
+          "width": 2,
+          "startMargin": 0.0
+        }
+      ]
+    },
+    {
+      "topMargin": 0.3,
+      "height": 1.0,
+      "keyItemList": [
+        {
+          "keyCode": 122,
+          "displayName": "Home",
+          "width": 2,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 123,
+          "displayName": "End",
+          "width": 2,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 92,
+          "displayName": "PgUp",
+          "width": 2,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 93,
+          "displayName": "PgDn",
+          "width": 2,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 121,
+          "displayName": "Pause",
+          "width": 2,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 143,
+          "displayName": "NumLk",
+          "width": 2,
+          "startMargin": 0.0
+        }
+      ]
+    },
+    {
+      "topMargin": 0.5,
+      "height": 1.0,
+      "keyItemList": [
+        {
+          "keyCode": 21,
+          "displayName": "←",
+          "width": 3,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 19,
+          "displayName": "↑",
+          "width": 3,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 20,
+          "displayName": "↓",
+          "width": 3,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 22,
+          "displayName": "→",
+          "width": 3,
+          "startMargin": 0.0
+        }
+      ]
+    }
+  ]
+}

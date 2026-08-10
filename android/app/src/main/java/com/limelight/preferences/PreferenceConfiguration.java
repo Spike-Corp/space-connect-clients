@@ -95,6 +95,15 @@ public class PreferenceConfiguration {
     private static final String SEEKBAR_TRACKPAD_SENSITIVITY_Y_STRING = "seekbar_trackpad_sensitivity_y";
     private static final String CHECKBOX_TRACKPAD_SWAP_AXIS_STRING = "checkbox_trackpad_swap_axis";
 
+    // Full on-screen keyboard (KeyBoardLayoutController) - a custom-drawn keyboard with its own
+    // F1-F12 row, independent of the system IME/Gboard.
+    private static final String CHECKBOX_ENABLE_KEYBOARD_VIBRATE_STRING = "checkbox_enable_keyboard_vibrate";
+    private static final String CHECKBOX_KEYBOARD_AUTOFIT_DISABLED_STRING = "checkbox_keyboard_autofit_disabled";
+    private static final String SEEKBAR_KEYBOARD_HEIGHT_STRING = "seekbar_keyboard_height";
+    private static final String SEEKBAR_KEYBOARD_WIDTH_STRING = "seekbar_keyboard_width";
+    private static final String LIST_KEYBOARD_ALIGN_MODE_STRING = "list_keyboard_align_mode";
+    private static final String SEEKBAR_OSC_KEYBOARD_OPACITY_STRING = "seekbar_osc_keyboard_opacity";
+
     static final String DEFAULT_RESOLUTION = "1280x720";
     static final String DEFAULT_FPS = "60";
     private static final String DEFAULT_VIDEO_SCALE_MODE = "fit";
@@ -150,6 +159,15 @@ public class PreferenceConfiguration {
     private static final int DEFAULT_TRACKPAD_SENSITIVITY_X = 100;
     private static final int DEFAULT_TRACKPAD_SENSITIVITY_Y = 100;
     private static final boolean DEFAULT_TRACKPAD_SWAP_AXIS = false;
+
+    // Full on-screen keyboard defaults
+    private static final boolean DEFAULT_ENABLE_KEYBOARD_VIBRATE = true;
+    private static final boolean DEFAULT_KEYBOARD_AUTOFIT_DISABLED = false;
+    private static final int DEFAULT_KEYBOARD_HEIGHT = 250;
+    // 1000 is the sentinel value KeyBoardLayoutController treats as MATCH_PARENT (full width).
+    private static final int DEFAULT_KEYBOARD_WIDTH = 1000;
+    private static final String DEFAULT_KEYBOARD_ALIGN_MODE = "center";
+    private static final int DEFAULT_KEYBOARD_OPACITY = 100;
 
     public static final int FRAME_PACING_MIN_LATENCY = 0;
     public static final int FRAME_PACING_BALANCED = 1;
@@ -226,6 +244,14 @@ public class PreferenceConfiguration {
     public int trackpadSensitivityY;
     public boolean trackpadSwapAxis;
     public boolean enableMultiTouchScreen;
+
+    // Full on-screen keyboard (KeyBoardLayoutController)
+    public boolean enableKeyboardVibrate;
+    public boolean onscreenKeyboardAutoFitDisabled;
+    public int onscreenKeyboardHeight;
+    public int onscreenKeyboardWidth;
+    public String onscreenKeyboardAlignMode;
+    public int oscKeyboardOpacity;
 
     public static boolean isNativeResolution(int width, int height) {
         // It's not a native resolution if it matches an existing resolution option
@@ -831,6 +857,14 @@ public class PreferenceConfiguration {
         config.trackpadSensitivityX = prefs.getInt(SEEKBAR_TRACKPAD_SENSITIVITY_X_STRING, DEFAULT_TRACKPAD_SENSITIVITY_X);
         config.trackpadSensitivityY = prefs.getInt(SEEKBAR_TRACKPAD_SENSITIVITY_Y_STRING, DEFAULT_TRACKPAD_SENSITIVITY_Y);
         config.trackpadSwapAxis = prefs.getBoolean(CHECKBOX_TRACKPAD_SWAP_AXIS_STRING, DEFAULT_TRACKPAD_SWAP_AXIS);
+
+        // Full on-screen keyboard (KeyBoardLayoutController)
+        config.enableKeyboardVibrate = prefs.getBoolean(CHECKBOX_ENABLE_KEYBOARD_VIBRATE_STRING, DEFAULT_ENABLE_KEYBOARD_VIBRATE);
+        config.onscreenKeyboardAutoFitDisabled = prefs.getBoolean(CHECKBOX_KEYBOARD_AUTOFIT_DISABLED_STRING, DEFAULT_KEYBOARD_AUTOFIT_DISABLED);
+        config.onscreenKeyboardHeight = prefs.getInt(SEEKBAR_KEYBOARD_HEIGHT_STRING, DEFAULT_KEYBOARD_HEIGHT);
+        config.onscreenKeyboardWidth = prefs.getInt(SEEKBAR_KEYBOARD_WIDTH_STRING, DEFAULT_KEYBOARD_WIDTH);
+        config.onscreenKeyboardAlignMode = prefs.getString(LIST_KEYBOARD_ALIGN_MODE_STRING, DEFAULT_KEYBOARD_ALIGN_MODE);
+        config.oscKeyboardOpacity = prefs.getInt(SEEKBAR_OSC_KEYBOARD_OPACITY_STRING, DEFAULT_KEYBOARD_OPACITY);
 
         return config;
     }

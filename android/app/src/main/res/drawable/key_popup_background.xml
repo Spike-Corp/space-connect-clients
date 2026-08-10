@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Background for the small popup that previews the key being touched on the full on-screen
+     keyboard (KeyBoardLayoutController.showKeyPopup) - mimics the "magnifier" bubble of the
+     stock Android text keyboard. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/moonlight_surface"/>
+    <stroke
+        android:width="1dp"
+        android:color="@color/moonlight_purple"/>
+    <corners android:radius="8dp"/>
+</shape>

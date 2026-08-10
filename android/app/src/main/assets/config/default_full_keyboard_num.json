@@ -1,0 +1,154 @@
+{
+  "standardParam": {
+    "standardKeyWidth": 32.0,
+    "standardKeyHeight": 32.0,
+    "standardStartMargin": 32.0,
+    "standardTopMargin": 16.0
+  },
+  "keyRowList": [
+    {
+      "topMargin": 0.0,
+      "height": 1.0,
+      "keyItemList": [
+        {
+          "keyCode": 143,
+          "displayName": "Num",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 154,
+          "displayName": "/",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 155,
+          "displayName": "*",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 156,
+          "displayName": "-",
+          "width": 1,
+          "startMargin": 0.0
+        }
+      ]
+    },
+    {
+      "topMargin": 0.3,
+      "height": 1.0,
+      "keyItemList": [
+        {
+          "keyCode": 151,
+          "displayName": "7",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 152,
+          "displayName": "8",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 153,
+          "displayName": "9",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 157,
+          "displayName": "+",
+          "width": 1,
+          "startMargin": 0.0
+        }
+      ]
+    },
+    {
+      "topMargin": 0.3,
+      "height": 1.0,
+      "keyItemList": [
+        {
+          "keyCode": 148,
+          "displayName": "4",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 149,
+          "displayName": "5",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 150,
+          "displayName": "6",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 160,
+          "displayName": "Enter",
+          "width": 1,
+          "startMargin": 0.0
+        }
+      ]
+    },
+    {
+      "topMargin": 0.3,
+      "height": 1.0,
+      "keyItemList": [
+        {
+          "keyCode": 145,
+          "displayName": "1",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 146,
+          "displayName": "2",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 147,
+          "displayName": "3",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 160,
+          "displayName": "Enter",
+          "width": 1,
+          "startMargin": 0.0
+        }
+      ]
+    },
+    {
+      "topMargin": 0.3,
+      "height": 1.0,
+      "keyItemList": [
+        {
+          "keyCode": 144,
+          "displayName": "0",
+          "width": 2,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 158,
+          "displayName": ".",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 160,
+          "displayName": "Enter",
+          "width": 1,
+          "startMargin": 0.0
+        }
+      ]
+    }
+  ]
+}

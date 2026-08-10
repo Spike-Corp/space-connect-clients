@@ -1,0 +1,556 @@
+{
+  "standardParam": {
+    "standardKeyWidth": 32.0,
+    "standardKeyHeight": 32.0,
+    "standardStartMargin": 32.0,
+    "standardTopMargin": 16.0
+  },
+  "keyRowList": [
+    {
+      "topMargin": 0.0,
+      "height": 1.0,
+      "keyItemList": [
+        {
+          "keyCode": 111,
+          "displayName": "Esc",
+          "width": 1.5,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 131,
+          "displayName": "F1",
+          "width": 1,
+          "startMargin": 0.5
+        },
+        {
+          "keyCode": 132,
+          "displayName": "F2",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 133,
+          "displayName": "F3",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 134,
+          "displayName": "F4",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 135,
+          "displayName": "F5",
+          "width": 1,
+          "startMargin": 0.5
+        },
+        {
+          "keyCode": 136,
+          "displayName": "F6",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 137,
+          "displayName": "F7",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 138,
+          "displayName": "F8",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 139,
+          "displayName": "F9",
+          "width": 1,
+          "startMargin": 0.5
+        },
+        {
+          "keyCode": 140,
+          "displayName": "F10",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 141,
+          "displayName": "F11",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 142,
+          "displayName": "F12",
+          "width": 1,
+          "startMargin": 0.0
+        }
+      ]
+    },
+    {
+      "topMargin": 0.5,
+      "height": 1.0,
+      "keyItemList": [
+        {
+          "keyCode": 68,
+          "displayName": "`",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 8,
+          "displayName": "1",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 9,
+          "displayName": "2",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 10,
+          "displayName": "3",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 11,
+          "displayName": "4",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 12,
+          "displayName": "5",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 13,
+          "displayName": "6",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 14,
+          "displayName": "7",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 15,
+          "displayName": "8",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 16,
+          "displayName": "9",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 7,
+          "displayName": "0",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 69,
+          "displayName": "-",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 70,
+          "displayName": "=",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 67,
+          "displayName": "⌫",
+          "width": 2,
+          "startMargin": 0.0
+        }
+      ]
+    },
+    {
+      "topMargin": 0.3,
+      "height": 1.0,
+      "keyItemList": [
+        {
+          "keyCode": 61,
+          "displayName": "Tab",
+          "width": 1.5,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 45,
+          "displayName": "Q",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 51,
+          "displayName": "W",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 33,
+          "displayName": "E",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 46,
+          "displayName": "R",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 48,
+          "displayName": "T",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 53,
+          "displayName": "Y",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 49,
+          "displayName": "U",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 37,
+          "displayName": "I",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 43,
+          "displayName": "O",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 44,
+          "displayName": "P",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 71,
+          "displayName": "[",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 72,
+          "displayName": "]",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 73,
+          "displayName": "\\",
+          "width": 1.5,
+          "startMargin": 0.0
+        }
+      ]
+    },
+    {
+      "topMargin": 0.3,
+      "height": 1.0,
+      "keyItemList": [
+        {
+          "keyCode": 115,
+          "displayName": "Caps",
+          "width": 1.75,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 29,
+          "displayName": "A",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 47,
+          "displayName": "S",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 32,
+          "displayName": "D",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 34,
+          "displayName": "F",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 35,
+          "displayName": "G",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 36,
+          "displayName": "H",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 38,
+          "displayName": "J",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 39,
+          "displayName": "K",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 40,
+          "displayName": "L",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 74,
+          "displayName": ";",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 75,
+          "displayName": "'",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 66,
+          "displayName": "Enter",
+          "width": 2.25,
+          "startMargin": 0.0
+        }
+      ]
+    },
+    {
+      "topMargin": 0.3,
+      "height": 1.0,
+      "keyItemList": [
+        {
+          "keyCode": 59,
+          "displayName": "Shift",
+          "width": 2.25,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 54,
+          "displayName": "Z",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 52,
+          "displayName": "X",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 31,
+          "displayName": "C",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 50,
+          "displayName": "V",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 30,
+          "displayName": "B",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 42,
+          "displayName": "N",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 41,
+          "displayName": "M",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 55,
+          "displayName": ",",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 56,
+          "displayName": ".",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 76,
+          "displayName": "/",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 60,
+          "displayName": "Shift",
+          "width": 2.75,
+          "startMargin": 0.0
+        }
+      ]
+    },
+    {
+      "topMargin": 0.3,
+      "height": 1.0,
+      "keyItemList": [
+        {
+          "keyCode": 113,
+          "displayName": "Ctrl",
+          "width": 1.25,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 117,
+          "displayName": "Win",
+          "width": 1.25,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 57,
+          "displayName": "Alt",
+          "width": 1.25,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 62,
+          "displayName": "",
+          "width": 6.25,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 58,
+          "displayName": "Alt",
+          "width": 1.25,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 118,
+          "displayName": "Win",
+          "width": 1.25,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 82,
+          "displayName": "Menu",
+          "width": 1.25,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 114,
+          "displayName": "Ctrl",
+          "width": 1.25,
+          "startMargin": 0.0
+        }
+      ]
+    },
+    {
+      "topMargin": 0.5,
+      "height": 1.0,
+      "keyItemList": [
+        {
+          "keyCode": 124,
+          "displayName": "Ins",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 122,
+          "displayName": "Home",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 92,
+          "displayName": "PgUp",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 112,
+          "displayName": "Del",
+          "width": 1,
+          "startMargin": 0.3
+        },
+        {
+          "keyCode": 123,
+          "displayName": "End",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 93,
+          "displayName": "PgDn",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 21,
+          "displayName": "←",
+          "width": 1,
+          "startMargin": 0.3
+        },
+        {
+          "keyCode": 19,
+          "displayName": "↑",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 20,
+          "displayName": "↓",
+          "width": 1,
+          "startMargin": 0.0
+        },
+        {
+          "keyCode": 22,
+          "displayName": "→",
+          "width": 1,
+          "startMargin": 0.0
+        }
+      ]
+    }
+  ]
+}
