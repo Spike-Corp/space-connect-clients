@@ -19,7 +19,7 @@ import android.widget.Toast;
 
 public class LoginActivity extends Activity {
 
-    private static final String ACCOUNT_WEB_URL = "https://spacecloud.gg";
+    private static final String ACCOUNT_WEB_URL = "https://spacecloud.gg/panel";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -77,7 +77,7 @@ public class LoginActivity extends Activity {
         createAccountLink.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                openAccountWebPage("/signup");
+                openAccountWebPage("/register");
             }
         });
 
