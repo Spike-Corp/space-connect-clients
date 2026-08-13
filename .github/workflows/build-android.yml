@@ -26,10 +26,10 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install SDK packages (API 35 + NDK)
+      - name: Install SDK packages (API 36 + NDK)
         run: |
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
-          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;23.2.8568313"
+          sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;23.2.8568313"
 
       - name: Decode upload keystore
         run: |

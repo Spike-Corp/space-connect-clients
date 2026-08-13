@@ -3,17 +3,17 @@ apply plugin: 'com.android.application'
 android {
     ndkVersion "23.2.8568313"
 
-    compileSdk 35
-    buildToolsVersion "35.0.0"
+    compileSdk 36
+    buildToolsVersion "36.0.0"
 
     namespace 'com.limelight'
 
     defaultConfig {
         minSdk 23
-        targetSdk 35
+        targetSdk 36
 
         versionName "0.1.4"
-        versionCode = 11
+        versionCode = 12
 
         // Generate native debug symbols to allow Google Play to symbolicate our native crashes
         ndk.debugSymbolLevel = 'FULL'
