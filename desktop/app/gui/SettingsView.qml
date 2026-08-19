@@ -1931,28 +1931,20 @@ Flickable {
 
                 Label {
                     width: parent.width
-                    text: accountSettings.loggedIn ? qsTr("Signed in as %1").arg(accountSettings.email)
-                                                    : qsTr("Not signed in")
+                    text: LauncherApi.loggedIn ? (LauncherApi.email ? qsTr("Signed in as %1").arg(LauncherApi.email) : qsTr("Signed in"))
+                                               : qsTr("Not signed in")
                     font.pointSize: 12
                     wrapMode: Text.Wrap
                 }
 
                 Button {
                     text: qsTr("Sign Out")
-                    visible: accountSettings.loggedIn
+                    visible: LauncherApi.loggedIn
                     onClicked: {
-                        accountSettings.loggedIn = false
-                        accountSettings.email = ""
+                        LauncherApi.logout()
                         window.clearOnBack = true
                         stackView.replace("qrc:/gui/LoginView.qml")
                     }
-                }
-
-                Settings {
-                    id: accountSettings
-                    category: "account"
-                    property bool loggedIn: false
-                    property string email: ""
                 }
             }
         }
