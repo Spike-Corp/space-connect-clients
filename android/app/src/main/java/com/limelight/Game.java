@@ -145,6 +145,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private String pcName;
     private String appName;
     private String hostAddress;
+    private int streamPort = 0;
     private NvApp app;
     private float desiredRefreshRate;
 
@@ -390,6 +391,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         String host = Game.this.getIntent().getStringExtra(EXTRA_HOST);
         hostAddress = host;
         int port = Game.this.getIntent().getIntExtra(EXTRA_PORT, NvHTTP.DEFAULT_HTTP_PORT);
+        streamPort = port;
         int httpsPort = Game.this.getIntent().getIntExtra(EXTRA_HTTPS_PORT, 0); // 0 is treated as unknown
         int appId = Game.this.getIntent().getIntExtra(EXTRA_APP_ID, StreamConfiguration.INVALID_APP_ID);
         String uniqueId = Game.this.getIntent().getStringExtra(EXTRA_UNIQUEID);
@@ -2081,8 +2083,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (hostAddress == null) {
             return;
         }
+        int micPort = (streamPort > 0 && streamPort != NvHTTP.DEFAULT_HTTP_PORT && streamPort != 47989)
+                ? (streamPort + 25)
+                : MicForwarder.DEFAULT_PORT;
         if (micForwarder == null) {
-            micForwarder = new MicForwarder(this, hostAddress, MicForwarder.DEFAULT_PORT, prefConfig.micForwardingDevice);
+            micForwarder = new MicForwarder(this, hostAddress, micPort, prefConfig.micForwardingDevice);
         }
         micForwarder.start();
         Toast.makeText(this, R.string.game_mic_forward_started, Toast.LENGTH_SHORT).show();

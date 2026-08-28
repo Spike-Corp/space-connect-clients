@@ -1647,9 +1647,13 @@ bool Session::startConnectionAsync()
     emit connectionStarted();
 
     if (m_Preferences->enableMicForwarding) {
+        quint16 basePort = m_Computer->activeAddress.port();
+        quint16 micPort = (basePort > 0 && basePort != 47989)
+                ? static_cast<quint16>(basePort + 25)
+                : MicForwarder::DEFAULT_PORT;
         m_MicForwarder = new MicForwarder();
         m_MicForwarder->startForwarding(m_Computer->activeAddress.address(),
-                                         MicForwarder::DEFAULT_PORT,
+                                         micPort,
                                          m_Preferences->micCaptureDeviceName);
     }
 

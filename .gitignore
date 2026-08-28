@@ -29,6 +29,7 @@ android/**/*.iml
 # mic-bridge (.NET)
 mic-bridge/bin/
 mic-bridge/obj/
+mic-bridge/publish/
 
 # Secrets / signing (never commit)
 *.jks
