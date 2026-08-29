@@ -4,6 +4,10 @@
 
 #include <QCoreApplication>
 #include <QDateTime>
+#include <QFile>
+#include <QFileInfo>
+#include <QHttpMultiPart>
+#include <QHttpPart>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QNetworkReply>
@@ -11,6 +15,7 @@
 #include <QSettings>
 #include <QSysInfo>
 #include <QUuid>
+#include <QUrl>
 
 #include <stdexcept>
 
@@ -421,6 +426,55 @@ void LauncherApi::request(
         if (parseError.error == QJsonParseError::NoError && document.isObject())
             root = document.object();
         handler(status > 0 ? status : 503, root);
+        reply->deleteLater();
+    });
+}
+
+void LauncherApi::uploadFileToVm(const QString& localFilePath)
+{
+    QString cleanPath = localFilePath;
+    if (cleanPath.startsWith("file:///")) {
+        cleanPath = QUrl(cleanPath).toLocalFile();
+    }
+    
+    QFile* file = new QFile(cleanPath);
+    if (!file->open(QIODevice::ReadOnly)) {
+        delete file;
+        setError(tr("Não foi possível abrir o arquivo para upload"));
+        return;
+    }
+
+    setBusy(true);
+
+    QHttpMultiPart* multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
+    QHttpPart filePart;
+    QFileInfo fileInfo(cleanPath);
+    filePart.setHeader(QNetworkRequest::ContentDispositionHeader,
+                       QVariant(QString("form-data; name=\"file\"; filename=\"%1\"").arg(fileInfo.fileName())));
+    filePart.setBodyDevice(file);
+    file->setParent(multiPart);
+    multiPart->append(filePart);
+
+    QNetworkRequest request(kApiBase.resolved(QUrl(QStringLiteral("/api/user/session/upload"))));
+    request.setRawHeader("Accept", "application/json");
+    request.setRawHeader("User-Agent", "SpaceConnect-Qt/0.1.0");
+    if (!m_AccessToken.isEmpty())
+        request.setRawHeader("Authorization", "Bearer " + m_AccessToken.toUtf8());
+
+    QNetworkReply* reply = m_Network.post(request, multiPart);
+    multiPart->setParent(reply);
+
+    connect(reply, &QNetworkReply::finished, this, [this, reply, fileInfo]() {
+        setBusy(false);
+        const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        const QByteArray responseData = reply->readAll();
+        QJsonDocument doc = QJsonDocument::fromJson(responseData);
+        if (status >= 200 && status < 300) {
+            emit fileUploadSucceeded(fileInfo.fileName());
+        } else {
+            QString err = doc.object().value(QStringLiteral("error")).toString();
+            setError(err.isEmpty() ? tr("Falha ao transferir arquivo para a VM") : err);
+        }
         reply->deleteLater();
     });
 }

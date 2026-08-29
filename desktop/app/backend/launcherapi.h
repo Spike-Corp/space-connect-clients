@@ -58,6 +58,7 @@ public:
     Q_INVOKABLE void createMachine(const QString& password);
     Q_INVOKABLE void fetchMachines();
     Q_INVOKABLE void submitPairPin(const QString& pin);
+    Q_INVOKABLE void uploadFileToVm(const QString& filePath);
     Q_INVOKABLE void logout();
     // Bitrate ceiling (Kbps) cached from the last connection reported by the backend.
     // 0 when never received; callers should fall back to a local heuristic.
@@ -74,6 +75,7 @@ signals:
     void loginSucceeded();
     void twoFactorRequired();
     void connectionReady(QString address);
+    void fileUploadSucceeded(QString fileName);
 
 private:
     using ResponseHandler = std::function<void(int, const QJsonObject&)>;

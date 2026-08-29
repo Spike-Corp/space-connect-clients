@@ -143,7 +143,7 @@ void StreamingPreferences::reload()
     reverseScrollDirection = settings.value(SER_REVERSESCROLL, false).toBool();
     swapFaceButtons = settings.value(SER_SWAPFACEBUTTONS, false).toBool();
     keepAwake = settings.value(SER_KEEPAWAKE, true).toBool();
-    enableMicForwarding = settings.value(SER_MICFORWARDING, false).toBool();
+    enableMicForwarding = settings.value(SER_MICFORWARDING, true).toBool();
     // Empty string means "automatic"/use the system's default recording device
     micCaptureDeviceName = settings.value(SER_MIC_DEVICE, "").toString();
     enableHdr = settings.value(SER_HDR, false).toBool();
