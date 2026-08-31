@@ -15,6 +15,8 @@ class LauncherApi : public QObject
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
     Q_PROPERTY(bool loggedIn READ loggedIn NOTIFY loggedInChanged)
     Q_PROPERTY(QString email READ email NOTIFY emailChanged)
+    Q_PROPERTY(bool rememberMe READ rememberMe WRITE setRememberMe NOTIFY rememberMeChanged)
+    Q_PROPERTY(QString savedEmail READ savedEmail NOTIFY savedEmailChanged)
     Q_PROPERTY(QString errorMessage READ errorMessage NOTIFY errorMessageChanged)
     Q_PROPERTY(QString state READ state NOTIFY statusChanged)
     Q_PROPERTY(int queuePosition READ queuePosition NOTIFY statusChanged)
@@ -35,6 +37,14 @@ public:
     bool busy() const { return m_Busy; }
     bool loggedIn() const { return m_LoggedIn; }
     QString email() const { return m_Email; }
+    bool rememberMe() const { return m_RememberMe; }
+    void setRememberMe(bool remember) {
+        if (m_RememberMe != remember) {
+            m_RememberMe = remember;
+            emit rememberMeChanged();
+        }
+    }
+    QString savedEmail() const { return m_SavedEmail; }
     QString errorMessage() const { return m_ErrorMessage; }
     QString state() const { return m_State; }
     int queuePosition() const { return m_QueuePosition; }
@@ -69,6 +79,8 @@ signals:
     void busyChanged();
     void loggedInChanged();
     void emailChanged();
+    void rememberMeChanged();
+    void savedEmailChanged();
     void errorMessageChanged();
     void statusChanged();
     void machinesChanged();
@@ -104,6 +116,7 @@ private:
     QString m_RefreshToken;
     QString m_TempToken;
     QString m_Email;
+    QString m_SavedEmail;
     QString m_ErrorMessage;
     QString m_State = QStringLiteral("idle");
     QString m_PlanSlug;
@@ -113,6 +126,7 @@ private:
     qint64 m_RemainingMs = 0;
     bool m_Busy = false;
     bool m_LoggedIn = false;
+    bool m_RememberMe = true;
     bool m_HasMachine = false;
     bool m_MachinesLoaded = false;
 };

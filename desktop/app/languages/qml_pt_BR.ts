@@ -322,18 +322,19 @@
         <translation>E-mail</translation>
     </message>
     <message>
+        <location filename="../gui/LoginView.qml" line="108"/>
+        <source>Remember me for 30 days on this device</source>
+        <translation>Lembrar login por 30 dias neste dispositivo</translation>
+    </message>
+    <message>
         <location filename="../gui/LoginView.qml" line="149"/>
         <source>Two-factor authentication</source>
-        <translation type="unfinished"></translation>
+        <translation>Autenticação de dois fatores</translation>
     </message>
     <message>
         <location filename="../gui/LoginView.qml" line="157"/>
         <source>6-digit code</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>you@example.com</source>
-        <translation type="vanished">voce@exemplo.com</translation>
+        <translation>Código de 6 dígitos</translation>
     </message>
     <message>
         <location filename="../gui/LoginView.qml" line="102"/>

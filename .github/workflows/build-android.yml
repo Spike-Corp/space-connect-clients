@@ -12,16 +12,16 @@ on:
 
 jobs:
   android:
-    runs-on: [self-hosted, linux]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Environment
-        run: |
-          echo "ANDROID_HOME=/opt/android-sdk" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=/opt/android-sdk" >> "$GITHUB_ENV"
-          echo "PATH=/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools:$PATH" >> "$GITHUB_ENV"
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
       - name: Decode upload keystore
         run: |

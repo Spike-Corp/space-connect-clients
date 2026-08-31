@@ -28,10 +28,24 @@ Item {
         LauncherApi.login(emailField.text, passwordField.text)
     }
 
+    Component.onCompleted: {
+        if (LauncherApi.loggedIn) {
+            stackView.replace("qrc:/gui/LauncherView.qml")
+        } else if (LauncherApi.savedEmail) {
+            emailField.text = LauncherApi.savedEmail
+            passwordField.forceActiveFocus()
+        }
+    }
+
     Connections {
         target: LauncherApi
         function onLoginSucceeded() {
             stackView.replace("qrc:/gui/LauncherView.qml")
+        }
+        function onLoggedInChanged() {
+            if (LauncherApi.loggedIn) {
+                stackView.replace("qrc:/gui/LauncherView.qml")
+            }
         }
         function onTwoFactorRequired() {
             twoFactorDialog.open()
@@ -102,6 +116,14 @@ Item {
                         placeholderText: qsTr("Password")
                         echoMode: TextInput.Password
                         Keys.onReturnPressed: loginView.attemptLogin()
+                    }
+
+                    SpaceCheckBox {
+                        id: rememberMeCheckbox
+                        Layout.fillWidth: true
+                        text: qsTr("Remember me for 30 days on this device")
+                        checked: LauncherApi.rememberMe
+                        onCheckedChanged: LauncherApi.rememberMe = checked
                     }
 
                     Label {

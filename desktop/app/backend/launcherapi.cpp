@@ -33,6 +33,23 @@ LauncherApi::LauncherApi(QObject* parent)
 {
     m_RefreshTimer.setSingleShot(true);
     connect(&m_RefreshTimer, &QTimer::timeout, this, &LauncherApi::refreshTokens);
+
+    QSettings settings;
+    m_RememberMe = settings.value(QStringLiteral("auth/rememberMe"), true).toBool();
+    m_SavedEmail = settings.value(QStringLiteral("auth/email")).toString();
+    if (m_RememberMe && !m_SavedEmail.isEmpty()) {
+        const qint64 savedAt = settings.value(QStringLiteral("auth/savedAt"), 0).toLongLong();
+        const qint64 now = QDateTime::currentMSecsSinceEpoch();
+        const qint64 kThirtyDaysMs = 30LL * 24 * 60 * 60 * 1000;
+        if (savedAt > 0 && (now - savedAt) < kThirtyDaysMs) {
+            m_RefreshToken = settings.value(QStringLiteral("auth/refreshToken")).toString();
+            m_Email = m_SavedEmail;
+            if (!m_RefreshToken.isEmpty()) {
+                m_LoggedIn = true;
+                QTimer::singleShot(100, this, &LauncherApi::refreshTokens);
+            }
+        }
+    }
 }
 
 void LauncherApi::login(const QString& email, const QString& password)
@@ -120,6 +137,21 @@ void LauncherApi::handleAuthResponse(int status, const QJsonObject& root)
         m_TempToken.clear();
         m_LoggedIn = !m_AccessToken.isEmpty() && !m_RefreshToken.isEmpty();
         emit loggedInChanged();
+
+        QSettings settings;
+        if (m_RememberMe) {
+            settings.setValue(QStringLiteral("auth/rememberMe"), true);
+            settings.setValue(QStringLiteral("auth/refreshToken"), m_RefreshToken);
+            settings.setValue(QStringLiteral("auth/email"), m_Email);
+            settings.setValue(QStringLiteral("auth/savedAt"), QDateTime::currentMSecsSinceEpoch());
+            m_SavedEmail = m_Email;
+            emit savedEmailChanged();
+        } else {
+            settings.setValue(QStringLiteral("auth/rememberMe"), false);
+            settings.remove(QStringLiteral("auth/refreshToken"));
+            settings.remove(QStringLiteral("auth/savedAt"));
+        }
+
         scheduleRefresh(root.value(QStringLiteral("accessTokenExpiresIn")).toInt(900));
         emit loginSucceeded();
         refreshStatus();
@@ -342,8 +374,14 @@ void LauncherApi::logout()
     m_TempToken.clear();
     m_Email.clear();
     m_LoggedIn = false;
+
+    QSettings settings;
+    settings.remove(QStringLiteral("auth/refreshToken"));
+    settings.remove(QStringLiteral("auth/savedAt"));
+
     emit emailChanged();
     emit loggedInChanged();
+    emit statusChanged();
 }
 
 void LauncherApi::refreshTokens()
@@ -361,6 +399,24 @@ void LauncherApi::refreshTokens()
                 if (status >= 200 && status < 300) {
                     m_AccessToken = root.value(QStringLiteral("accessToken")).toString();
                     m_RefreshToken = root.value(QStringLiteral("refreshToken")).toString();
+                    const QJsonObject user = root.value(QStringLiteral("user")).toObject();
+                    if (!user.value(QStringLiteral("email")).toString().isEmpty()) {
+                        m_Email = user.value(QStringLiteral("email")).toString();
+                        emit emailChanged();
+                    }
+                    m_LoggedIn = true;
+                    emit loggedInChanged();
+
+                    if (m_RememberMe) {
+                        QSettings settings;
+                        settings.setValue(QStringLiteral("auth/refreshToken"), m_RefreshToken);
+                        if (!m_Email.isEmpty()) {
+                            settings.setValue(QStringLiteral("auth/email"), m_Email);
+                            m_SavedEmail = m_Email;
+                            emit savedEmailChanged();
+                        }
+                    }
+
                     scheduleRefresh(root.value(QStringLiteral("accessTokenExpiresIn")).toInt(900));
                     refreshStatus();
                 }
