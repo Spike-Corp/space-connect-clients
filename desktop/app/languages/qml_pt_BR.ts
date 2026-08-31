@@ -268,6 +268,37 @@
         <translation>Aguarde</translation>
     </message>
     <message>
+        <location filename="../gui/LauncherView.qml" line="30"/>
+        <source>Create your PC</source>
+        <translation>Criar seu PC Gamer</translation>
+    </message>
+    <message>
+        <location filename="../gui/LauncherView.qml" line="40"/>
+        <source>You don't have a dedicated PC yet. Create one to start playing.</source>
+        <translation>Você ainda não possui uma máquina virtual criada. Crie uma para começar a jogar.</translation>
+    </message>
+    <message>
+        <location filename="../gui/LauncherView.qml" line="49"/>
+        <location filename="../gui/LauncherView.qml" line="189"/>
+        <source>Create your VM</source>
+        <translation>Criar sua VM</translation>
+    </message>
+    <message>
+        <location filename="../gui/LauncherView.qml" line="199"/>
+        <source>Choose a password for your PC (used for Windows login too).</source>
+        <translation>Defina uma senha para o seu computador virtual (será usada também no login do Windows).</translation>
+    </message>
+    <message>
+        <location filename="../gui/LauncherView.qml" line="208"/>
+        <source>Password (5-64 characters)</source>
+        <translation>Senha (5 a 64 caracteres)</translation>
+    </message>
+    <message>
+        <location filename="../gui/LauncherView.qml" line="213"/>
+        <source>Create VM</source>
+        <translation>Criar Máquina</translation>
+    </message>
+    <message>
         <location filename="../gui/LauncherView.qml" line="152"/>
         <source>End session</source>
         <translation>Finalizar sessão</translation>
