@@ -12,10 +12,16 @@ on:
 
 jobs:
   android:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Configure Android SDK Env
+        run: |
+          echo "ANDROID_HOME=/opt/android-sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=/opt/android-sdk" >> "$GITHUB_ENV"
+          echo "PATH=/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools:$PATH" >> "$GITHUB_ENV"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -25,7 +31,9 @@ jobs:
 
       - name: Decode upload keystore
         run: |
+          mkdir -p /root/.config/spaceconnect
           echo "${{ secrets.SC_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          cp "$RUNNER_TEMP/upload.jks" /root/.config/spaceconnect/space-connect-upload.jks
           echo "SC_KEYSTORE_PATH=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
 
       - name: Build release AAB
