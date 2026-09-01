@@ -21,7 +21,7 @@ permissions:
 jobs:
   windows:
     name: Windows x64
-    runs-on: windows-2022
+    runs-on: [self-hosted, Windows, x64]
     defaults:
       run:
         working-directory: desktop
@@ -110,7 +110,7 @@ jobs:
     # why users on those OSes can't run the regular Space Connect build. This
     # job builds a second client with Qt 5.15 (last LTS supporting Win7 SP1+
     # and Win8/8.1) so those users have a working option.
-    runs-on: windows-2022
+    runs-on: [self-hosted, Windows, x64]
     defaults:
       run:
         working-directory: desktop
