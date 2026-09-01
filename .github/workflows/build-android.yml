@@ -17,17 +17,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure Android SDK Env
+      - name: Configure Java 17 and Android SDK Env
         run: |
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk" >> "$GITHUB_ENV"
           echo "ANDROID_HOME=/opt/android-sdk" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=/opt/android-sdk" >> "$GITHUB_ENV"
-          echo "PATH=/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools:$PATH" >> "$GITHUB_ENV"
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
+          echo "PATH=/usr/lib/jvm/java-17-openjdk/bin:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools:$PATH" >> "$GITHUB_ENV"
 
       - name: Decode upload keystore
         run: |
@@ -49,11 +44,14 @@ jobs:
       - name: Stage artifact
         working-directory: android
         run: |
+          mkdir -p /root/releases-v015 /root/space-connect-releases
           VERSION=$(grep -E 'versionName' app/build.gradle | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
           SRC=app/build/outputs/bundle/nonRootRelease/app-nonRoot-release.aab
           OUT="SpaceConnect-${VERSION}-release.aab"
           cp "$SRC" "$OUT"
-          echo "Built $OUT"; ls -la "$OUT"
+          cp "$SRC" "/root/releases-v015/$OUT"
+          cp "$SRC" "/root/space-connect-releases/$OUT"
+          echo "Built and staged $OUT"
 
       - name: Upload AAB
         uses: actions/upload-artifact@v4
@@ -77,11 +75,14 @@ jobs:
       - name: Stage APK artifact
         working-directory: android
         run: |
+          mkdir -p /root/releases-v015 /root/space-connect-releases
           VERSION=$(grep -E 'versionName' app/build.gradle | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
           SRC=$(ls app/build/outputs/apk/nonRoot/release/*.apk | head -n1)
           OUT="SpaceConnect-${VERSION}-android.apk"
           cp "$SRC" "$OUT"
-          echo "Built $OUT"; ls -la "$OUT"
+          cp "$SRC" "/root/releases-v015/$OUT"
+          cp "$SRC" "/root/space-connect-releases/$OUT"
+          echo "Built and staged $OUT"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
