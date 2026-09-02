@@ -127,7 +127,7 @@ public class LoginActivity extends Activity {
         new AlertDialog.Builder(this)
                 .setTitle(R.string.launcher_two_factor_title)
                 .setView(codeField)
-                .setNegativeButton(android.R.string.cancel, null)
+                .setNegativeButton(R.string.game_menu_cancel, null)
                 .setPositiveButton(R.string.launcher_confirm, (dialog, which) -> {
                     loginButton.setEnabled(false);
                     AccountManager.verifyTwoFactor(

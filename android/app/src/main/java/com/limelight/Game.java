@@ -2075,7 +2075,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         new AlertDialog.Builder(this)
                 .setTitle(R.string.game_special_keys_title)
                 .setView(view)
-                .setNegativeButton(android.R.string.cancel, null)
+                .setNegativeButton(R.string.game_menu_cancel, null)
                 .show();
     }
 

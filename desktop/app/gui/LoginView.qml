@@ -160,7 +160,7 @@ Item {
                 MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: Qt.openUrlExternally("https://spacecloud.gg/forgot-password")
+                    onClicked: Qt.openUrlExternally("https://spacecloud.gg/panel/forgot-password")
                 }
             }
         }

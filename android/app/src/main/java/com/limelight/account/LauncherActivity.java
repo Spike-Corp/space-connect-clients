@@ -187,7 +187,7 @@ public class LauncherActivity extends Activity {
                 .setTitle(R.string.launcher_create_machine_title)
                 .setMessage(R.string.launcher_create_machine_message)
                 .setView(passwordField)
-                .setNegativeButton(android.R.string.cancel, null)
+                .setNegativeButton(R.string.game_menu_cancel, null)
                 .setPositiveButton(R.string.launcher_confirm, (dialog, which) ->
                         createMachine(passwordField.getText().toString()))
                 .show();
