@@ -11,6 +11,8 @@ Changes here do not modify the currently published Space Connect client.
 - Server-side eligibility for premium plans before a session is reserved.
 - Dedicated GPU session and persistent game disk orchestration.
 - Apollo/Sunshine connection through the existing Moonlight streaming stack.
+- Direct launch into the selected game after the host is added; the beta does
+  not route the player through the generic PC list.
 - A beta-only visual layer that follows the Space Connect design tokens and
   keeps the desktop hidden from the player.
 
@@ -52,8 +54,10 @@ Official builds are published to the OVH object storage release bucket:
 - **Android (APK):** https://spaceconnect-releases.s3.bhs.perf.cloud.ovh.net/v0.1.0/SpaceConnect-0.1.0-android.apk
 - **Checksums:** https://spaceconnect-releases.s3.bhs.perf.cloud.ovh.net/v0.1.0/SHA256SUMS.txt
 
-Windows (portable zip) and macOS (universal DMG) builds are produced by the
-`Build Desktop Clients` GitHub Actions workflow and uploaded to the same bucket.
+Windows (portable zip/MSI) and macOS (universal DMG) builds are produced by
+the `Build Desktop Clients` GitHub Actions workflow and uploaded to the same
+bucket. A Windows artifact is not published until the Windows builder runner
+is online.
 
 > macOS DMGs from CI are **ad-hoc signed**, not Apple-notarized. First launch
 > requires right-click → Open (or `xattr -dr com.apple.quarantine`). Setting the
