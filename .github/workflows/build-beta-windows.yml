@@ -1,0 +1,61 @@
+name: Build Crimson Beta Windows
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-beta:
+    name: Space Connect Crimson Beta (Windows x64)
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - name: Checkout beta source
+        uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.7.3'
+          host: windows
+          target: desktop
+          arch: win64_msvc2019_64
+          cache: true
+
+      - name: Build release
+        shell: cmd
+        run: |
+          qmake moonlight-qt.pro CONFIG+=release || exit /b 1
+          scripts\jom.exe release || exit /b 1
+
+      - name: Deploy portable client
+        shell: cmd
+        run: |
+          mkdir deploy || exit /b 1
+          copy /Y app\release\SpaceConnect.exe deploy\ || exit /b 1
+          copy /Y libs\windows\lib\x64\*.dll deploy\ || exit /b 1
+          copy /Y AntiHooking\release\AntiHooking.dll deploy\ || exit /b 1
+          copy /Y app\SDL_GameControllerDB\gamecontrollerdb.txt deploy\ || exit /b 1
+          windeployqt --release --qmldir app\gui --no-opengl-sw --no-compiler-runtime --no-sql --no-system-d3d-compiler --no-system-dxc-compiler --skip-plugin-types qmltooling,generic --no-ffmpeg --no-quickcontrols2fusion --no-quickcontrols2imagine --no-quickcontrols2universal deploy\SpaceConnect.exe || exit /b 1
+
+      - name: Package beta ZIP
+        shell: pwsh
+        run: |
+          $version = (Get-Content app/version.txt).Trim()
+          Compress-Archive -Path deploy/* -DestinationPath "../SpaceConnect-Crimson-Beta-$version-windows-x64.zip" -Force
+
+      - name: Upload private beta artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpaceConnect-Crimson-Beta-windows-x64
+          path: SpaceConnect-Crimson-Beta-*-windows-x64.zip
+          if-no-files-found: error
