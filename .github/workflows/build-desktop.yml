@@ -106,6 +106,7 @@ jobs:
 
   windows-legacy:
     name: Windows x64 (legacy, Win7/8/8.1)
+    if: ${{ false }}
     # Qt 6 dropped support for Windows 7/8/8.1 (requires Windows 10+), which is
     # why users on those OSes can't run the regular Space Connect build. This
     # job builds a second client with Qt 5.15 (last LTS supporting Win7 SP1+
@@ -192,6 +193,7 @@ jobs:
 
   macos:
     name: macOS universal
+    if: ${{ false }}
     runs-on: macos-latest
     defaults:
       run:
@@ -227,6 +229,7 @@ jobs:
 
   linux:
     name: Linux AppImage (x86_64)
+    if: ${{ false }}
     runs-on: ubuntu-22.04
     defaults:
       run:
