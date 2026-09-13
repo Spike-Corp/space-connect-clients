@@ -969,6 +969,31 @@ void ComputerManager::addNewHost(NvAddress address, bool mdns, NvAddress mdnsIpv
 }
 
 // TODO: Use QRandomGenerator when we drop Qt 5.9 support
+int ComputerManager::findComputerIndex(QString address)
+{
+    const int separator = address.lastIndexOf(QLatin1Char(':'));
+    if (separator <= 0)
+        return -1;
+
+    bool ok = false;
+    const uint16_t port = address.mid(separator + 1).toUShort(&ok);
+    if (!ok || port == 0)
+        return -1;
+
+    const NvAddress target(address.left(separator), port);
+    const QVector<NvComputer*> hosts = getComputers();
+    for (int index = 0; index < hosts.size(); ++index) {
+        NvComputer* host = hosts.at(index);
+        QReadLocker lock(&host->lock);
+        if (host->activeAddress == target || host->manualAddress == target
+            || host->localAddress == target || host->remoteAddress == target) {
+            return index;
+        }
+    }
+
+    return -1;
+}
+
 QString ComputerManager::generatePinString()
 {
     std::uniform_int_distribution<int> dist(0, 9999);

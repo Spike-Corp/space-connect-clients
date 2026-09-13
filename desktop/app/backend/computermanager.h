@@ -228,6 +228,8 @@ public:
 
     Q_INVOKABLE void addNewHostManually(QString address);
 
+    Q_INVOKABLE int findComputerIndex(QString address);
+
     // Returns the reported GPU model string (e.g. "Tesla T4", "NVIDIA L4") of the first
     // known computer, or an empty string if none are known yet or the info hasn't been
     // fetched via /serverinfo yet. Used by SettingsView to decide whether to unlock the

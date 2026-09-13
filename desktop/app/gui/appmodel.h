@@ -31,6 +31,8 @@ public:
 
     Q_INVOKABLE int getDirectLaunchAppIndex();
 
+    Q_INVOKABLE int getAppIndexByName(QString appName);
+
     Q_INVOKABLE int getRunningAppId();
 
     Q_INVOKABLE QString getRunningAppName();

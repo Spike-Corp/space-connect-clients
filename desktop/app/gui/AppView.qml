@@ -12,6 +12,7 @@ CenteredGridView {
     property bool activated
     property bool showHiddenGames
     property bool showGames
+    property string directLaunchAppName: ""
 
     id: appGrid
     focus: true
@@ -44,7 +45,9 @@ CenteredGridView {
 
         if (!showGames && !showHiddenGames) {
             // Check if there's a direct launch app
-            var directLaunchAppIndex = model.getDirectLaunchAppIndex();
+            var directLaunchAppIndex = directLaunchAppName.length > 0
+                    ? model.getAppIndexByName(directLaunchAppName)
+                    : model.getDirectLaunchAppIndex();
             if (directLaunchAppIndex >= 0) {
                 // Start the direct launch app if nothing else is running
                 currentIndex = directLaunchAppIndex

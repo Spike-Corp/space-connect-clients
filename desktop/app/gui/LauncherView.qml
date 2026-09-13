@@ -8,6 +8,7 @@ Item {
     id: launcherView
     objectName: qsTr("SpaceCloud")
     property bool addingComputer: false
+    property string crimsonConnectionAddress: ""
 
     function crimsonText() {
         if (LauncherApi.crimsonState === "ready") return qsTr("Play")
@@ -48,6 +49,7 @@ Item {
         }
         function onCrimsonConnectionReady(address) {
             addingComputer = true
+            crimsonConnectionAddress = address
             ComputerManager.addNewHostManually(address)
         }
         function onLoggedInChanged() {
@@ -60,7 +62,20 @@ Item {
         function onComputerAddCompleted(success, detectedPortBlocking) {
             if (!addingComputer) return
             addingComputer = false
-            if (success) stackView.replace("qrc:/gui/PcView.qml")
+            if (success) {
+                var computerIndex = ComputerManager.findComputerIndex(crimsonConnectionAddress)
+                if (computerIndex < 0) {
+                    errorDialog.text = qsTr("The dedicated game machine was not found.")
+                    errorDialog.open()
+                    return
+                }
+                stackView.replace("qrc:/gui/AppView.qml", {
+                    "computerIndex": computerIndex,
+                    "showHiddenGames": false,
+                    "showGames": false,
+                    "directLaunchAppName": "Crimson Desert"
+                })
+            }
             else errorDialog.open()
         }
     }
