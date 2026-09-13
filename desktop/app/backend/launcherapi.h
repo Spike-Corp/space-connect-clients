@@ -22,6 +22,8 @@ class LauncherApi : public QObject
     Q_PROPERTY(QString planSlug READ planSlug NOTIFY statusChanged)
     Q_PROPERTY(QString machineName READ machineName NOTIFY statusChanged)
     Q_PROPERTY(qint64 remainingMinutes READ remainingMinutes NOTIFY statusChanged)
+    Q_PROPERTY(QString crimsonState READ crimsonState NOTIFY crimsonStateChanged)
+    Q_PROPERTY(int crimsonDownloadPercent READ crimsonDownloadPercent NOTIFY crimsonStateChanged)
 
 public:
     explicit LauncherApi(QObject* parent = nullptr);
@@ -36,6 +38,8 @@ public:
     QString planSlug() const { return m_PlanSlug; }
     QString machineName() const { return m_MachineName; }
     qint64 remainingMinutes() const { return m_RemainingMs / 60000; }
+    QString crimsonState() const { return m_CrimsonState; }
+    int crimsonDownloadPercent() const { return m_CrimsonDownloadPercent; }
 
     Q_INVOKABLE void login(const QString& email, const QString& password);
     Q_INVOKABLE void verifyTwoFactor(const QString& code);
@@ -44,6 +48,7 @@ public:
     Q_INVOKABLE void leaveQueue();
     Q_INVOKABLE void requestConnection();
     Q_INVOKABLE void endSession();
+    Q_INVOKABLE void startCrimsonDesert();
     Q_INVOKABLE void submitPairPin(const QString& pin);
     Q_INVOKABLE void logout();
     // Bitrate ceiling (Kbps) cached from the last connection reported by the backend.
@@ -60,6 +65,8 @@ signals:
     void loginSucceeded();
     void twoFactorRequired();
     void connectionReady(QString address);
+    void crimsonStateChanged();
+    void crimsonConnectionReady(QString address);
 
 private:
     using ResponseHandler = std::function<void(int, const QJsonObject&)>;
@@ -83,6 +90,7 @@ private:
 
     QNetworkAccessManager m_Network;
     QTimer m_RefreshTimer;
+    QTimer m_CrimsonPollTimer;
     RecaptchaFetcher m_Recaptcha;
     QString m_AccessToken;
     QString m_RefreshToken;
@@ -92,9 +100,14 @@ private:
     QString m_State = QStringLiteral("idle");
     QString m_PlanSlug;
     QString m_MachineName;
+    QString m_CrimsonSessionId;
+    QString m_CrimsonState = QStringLiteral("idle");
+    int m_CrimsonDownloadPercent = 0;
     int m_QueuePosition = 0;
     int m_QueueTotal = 0;
     qint64 m_RemainingMs = 0;
     bool m_Busy = false;
     bool m_LoggedIn = false;
+
+    void pollCrimsonSession();
 };

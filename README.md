@@ -1,4 +1,22 @@
-# Space Connect — Native Clients
+# Space Connect Crimson Beta — Native Clients
+
+This directory is an isolated beta workspace. It is a copy of the existing
+Space Connect/Moonlight source and must not be used as the production checkout.
+Changes here do not modify the currently published Space Connect client.
+
+## Beta scope
+
+- Crimson Desert as the first game-only catalog entry.
+- Space Connect account login inherited from the native launcher.
+- Server-side eligibility for premium plans before a session is reserved.
+- Dedicated GPU session and persistent game disk orchestration.
+- Apollo/Sunshine connection through the existing Moonlight streaming stack.
+- A beta-only visual layer that follows the Space Connect design tokens and
+  keeps the desktop hidden from the player.
+
+The beta must keep the existing streaming, pairing, authentication, and
+platform implementations intact unless a change is explicitly made in this
+checkout for the Crimson flow.
 
 Native launcher clients for [SpaceCloud](https://spacecloud.gg) cloud gaming.
 Users sign in with their SpaceCloud account, boot their machine, join the shared
@@ -17,8 +35,14 @@ repository to satisfy the license.
 | `android/`    | Android (phone / TV)      | `moonlight-android` |
 | `mic-bridge/` | Windows microphone bridge | Space Connect       |
 
-All clients talk to the production API at
-`https://spacecloud.gg/api/launcher/v1/`.
+The beta will use a separate API base and feature flag before any real
+connection to infrastructure is enabled. Never point a beta build at the
+production launcher API by accident.
+
+The desktop beta reads `SPACE_CONNECT_CRIMSON_BETA_API` at runtime and calls
+`POST /v1/games/crimson-desert/start`. The response follows the beta session
+contract and never contains Steam credentials. Set the variable to the isolated
+beta API URL when building/testing the native client.
 
 ## Downloads
 

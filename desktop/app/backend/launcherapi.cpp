@@ -15,10 +15,18 @@
 
 namespace {
 const QUrl kApiBase(QStringLiteral("https://spacecloud.gg/api/launcher/v1/"));
+const QUrl kCrimsonApiBase(qEnvironmentVariable(
+    "SPACE_CONNECT_CRIMSON_BETA_API",
+    "http://127.0.0.1:8787/v1/"));
 
 QJsonObject errorObject(const QJsonObject& root)
 {
     return root.value(QStringLiteral("error")).toObject();
+}
+
+QUrl crimsonUrl(const QString& path)
+{
+    return kCrimsonApiBase.resolved(QUrl(path));
 }
 }
 
@@ -27,6 +35,8 @@ LauncherApi::LauncherApi(QObject* parent)
 {
     m_RefreshTimer.setSingleShot(true);
     connect(&m_RefreshTimer, &QTimer::timeout, this, &LauncherApi::refreshTokens);
+    m_CrimsonPollTimer.setInterval(1500);
+    connect(&m_CrimsonPollTimer, &QTimer::timeout, this, &LauncherApi::pollCrimsonSession);
 }
 
 void LauncherApi::login(const QString& email, const QString& password)
@@ -249,10 +259,103 @@ void LauncherApi::endSession()
                     m_State = QStringLiteral("ending");
                     emit statusChanged();
                 }
+
                 else {
                     setError(errorObject(root).value(QStringLiteral("message")).toString());
                 }
             });
+}
+
+void LauncherApi::startCrimsonDesert()
+{
+    if (!m_LoggedIn || m_Busy)
+        return;
+
+    setBusy(true);
+    setError(QString());
+    m_CrimsonState = QStringLiteral("provisioning");
+    m_CrimsonDownloadPercent = 0;
+    emit crimsonStateChanged();
+
+    QNetworkRequest request(crimsonUrl(QStringLiteral("games/crimson-desert/start")));
+    request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
+    request.setRawHeader("Accept", "application/json");
+    request.setRawHeader("Authorization", "Bearer " + m_AccessToken.toUtf8());
+    QNetworkReply* reply = m_Network.post(
+        request,
+        QJsonDocument(QJsonObject{
+            {QStringLiteral("userId"), m_Email},
+            {QStringLiteral("gameId"), QStringLiteral("crimson-desert")},
+            {QStringLiteral("vramGb"), 16},
+        }).toJson(QJsonDocument::Compact));
+
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        QJsonParseError parseError;
+        const QJsonDocument document = QJsonDocument::fromJson(reply->readAll(), &parseError);
+        const QJsonObject root = parseError.error == QJsonParseError::NoError && document.isObject()
+            ? document.object()
+            : QJsonObject();
+        reply->deleteLater();
+        setBusy(false);
+        if (status < 200 || status >= 300) {
+            m_CrimsonState = QStringLiteral("error");
+            setError(errorObject(root).value(QStringLiteral("message")).toString(
+                QStringLiteral("Crimson Desert indisponível neste beta")));
+            emit crimsonStateChanged();
+            return;
+        }
+        const QJsonObject data = root.value(QStringLiteral("data")).toObject();
+        m_CrimsonSessionId = data.value(QStringLiteral("id")).toString();
+        m_CrimsonState = data.value(QStringLiteral("state")).toString(QStringLiteral("provisioning"));
+        m_CrimsonDownloadPercent = data.value(QStringLiteral("downloadPercent")).toInt(0);
+        emit crimsonStateChanged();
+        if (!m_CrimsonSessionId.isEmpty())
+            m_CrimsonPollTimer.start();
+    });
+}
+
+void LauncherApi::pollCrimsonSession()
+{
+    if (m_CrimsonSessionId.isEmpty())
+        return;
+
+    QNetworkRequest request(crimsonUrl(QStringLiteral("sessions/") + m_CrimsonSessionId));
+    request.setRawHeader("Accept", "application/json");
+    request.setRawHeader("Authorization", "Bearer " + m_AccessToken.toUtf8());
+    QNetworkReply* reply = m_Network.get(request);
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        QJsonParseError parseError;
+        const QJsonDocument document = QJsonDocument::fromJson(reply->readAll(), &parseError);
+        const QJsonObject root = parseError.error == QJsonParseError::NoError && document.isObject()
+            ? document.object()
+            : QJsonObject();
+        reply->deleteLater();
+        if (status < 200 || status >= 300) {
+            m_CrimsonPollTimer.stop();
+            m_CrimsonState = QStringLiteral("error");
+            setError(QStringLiteral("Não foi possível acompanhar a sessão Crimson"));
+            emit crimsonStateChanged();
+            return;
+        }
+        const QJsonObject data = root.value(QStringLiteral("data")).toObject();
+        m_CrimsonState = data.value(QStringLiteral("state")).toString(m_CrimsonState);
+        m_CrimsonDownloadPercent = data.value(QStringLiteral("downloadPercent")).toInt(m_CrimsonDownloadPercent);
+        emit crimsonStateChanged();
+        if (m_CrimsonState == QStringLiteral("ready")) {
+            m_CrimsonPollTimer.stop();
+            const QJsonObject connection = data.value(QStringLiteral("connection")).toObject();
+            const QString host = connection.value(QStringLiteral("host")).toString();
+            const int port = connection.value(QStringLiteral("port")).toInt();
+            if (!host.isEmpty() && port > 0)
+                emit crimsonConnectionReady(host + QStringLiteral(":") + QString::number(port));
+        }
+        else if (m_CrimsonState == QStringLiteral("error")
+                 || m_CrimsonState == QStringLiteral("ended")) {
+            m_CrimsonPollTimer.stop();
+        }
+    });
 }
 
 void LauncherApi::submitPairPin(const QString& pin)
@@ -283,10 +386,14 @@ void LauncherApi::sendPairAttempt(const QString& pin, int attempt)
 void LauncherApi::logout()
 {
     m_RefreshTimer.stop();
+    m_CrimsonPollTimer.stop();
     m_AccessToken.clear();
     m_RefreshToken.clear();
     m_TempToken.clear();
     m_Email.clear();
+    m_CrimsonSessionId.clear();
+    m_CrimsonState = QStringLiteral("idle");
+    m_CrimsonDownloadPercent = 0;
     m_LoggedIn = false;
     emit emailChanged();
     emit loggedInChanged();
