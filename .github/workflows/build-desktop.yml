@@ -46,7 +46,7 @@ jobs:
       - name: Select Qt 6
         shell: powershell
         run: |
-          $qt = "$env:GITHUB_WORKSPACE\Qt\6.7.3\msvc2019_64"
+          $qt = Join-Path (Split-Path $env:GITHUB_WORKSPACE -Parent) "Qt\6.7.3\msvc2019_64"
           if (-not (Test-Path "$qt\bin\qmake.exe")) {
             throw "Qt 6 qmake was not installed at $qt"
           }
