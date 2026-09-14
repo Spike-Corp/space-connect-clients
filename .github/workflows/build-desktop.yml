@@ -44,16 +44,16 @@ jobs:
           cache: true
 
       - name: Select Qt 6
-        shell: pwsh
+        shell: powershell
         run: |
           $qt = "$env:GITHUB_WORKSPACE\Qt\6.7.3\msvc2019_64"
           if (-not (Test-Path "$qt\bin\qmake.exe")) {
             throw "Qt 6 qmake was not installed at $qt"
           }
-          "QT_ROOT_DIR=$qt" >> $env:GITHUB_ENV
-          "QT_PLUGIN_PATH=$qt\plugins" >> $env:GITHUB_ENV
-          "QML2_IMPORT_PATH=$qt\qml" >> $env:GITHUB_ENV
-          "$qt\bin" >> $env:GITHUB_PATH
+          Add-Content $env:GITHUB_ENV "QT_ROOT_DIR=$qt"
+          Add-Content $env:GITHUB_ENV "QT_PLUGIN_PATH=$qt\plugins"
+          Add-Content $env:GITHUB_ENV "QML2_IMPORT_PATH=$qt\qml"
+          Add-Content $env:GITHUB_PATH "$qt\bin"
 
       - name: Build (Release, x64)
         shell: cmd
