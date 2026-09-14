@@ -72,7 +72,7 @@ jobs:
           windeployqt --release --qmldir app\gui --no-opengl-sw --no-compiler-runtime --no-sql --no-system-d3d-compiler --no-system-dxc-compiler --skip-plugin-types qmltooling,generic --no-ffmpeg --no-quickcontrols2fusion --no-quickcontrols2imagine --no-quickcontrols2universal deploy\SpaceConnect.exe || exit /b 1
 
       - name: Package portable zip
-        shell: pwsh
+        shell: powershell
         run: |
           $version = (Get-Content app/version.txt).Trim()
           $out = "SpaceConnect-$version-windows-x64.zip"
@@ -102,7 +102,7 @@ jobs:
           msbuild -restore wix\Moonlight\Moonlight.wixproj /p:Configuration=release /p:Platform=x64 /p:MSBuildProjectExtensionsPath=%BUILD_FOLDER%\ || exit /b 1
 
       - name: Package MSI
-        shell: pwsh
+        shell: powershell
         run: |
           $version = (Get-Content app/version.txt).Trim()
           $msiOut = "SpaceConnect-$version-windows-x64.msi"
@@ -162,7 +162,7 @@ jobs:
           windeployqt --release --qmldir app\gui --no-opengl-sw --no-compiler-runtime --no-sql deploy\SpaceConnect.exe || exit /b 1
 
       - name: Package portable zip
-        shell: pwsh
+        shell: powershell
         run: |
           $version = (Get-Content app/version.txt).Trim()
           $out = "SpaceConnect-$version-windows-legacy-x64.zip"
@@ -189,7 +189,7 @@ jobs:
           msbuild -restore wix\Moonlight\Moonlight.wixproj /p:Configuration=release /p:Platform=x64 /p:MSBuildProjectExtensionsPath=%BUILD_FOLDER%\ || exit /b 1
 
       - name: Package MSI
-        shell: pwsh
+        shell: powershell
         run: |
           $version = (Get-Content app/version.txt).Trim()
           $msiOut = "SpaceConnect-$version-windows-legacy-x64.msi"
