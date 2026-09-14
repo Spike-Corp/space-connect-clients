@@ -59,7 +59,7 @@ jobs:
         shell: cmd
         run: |
           qmake moonlight-qt.pro CONFIG+=release || exit /b 1
-          scripts\jom.exe release || exit /b 1
+          scripts\jom.exe -j2 release || exit /b 1
 
       - name: Deploy
         shell: cmd
