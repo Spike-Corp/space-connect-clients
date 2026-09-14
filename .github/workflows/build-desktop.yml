@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   windows:
@@ -79,12 +79,16 @@ jobs:
           Compress-Archive -Path deploy/* -DestinationPath "../$out" -Force
           echo "ARTIFACT_NAME=SpaceConnect-$version-windows-x64" >> $env:GITHUB_ENV
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Publish private beta release
+        uses: softprops/action-gh-release@v2
         with:
-          name: ${{ env.ARTIFACT_NAME }}
-          path: SpaceConnect-*-windows-x64.zip
-          if-no-files-found: error
+          tag_name: beta-windows-latest
+          name: Space Connect Beta Windows
+          prerelease: true
+          make_latest: false
+          files: SpaceConnect-*-windows-x64.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build MSI installer
         # Note: deploy\ is harvested as-is (same contents as the portable zip).
