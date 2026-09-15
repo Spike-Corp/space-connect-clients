@@ -45,8 +45,20 @@ foreach ($f in $Files) {
         'X-GitHub-Api-Version' = $headers.'X-GitHub-Api-Version'
         'Content-Type'         = 'application/octet-stream'
     }
-    Invoke-RestMethod -Method Post -Headers $uploadHeaders `
-        -Uri "https://uploads.github.com/repos/$repo/releases/$($release.id)/assets?name=$name" `
-        -InFile $f | Out-Null
-    Write-Host "uploaded: $name"
+    try {
+        Invoke-RestMethod -Method Post -Headers $uploadHeaders `
+            -Uri "https://uploads.github.com/repos/$repo/releases/$($release.id)/assets?name=$name" `
+            -InFile $f | Out-Null
+        Write-Host "uploaded: $name"
+    } catch {
+        $resp = $_.Exception.Response
+        if ($resp) {
+            $stream = $resp.GetResponseStream()
+            $reader = New-Object System.IO.StreamReader($stream)
+            Write-Host "HTTP $([int]$resp.StatusCode) $($resp.StatusDescription): $($reader.ReadToEnd())"
+        } else {
+            Write-Host "Upload error: $($_.Exception.Message)"
+        }
+        throw
+    }
 }
