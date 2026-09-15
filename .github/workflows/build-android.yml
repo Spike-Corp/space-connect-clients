@@ -53,12 +53,16 @@ jobs:
           cp "$SRC" "/root/space-connect-releases/$OUT"
           echo "Built and staged $OUT"
 
-      - name: Upload AAB
-        uses: actions/upload-artifact@v4
-        with:
-          name: space-connect-android-aab
-          path: android/SpaceConnect-*.aab
-          if-no-files-found: error
+      # Artifacts finais saem via GitHub Release (repo publico
+      # space-connect-releases) — actions/upload-artifact fica indisponivel
+      # quando a cota de storage de artifacts da org estoura.
+      - name: Publish AAB to GitHub Releases
+        working-directory: android
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          VERSION=$(grep -E 'versionName' app/build.gradle | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+          bash ../ci/publish-release.sh "v${VERSION}" "SpaceConnect-${VERSION}-release.aab"
 
       # A AAB acima é só pra Play Store (não instala direto). O download direto
       # do site (sideload, fora da Play Store) usa um APK de verdade, então
@@ -84,9 +88,10 @@ jobs:
           cp "$SRC" "/root/space-connect-releases/$OUT"
           echo "Built and staged $OUT"
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: space-connect-android-apk
-          path: android/SpaceConnect-*.apk
-          if-no-files-found: error
+      - name: Publish APK to GitHub Releases
+        working-directory: android
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          VERSION=$(grep -E 'versionName' app/build.gradle | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+          bash ../ci/publish-release.sh "v${VERSION}" "SpaceConnect-${VERSION}-android.apk"

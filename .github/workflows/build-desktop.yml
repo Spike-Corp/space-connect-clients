@@ -67,13 +67,6 @@ jobs:
           Compress-Archive -Path deploy/* -DestinationPath "../$out" -Force
           echo "ARTIFACT_NAME=SpaceConnect-$version-windows-x64" >> $env:GITHUB_ENV
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.ARTIFACT_NAME }}
-          path: SpaceConnect-*-windows-x64.zip
-          if-no-files-found: error
-
       - name: Build MSI installer
         # Note: deploy\ is harvested as-is (same contents as the portable zip).
         # The VC++ redist DLLs are intentionally NOT added here: they're
@@ -97,12 +90,17 @@ jobs:
           Copy-Item "Moonlight.msi" "../$msiOut"
           echo "MSI_ARTIFACT_NAME=SpaceConnect-$version-windows-x64-msi" >> $env:GITHUB_ENV
 
-      - name: Upload MSI artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.MSI_ARTIFACT_NAME }}
-          path: SpaceConnect-*-windows-x64.msi
-          if-no-files-found: error
+      # Artifacts finais saem via GitHub Release (repo publico
+      # space-connect-releases) — actions/upload-artifact fica indisponivel
+      # quando a cota de storage de artifacts da org estoura.
+      - name: Publish to GitHub Releases
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          $version = (Get-Content desktop/app/version.txt).Trim()
+          ./ci/publish-release.ps1 -Tag "v$version" "SpaceConnect-$version-windows-x64.zip" "SpaceConnect-$version-windows-x64.msi"
 
   windows-legacy:
     name: Windows x64 (legacy, Win7/8/8.1)
@@ -156,13 +154,6 @@ jobs:
           Compress-Archive -Path deploy/* -DestinationPath "../$out" -Force
           echo "ARTIFACT_NAME=SpaceConnect-$version-windows-legacy-x64" >> $env:GITHUB_ENV
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.ARTIFACT_NAME }}
-          path: SpaceConnect-*-windows-legacy-x64.zip
-          if-no-files-found: error
-
       - name: Build MSI installer
         # Same UpgradeCode as the regular Windows MSI is intentional here: the
         # legacy build only targets OSes (Win7/8/8.1) that can't run the
@@ -183,12 +174,14 @@ jobs:
           Copy-Item "Moonlight.msi" "../$msiOut"
           echo "MSI_ARTIFACT_NAME=SpaceConnect-$version-windows-legacy-x64-msi" >> $env:GITHUB_ENV
 
-      - name: Upload MSI artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.MSI_ARTIFACT_NAME }}
-          path: SpaceConnect-*-windows-legacy-x64.msi
-          if-no-files-found: error
+      - name: Publish to GitHub Releases
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          $version = (Get-Content desktop/app/version.txt).Trim()
+          ./ci/publish-release.ps1 -Tag "v$version" "SpaceConnect-$version-windows-legacy-x64.zip" "SpaceConnect-$version-windows-legacy-x64.msi"
 
   macos:
     name: macOS universal
@@ -217,17 +210,20 @@ jobs:
       - name: Build universal DMG (Release)
         run: bash scripts/generate-dmg.sh Release
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: SpaceConnect-macos-universal
-          path: desktop/build/installer-Release/SpaceConnect-*.dmg
-          compression-level: 0
-          if-no-files-found: error
+      - name: Publish to GitHub Releases
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          version=$(tr -d '[:space:]' < app/version.txt)
+          dmg=$(ls build/installer-Release/SpaceConnect-*.dmg | head -n1)
+          bash ../ci/publish-release.sh "v${version}" "$dmg"
 
   linux:
     name: Linux AppImage (x86_64)
-    runs-on: ubuntu-22.04
+    # Self-hosted: GitHub-hosted minutes for private repos hit the org spending
+    # limit; the kvm-builder runner (Ubuntu 22.04) builds this for free.
+    runs-on: [self-hosted, Linux, X64]
     defaults:
       run:
         working-directory: desktop
@@ -277,10 +273,10 @@ jobs:
           cp "$src" "$out"
           echo "APPIMAGE_ARTIFACT_NAME=SpaceConnect-${version}-linux-appimage" >> "$GITHUB_ENV"
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.APPIMAGE_ARTIFACT_NAME }}
-          path: desktop/SpaceConnect-*-x86_64.AppImage
-          compression-level: 0
-          if-no-files-found: error
+      - name: Publish to GitHub Releases
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          version=$(tr -d '[:space:]' < app/version.txt)
+          bash ../ci/publish-release.sh "v${version}" "SpaceConnect-${version}-x86_64.AppImage"
