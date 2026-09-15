@@ -3,15 +3,19 @@ package com.limelight.account;
 import com.limelight.PcView;
 import com.limelight.R;
 import com.limelight.preferences.AddComputerManually;
+import com.limelight.preferences.StreamSettings;
 import com.limelight.utils.UiHelper;
 
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.database.Cursor;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.OpenableColumns;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -19,8 +23,11 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.InputStream;
+
 public class LauncherActivity extends Activity {
     private static final int ADD_COMPUTER_REQUEST = 4101;
+    private static final int PICK_FILE_REQUEST = 4102;
     private static final long STATUS_POLL_MS = 5000;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -63,6 +70,15 @@ public class LauncherActivity extends Activity {
             finish();
         });
         endSessionButton.setOnClickListener(v -> endSession());
+
+        // Atalhos da tela de fila: controle (config de gamepad) e settings
+        // abrem o StreamSettings (onde ficam as duas secoes), e o upload
+        // envia arquivo do celular pra pasta Downloads da VM.
+        findViewById(R.id.launcherControllerButton).setOnClickListener(v ->
+                startActivity(new Intent(LauncherActivity.this, StreamSettings.class)));
+        findViewById(R.id.launcherSettingsButton).setOnClickListener(v ->
+                startActivity(new Intent(LauncherActivity.this, StreamSettings.class)));
+        findViewById(R.id.launcherUploadButton).setOnClickListener(v -> pickFileForUpload());
     }
 
     @Override
@@ -314,6 +330,68 @@ public class LauncherActivity extends Activity {
         handler.postDelayed(pollStatus, STATUS_POLL_MS);
     }
 
+    private void pickFileForUpload() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        try {
+            startActivityForResult(
+                    Intent.createChooser(intent, getString(R.string.launcher_upload_pick_title)),
+                    PICK_FILE_REQUEST);
+        } catch (Exception e) {
+            Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void uploadPickedFile(Uri uri) {
+        if (requestRunning) return;
+        String fileName = "arquivo";
+        long size = -1;
+        try (Cursor cursor = getContentResolver().query(uri, null, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                int nameIdx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                if (nameIdx >= 0) fileName = cursor.getString(nameIdx);
+                int sizeIdx = cursor.getColumnIndex(OpenableColumns.SIZE);
+                if (sizeIdx >= 0 && !cursor.isNull(sizeIdx)) size = cursor.getLong(sizeIdx);
+            }
+        }
+
+        InputStream input;
+        try {
+            input = getContentResolver().openInputStream(uri);
+        } catch (Exception e) {
+            Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (input == null) {
+            Toast.makeText(this, R.string.launcher_status_error, Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        requestRunning = true;
+        progressBar.setVisibility(View.VISIBLE);
+        Toast.makeText(this, R.string.launcher_upload_in_progress, Toast.LENGTH_LONG).show();
+        AccountManager.uploadFileToVm(this, fileName, input, size,
+                new AccountManager.ResultCallback<SpaceConnectApiClient.UploadResponse>() {
+                    @Override
+                    public void onSuccess(SpaceConnectApiClient.UploadResponse result) {
+                        requestRunning = false;
+                        progressBar.setVisibility(View.GONE);
+                        String msg = result != null && result.message != null && !result.message.isEmpty()
+                                ? result.message
+                                : getString(R.string.launcher_upload_success_fallback);
+                        Toast.makeText(LauncherActivity.this, msg, Toast.LENGTH_LONG).show();
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        requestRunning = false;
+                        progressBar.setVisibility(View.GONE);
+                        Toast.makeText(LauncherActivity.this, message, Toast.LENGTH_LONG).show();
+                    }
+                });
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -325,6 +403,13 @@ public class LauncherActivity extends Activity {
                         .apply();
             }
             startActivity(new Intent(this, PcView.class));
+            return;
+        }
+        if (requestCode == PICK_FILE_REQUEST && resultCode == RESULT_OK && data != null) {
+            Uri uri = data.getData();
+            if (uri != null) {
+                uploadPickedFile(uri);
+            }
         }
     }
 

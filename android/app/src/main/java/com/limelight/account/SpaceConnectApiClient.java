@@ -107,6 +107,68 @@ public final class SpaceConnectApiClient {
         return post("session/end", new EmptyRequest(), accessToken, EndSessionResponse.class);
     }
 
+    // Envia um arquivo do aparelho pra pasta Downloads da VM do usuario
+    // (POST /launcher/v1/session/upload, multipart). O backend faz staging e a
+    // VM baixa via guest agent — ver client.routes.ts (transferFileToVm).
+    // Timeouts maiores porque arquivo grande em rede movel demora.
+    public UploadResponse uploadFile(String accessToken, String fileName,
+                                     final java.io.InputStream input, final long length)
+            throws IOException, ApiException {
+        RequestBody fileBody = new RequestBody() {
+            @Override
+            public MediaType contentType() {
+                return MediaType.parse("application/octet-stream");
+            }
+
+            @Override
+            public long contentLength() {
+                return length;
+            }
+
+            @Override
+            public void writeTo(okio.BufferedSink sink) throws IOException {
+                okio.Source source = okio.Okio.source(input);
+                try {
+                    sink.writeAll(source);
+                } finally {
+                    source.close();
+                }
+            }
+        };
+
+        okhttp3.MultipartBody body = new okhttp3.MultipartBody.Builder()
+                .setType(okhttp3.MultipartBody.FORM)
+                .addFormDataPart("file", fileName, fileBody)
+                .build();
+
+        OkHttpClient uploadClient = httpClient.newBuilder()
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .writeTimeout(10, TimeUnit.MINUTES)
+                .readTimeout(10, TimeUnit.MINUTES)
+                .build();
+
+        Request request = new Request.Builder()
+                .url(baseUrl + "session/upload")
+                .post(body)
+                .header("Accept", "application/json")
+                .header("User-Agent", "SpaceConnect-Android")
+                .header("Authorization", "Bearer " + accessToken)
+                .build();
+
+        try (Response response = uploadClient.newCall(request).execute()) {
+            ResponseBody responseBody = response.body();
+            String json = responseBody != null ? responseBody.string() : "";
+            if (!response.isSuccessful()) {
+                throw parseApiError(response.code(), json);
+            }
+            try {
+                return gson.fromJson(json, UploadResponse.class);
+            } catch (JsonSyntaxException e) {
+                throw new IOException("Resposta inválida da SpaceCloud", e);
+            }
+        }
+    }
+
     private <T> T post(String path, Object input, String accessToken, Class<T> responseType)
             throws IOException, ApiException {
         Request.Builder request = new Request.Builder()
@@ -353,6 +415,14 @@ public final class SpaceConnectApiClient {
         public boolean preExisting;
         public boolean restored;
         public String error;
+    }
+
+    public static final class UploadResponse {
+        public boolean ok;
+        public String filename;
+        public String destination;
+        public long sizeBytes;
+        public String message;
     }
 
     public static final class ApiException extends Exception {

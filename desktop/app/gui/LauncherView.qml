@@ -1,6 +1,7 @@
 import QtQuick 2.9
 import QtQuick.Controls 2.2
 import QtQuick.Layouts 1.3
+import Qt.labs.platform 1.1 as Labs
 import LauncherApi 1.0
 import ComputerManager 1.0
 
@@ -48,7 +49,7 @@ Item {
     function primaryText() {
         if (needsMachine()) return qsTr("Create your VM")
         if (LauncherApi.state === "queued") return qsTr("Leave queue")
-        if (LauncherApi.state === "ready") return qsTr("Connect with Moonlight")
+        if (LauncherApi.state === "ready") return qsTr("Connect")
         if (LauncherApi.state === "idle") return qsTr("Join queue")
         return qsTr("Please wait")
     }
@@ -168,6 +169,13 @@ Item {
                     Layout.fillWidth: true
                     onClicked: LauncherApi.endSession()
                 }
+
+                Button {
+                    text: qsTr("Send file to your PC")
+                    enabled: !LauncherApi.busy
+                    Layout.fillWidth: true
+                    onClicked: uploadFileDialog.open()
+                }
             }
         }
 
@@ -231,6 +239,33 @@ Item {
         Label {
             text: qsTr("The Moonlight host is not ready yet. Try again in a few seconds.")
             wrapMode: Text.WordWrap
+        }
+    }
+
+    Labs.FileDialog {
+        id: uploadFileDialog
+        title: qsTr("Choose a file to send")
+        fileMode: Labs.FileDialog.OpenFile
+        onAccepted: LauncherApi.uploadFileToVm(file.toString())
+    }
+
+    Dialog {
+        id: uploadSuccessDialog
+        title: qsTr("File sent")
+        standardButtons: Dialog.Ok
+        anchors.centerIn: parent
+        property string fileName: ""
+        Label {
+            text: qsTr("%1 was sent to the Downloads folder on your PC.").arg(uploadSuccessDialog.fileName)
+            wrapMode: Text.WordWrap
+        }
+    }
+
+    Connections {
+        target: LauncherApi
+        function onFileUploadSucceeded(fileName) {
+            uploadSuccessDialog.fileName = fileName
+            uploadSuccessDialog.open()
         }
     }
 }

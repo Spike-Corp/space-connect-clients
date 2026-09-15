@@ -233,7 +233,7 @@
     <string name="launcher_machine">SpaceCloud PC</string>
     <string name="launcher_join_queue">Join queue</string>
     <string name="launcher_leave_queue">Leave queue</string>
-    <string name="launcher_connect">Connect with Moonlight</string>
+    <string name="launcher_connect">Connect</string>
     <string name="launcher_wait">Please wait</string>
     <string name="launcher_end_session">End session</string>
     <string name="launcher_refresh">Refresh status</string>
@@ -244,6 +244,12 @@
     <string name="launcher_create_machine_message">Confirm your password to create your dedicated SpaceCloud PC. This may take a few minutes.</string>
     <string name="launcher_create_machine_password_hint">Password</string>
     <string name="launcher_create_machine_success">Your PC is being created. This may take a few minutes.</string>
+    <string name="launcher_shortcut_controller">Gamepad</string>
+    <string name="launcher_shortcut_settings">Settings</string>
+    <string name="launcher_upload_file">Send file to your PC</string>
+    <string name="launcher_upload_pick_title">Choose a file to send</string>
+    <string name="launcher_upload_in_progress">Sending file to your PC…</string>
+    <string name="launcher_upload_success_fallback">File sent to your PC\'s Downloads folder</string>
 
     <string-array name="splash_loading_tips">
         <item>Connecting you to your PC…</item>

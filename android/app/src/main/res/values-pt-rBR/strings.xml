@@ -257,7 +257,7 @@
     <string name="launcher_machine">PC SpaceCloud</string>
     <string name="launcher_join_queue">Entrar na fila</string>
     <string name="launcher_leave_queue">Sair da fila</string>
-    <string name="launcher_connect">Conectar com Moonlight</string>
+    <string name="launcher_connect">Conectar</string>
     <string name="launcher_wait">Aguarde</string>
     <string name="launcher_end_session">Encerrar sessão</string>
     <string name="launcher_refresh">Atualizar status</string>
@@ -268,6 +268,12 @@
     <string name="launcher_create_machine_message">Confirme sua senha pra criar seu PC dedicado na SpaceCloud. Isso pode levar alguns minutos.</string>
     <string name="launcher_create_machine_password_hint">Senha</string>
     <string name="launcher_create_machine_success">Seu PC está sendo criado. Isso pode levar alguns minutos.</string>
+    <string name="launcher_shortcut_controller">Controle</string>
+    <string name="launcher_shortcut_settings">Configurações</string>
+    <string name="launcher_upload_file">Enviar arquivo pro PC</string>
+    <string name="launcher_upload_pick_title">Escolha um arquivo pra enviar</string>
+    <string name="launcher_upload_in_progress">Enviando arquivo pro PC…</string>
+    <string name="launcher_upload_success_fallback">Arquivo enviado pra pasta Downloads do seu PC</string>
 
 
     <string-array name="splash_loading_tips">

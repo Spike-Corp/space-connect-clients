@@ -254,8 +254,28 @@
     </message>
     <message>
         <location filename="../gui/LauncherView.qml" line="39"/>
-        <source>Connect with Moonlight</source>
-        <translation>Conectar com o Moonlight</translation>
+        <source>Connect</source>
+        <translation>Conectar</translation>
+    </message>
+    <message>
+        <location filename="../gui/LauncherView.qml"/>
+        <source>Send file to your PC</source>
+        <translation>Enviar arquivo pro PC</translation>
+    </message>
+    <message>
+        <location filename="../gui/LauncherView.qml"/>
+        <source>Choose a file to send</source>
+        <translation>Escolha um arquivo pra enviar</translation>
+    </message>
+    <message>
+        <location filename="../gui/LauncherView.qml"/>
+        <source>File sent</source>
+        <translation>Arquivo enviado</translation>
+    </message>
+    <message>
+        <location filename="../gui/LauncherView.qml"/>
+        <source>%1 was sent to the Downloads folder on your PC.</source>
+        <translation>%1 foi enviado pra pasta Downloads do seu PC.</translation>
     </message>
     <message>
         <location filename="../gui/LauncherView.qml" line="40"/>
@@ -356,6 +376,16 @@
         <location filename="../gui/LoginView.qml" line="108"/>
         <source>Remember me for 30 days on this device</source>
         <translation>Lembrar login por 30 dias neste dispositivo</translation>
+    </message>
+    <message>
+        <location filename="../gui/LoginView.qml"/>
+        <source>Hide password</source>
+        <translation>Ocultar senha</translation>
+    </message>
+    <message>
+        <location filename="../gui/LoginView.qml"/>
+        <source>Show password</source>
+        <translation>Mostrar senha</translation>
     </message>
     <message>
         <location filename="../gui/LoginView.qml" line="149"/>

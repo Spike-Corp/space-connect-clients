@@ -162,6 +162,17 @@ public final class AccountManager {
         executeAuthenticated(context, API::endSession, callback);
     }
 
+    // Envia um arquivo (stream do SAF) pra pasta Downloads da VM do usuario.
+    // Requer sessao/maquina ligada — o backend responde com erro claro se nao ha.
+    public static void uploadFileToVm(
+            Context context,
+            String fileName,
+            java.io.InputStream input,
+            long length,
+            ResultCallback<SpaceConnectApiClient.UploadResponse> callback) {
+        executeAuthenticated(context, token -> API.uploadFile(token, fileName, input, length), callback);
+    }
+
     public static void submitPairPin(Context context, String pin) {
         Context appContext = context.getApplicationContext();
         EXECUTOR.execute(() -> {
