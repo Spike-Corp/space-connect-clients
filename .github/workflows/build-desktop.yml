@@ -222,8 +222,11 @@ jobs:
   linux:
     name: Linux AppImage (x86_64)
     # Self-hosted: GitHub-hosted minutes for private repos hit the org spending
-    # limit; the kvm-builder runner (Ubuntu 22.04) builds this for free.
+    # limit; the kvm-builder runner builds this for free. It runs AlmaLinux, so
+    # the job goes inside an ubuntu:22.04 container to keep apt as the
+    # package manager (the runner injects its own node into the container).
     runs-on: [self-hosted, Linux, X64]
+    container: ubuntu:22.04
     defaults:
       run:
         working-directory: desktop
@@ -242,22 +245,26 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
+          # No container ubuntu:22.04 nao ha sudo (ja somos root).
+          SUDO=$(command -v sudo || true)
+          $SUDO apt-get update
+          $SUDO apt-get install -y --no-install-recommends \
             build-essential \
             libgl1-mesa-dev libegl1-mesa-dev libgles2-mesa-dev \
             libsdl2-dev libsdl2-ttf-dev libopus-dev libssl-dev \
             libavcodec-dev libavformat-dev libavutil-dev libswscale-dev \
             libva-dev libvdpau-dev libdrm-dev \
             libx11-dev libxext-dev libxrandr-dev libxkbcommon-dev \
-            libfuse2
+            libfuse2 wget curl ca-certificates file xz-utils \
+            git p7zip-full unzip python3
 
       - name: Install linuxdeploy
         run: |
+          SUDO=$(command -v sudo || true)
           cd /usr/local/bin
-          sudo wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage -O linuxdeploy
-          sudo wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage -O linuxdeploy-plugin-qt
-          sudo chmod +x linuxdeploy linuxdeploy-plugin-qt
+          $SUDO wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage -O linuxdeploy
+          $SUDO wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage -O linuxdeploy-plugin-qt
+          $SUDO chmod +x linuxdeploy linuxdeploy-plugin-qt
 
       - name: Build AppImage
         env:
