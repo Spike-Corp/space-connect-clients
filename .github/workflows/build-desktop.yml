@@ -205,6 +205,17 @@ jobs:
           $version = (Get-Content desktop/app/version.txt).Trim()
           & ./ci/publish-release.ps1 -Tag "v$version" -Files @("SpaceConnect-$version-windows-legacy-x64.zip", "SpaceConnect-$version-windows-legacy-x64.msi")
 
+      - name: Publish MSI to GitHub Releases
+        # O step acima publica o zip; este publica o MSI (que so fica pronto
+        # depois do msbuild). Sem isso o MSI nunca sobe no release.
+        shell: powershell
+        working-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          $version = (Get-Content desktop/app/version.txt).Trim()
+          & ./ci/publish-release.ps1 -Tag "v$version" -Files @("SpaceConnect-$version-windows-legacy-x64.msi")
+
   macos:
     name: macOS universal
     runs-on: macos-latest
