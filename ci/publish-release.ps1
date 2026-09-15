@@ -36,8 +36,13 @@ foreach ($f in $Files) {
     if (-not (Test-Path $f)) { throw "missing artifact: $f" }
     $name = Split-Path $f -Leaf
     $old = $assets | Where-Object { $_.name -eq $name } | Select-Object -First 1
-    if ($old) {
-        Invoke-RestMethod -Method Delete -Headers $headers -Uri "https://api.github.com/repos/$repo/releases/assets/$($old.id)" | Out-Null
+    if ($old -and $old.id) {
+        try {
+            Invoke-RestMethod -Method Delete -Headers $headers -Uri "https://api.github.com/repos/$repo/releases/assets/$($old.id)" | Out-Null
+        } catch {
+            # 404 = asset nao existia mais (race com outro job). Segue o jogo.
+            Write-Host "delete do asset $name falhou (seguindo): $($_.Exception.Message)"
+        }
     }
     # Upload via curl.exe (nativo no Win10+): o Invoke-RestMethod do PS 5.1 fecha
     # a conexao em uploads grandes (~50MB+) com "Erro inesperado em um envio".
