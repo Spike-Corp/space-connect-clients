@@ -256,7 +256,7 @@ jobs:
             libva-dev libvdpau-dev libdrm-dev \
             libx11-dev libxext-dev libxrandr-dev libxkbcommon-dev \
             libfuse2 wget curl ca-certificates file xz-utils \
-            git p7zip-full unzip python3
+            git p7zip-full unzip python3 sudo
 
       - name: Install linuxdeploy
         run: |
