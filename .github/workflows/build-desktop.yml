@@ -60,7 +60,7 @@ jobs:
           windeployqt --release --qmldir app\gui --no-opengl-sw --no-sql --no-system-d3d-compiler --no-system-dxc-compiler --skip-plugin-types qmltooling,generic --no-ffmpeg --no-quickcontrols2fusion --no-quickcontrols2imagine --no-quickcontrols2universal deploy\SpaceConnect.exe || exit /b 1
 
       - name: Package portable zip
-        shell: pwsh
+        shell: powershell
         run: |
           $version = (Get-Content app/version.txt).Trim()
           $out = "SpaceConnect-$version-windows-x64.zip"
@@ -83,7 +83,7 @@ jobs:
           msbuild -restore wix\Moonlight\Moonlight.wixproj /p:Configuration=release /p:Platform=x64 /p:MSBuildProjectExtensionsPath=%BUILD_FOLDER%\ || exit /b 1
 
       - name: Package MSI
-        shell: pwsh
+        shell: powershell
         run: |
           $version = (Get-Content app/version.txt).Trim()
           $msiOut = "SpaceConnect-$version-windows-x64.msi"
@@ -94,7 +94,7 @@ jobs:
       # space-connect-releases) — actions/upload-artifact fica indisponivel
       # quando a cota de storage de artifacts da org estoura.
       - name: Publish to GitHub Releases
-        shell: pwsh
+        shell: powershell
         working-directory: ${{ github.workspace }}
         env:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
@@ -147,7 +147,7 @@ jobs:
           windeployqt --release --qmldir app\gui --no-opengl-sw --no-sql deploy\SpaceConnect.exe || exit /b 1
 
       - name: Package portable zip
-        shell: pwsh
+        shell: powershell
         run: |
           $version = (Get-Content app/version.txt).Trim()
           $out = "SpaceConnect-$version-windows-legacy-x64.zip"
@@ -167,7 +167,7 @@ jobs:
           msbuild -restore wix\Moonlight\Moonlight.wixproj /p:Configuration=release /p:Platform=x64 /p:MSBuildProjectExtensionsPath=%BUILD_FOLDER%\ || exit /b 1
 
       - name: Package MSI
-        shell: pwsh
+        shell: powershell
         run: |
           $version = (Get-Content app/version.txt).Trim()
           $msiOut = "SpaceConnect-$version-windows-legacy-x64.msi"
@@ -175,7 +175,7 @@ jobs:
           echo "MSI_ARTIFACT_NAME=SpaceConnect-$version-windows-legacy-x64-msi" >> $env:GITHUB_ENV
 
       - name: Publish to GitHub Releases
-        shell: pwsh
+        shell: powershell
         working-directory: ${{ github.workspace }}
         env:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
@@ -234,18 +234,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v4.3.1
-        with:
-          version: '6.7.3'
-          host: linux
-          target: desktop
-          arch: linux_gcc_64
-          cache: true
-
       - name: Install build dependencies
+        # Precisa rodar ANTES do Install Qt: o install-qt-action chama sudo pra
+        # install-deps, e o container ubuntu:22.04 nao vem com sudo.
         run: |
-          # No container ubuntu:22.04 nao ha sudo (ja somos root).
           SUDO=$(command -v sudo || true)
           $SUDO apt-get update
           $SUDO apt-get install -y --no-install-recommends \
@@ -257,6 +249,15 @@ jobs:
             libx11-dev libxext-dev libxrandr-dev libxkbcommon-dev \
             libfuse2 wget curl ca-certificates file xz-utils \
             git p7zip-full unzip python3 sudo
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4.3.1
+        with:
+          version: '6.7.3'
+          host: linux
+          target: desktop
+          arch: linux_gcc_64
+          cache: true
 
       - name: Install linuxdeploy
         run: |

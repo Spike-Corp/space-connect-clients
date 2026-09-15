@@ -10,6 +10,8 @@ param(
     [Parameter(Mandatory = $true, ValueFromRemainingArguments = $true)][string[]]$Files
 )
 $ErrorActionPreference = 'Stop'
+# Windows PowerShell 5.1 default TLS (1.0) is rejected by api.github.com.
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $repo = 'Spike-Corp/space-connect-releases'
 $headers = @{
     Authorization          = "Bearer $env:GH_TOKEN"
