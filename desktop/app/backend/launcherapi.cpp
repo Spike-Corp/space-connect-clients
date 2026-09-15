@@ -17,7 +17,7 @@ namespace {
 const QUrl kApiBase(QStringLiteral("https://spacecloud.gg/api/launcher/v1/"));
 const QUrl kCrimsonApiBase(qEnvironmentVariable(
     "SPACE_CONNECT_CRIMSON_BETA_API",
-    "http://127.0.0.1:8787/v1/"));
+    "https://gamingflix.space/crimson-api/v1/"));
 
 QJsonObject errorObject(const QJsonObject& root)
 {
