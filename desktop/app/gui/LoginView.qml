@@ -114,8 +114,62 @@ Item {
                         id: passwordField
                         Layout.fillWidth: true
                         placeholderText: qsTr("Password")
-                        echoMode: TextInput.Password
+                        echoMode: eyeToggle.checked ? TextInput.Normal : TextInput.Password
+                        rightPadding: 46
                         Keys.onReturnPressed: loginView.attemptLogin()
+
+                        ToolButton {
+                            id: eyeToggle
+                            checkable: true
+                            width: 34
+                            height: 34
+                            anchors.right: parent.right
+                            anchors.rightMargin: 6
+                            anchors.verticalCenter: parent.verticalCenter
+                            focusPolicy: Qt.NoFocus
+                            Accessible.name: checked ? qsTr("Hide password") : qsTr("Show password")
+
+                            contentItem: Item {
+                                implicitWidth: 22
+                                implicitHeight: 22
+
+                                Canvas {
+                                    id: eyeCanvas
+                                    anchors.fill: parent
+                                    anchors.margins: 4
+                                    property bool showing: eyeToggle.checked
+                                    onShowingChanged: requestPaint()
+                                    onPaint: {
+                                        var ctx = getContext("2d")
+                                        ctx.reset()
+                                        var w = width, h = height
+                                        var cx = w / 2, cy = h / 2
+                                        var col = showing ? "#9B6BFF" : "#A79BC9"
+                                        ctx.strokeStyle = col
+                                        ctx.fillStyle = col
+                                        ctx.lineWidth = 1.6
+                                        // eye outline
+                                        ctx.beginPath()
+                                        ctx.moveTo(1, cy)
+                                        ctx.quadraticCurveTo(cx, -1, w - 1, cy)
+                                        ctx.quadraticCurveTo(cx, h + 1, 1, cy)
+                                        ctx.closePath()
+                                        ctx.stroke()
+                                        // pupil
+                                        ctx.beginPath()
+                                        ctx.arc(cx, cy, 2.4, 0, Math.PI * 2)
+                                        ctx.fill()
+                                        // slash when password is hidden
+                                        if (!showing) {
+                                            ctx.beginPath()
+                                            ctx.moveTo(2, h - 2)
+                                            ctx.lineTo(w - 2, 2)
+                                            ctx.stroke()
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     SpaceCheckBox {

@@ -8,9 +8,11 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.InputType;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -47,6 +49,7 @@ public class LoginActivity extends Activity {
         ((TextView) findViewById(R.id.loginSubtitle)).setTypeface(bodyFont);
         emailField.setTypeface(bodyFont);
         passwordField.setTypeface(bodyFont);
+        setupPasswordVisibilityToggle(passwordField, bodyFont);
         loginButton.setTypeface(bodyFont, Typeface.BOLD);
         createAccountLink.setTypeface(bodyFont, Typeface.BOLD);
         forgotPasswordLink.setTypeface(bodyFont);
@@ -85,6 +88,47 @@ public class LoginActivity extends Activity {
             @Override
             public void onClick(View v) {
                 openAccountWebPage("/forgot-password");
+            }
+        });
+    }
+
+    // Eye toggle at the end of the password field: switches between masked and
+    // visible text, keeping the brand typeface and cursor position afterwards.
+    private void setupPasswordVisibilityToggle(final EditText passwordField, final Typeface bodyFont) {
+        passwordField.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                if (event.getAction() != MotionEvent.ACTION_UP) {
+                    return false;
+                }
+                Drawable endDrawable = passwordField.getCompoundDrawablesRelative()[2];
+                if (endDrawable == null) {
+                    return false;
+                }
+                int toggleStart = passwordField.getWidth() - passwordField.getTotalPaddingEnd();
+                if (event.getX() < toggleStart) {
+                    return false;
+                }
+                v.performClick();
+
+                boolean visible = (passwordField.getInputType()
+                        & InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD)
+                        == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD;
+                if (visible) {
+                    passwordField.setInputType(InputType.TYPE_CLASS_TEXT
+                            | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+                    passwordField.setCompoundDrawablesRelativeWithIntrinsicBounds(
+                            R.drawable.ic_lock, 0, R.drawable.ic_eye, 0);
+                } else {
+                    passwordField.setInputType(InputType.TYPE_CLASS_TEXT
+                            | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
+                    passwordField.setCompoundDrawablesRelativeWithIntrinsicBounds(
+                            R.drawable.ic_lock, 0, R.drawable.ic_eye_off, 0);
+                }
+                // Changing inputType resets the font to the default one.
+                passwordField.setTypeface(bodyFont);
+                passwordField.setSelection(passwordField.getText().length());
+                return true;
             }
         });
     }

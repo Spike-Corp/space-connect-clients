@@ -66,6 +66,7 @@
                 android:inputType="textPassword"
                 android:singleLine="true"
                 android:drawableStart="@drawable/ic_lock"
+                android:drawableEnd="@drawable/ic_eye"
                 android:drawablePadding="12dp"
                 android:paddingStart="14dp"
                 android:paddingEnd="14dp"
