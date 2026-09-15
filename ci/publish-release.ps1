@@ -45,9 +45,10 @@ foreach ($f in $Files) {
     $ok = $false
     for ($attempt = 1; $attempt -le 3 -and -not $ok; $attempt++) {
         if ($attempt -gt 1) { Write-Host "retry $attempt para $name"; Start-Sleep -Seconds 5 }
-        & curl.exe -sf -X POST -H "Authorization: Bearer $env:GH_TOKEN" -H "Content-Type: application/octet-stream" `
-            --data-binary "@$f" --retry 3 --retry-delay 5 $url | Out-Null
+        $out = & curl.exe -sS -X POST -H "Authorization: Bearer $env:GH_TOKEN" -H "Content-Type: application/octet-stream" `
+            --data-binary "@$f" --retry 2 --retry-delay 5 $url 2>&1
         $ok = ($LASTEXITCODE -eq 0)
+        if (-not $ok) { Write-Host "curl erro ($LASTEXITCODE): $out" }
     }
     if (-not $ok) { throw "Falha no upload de $name apos 3 tentativas" }
     Write-Host "uploaded: $name"
