@@ -35,13 +35,16 @@ jobs:
           arch: x64
 
       - name: Install Qt
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: '6.7.3'
-          host: windows
-          target: desktop
-          arch: win64_msvc2019_64
-          cache: true
+        shell: powershell
+        run: |
+          $qt = Join-Path (Split-Path $env:GITHUB_WORKSPACE -Parent) "Qt\6.7.3\msvc2019_64"
+          if (-not (Test-Path "$qt\bin\qmake.exe")) {
+            throw "Cached Qt 6.7.3 was not found at $qt"
+          }
+          Add-Content $env:GITHUB_ENV "QT_ROOT_DIR=$qt"
+          Add-Content $env:GITHUB_ENV "QT_PLUGIN_PATH=$qt\plugins"
+          Add-Content $env:GITHUB_ENV "QML2_IMPORT_PATH=$qt\qml"
+          Add-Content $env:GITHUB_PATH "$qt\bin"
 
       - name: Select Qt 6
         shell: powershell
