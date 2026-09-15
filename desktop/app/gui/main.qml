@@ -217,6 +217,10 @@ ApplicationWindow {
 
     header: ToolBar {
         id: toolBar
+        // The beta launcher owns its entire shell. Keeping Moonlight's legacy
+        // toolbar visible here made the catalog look like a loading subpage.
+        visible: !qmltypeof(stackView.currentItem, "LauncherView")
+                 && !qmltypeof(stackView.currentItem, "LoginView")
         height: 60
         anchors.topMargin: 5
         anchors.bottomMargin: 5
