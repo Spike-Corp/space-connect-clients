@@ -57,10 +57,18 @@ jobs:
           copy /Y libs\windows\lib\x64\*.dll deploy\ || exit /b 1
           copy /Y AntiHooking\release\AntiHooking.dll deploy\ || exit /b 1
           copy /Y app\SDL_GameControllerDB\gamecontrollerdb.txt deploy\ || exit /b 1
-          rem Bundle o VC++ CRT app-local (windeployqt nao acha o redist nesta VM):
-          rem sem vcruntime140_1.dll o app nao abre em Windows 10 limpo.
-          copy /Y "%VCToolsRedistDir%x64\Microsoft.VC143.CRT\*.dll" deploy\ || exit /b 1
           windeployqt --release --qmldir app\gui --no-opengl-sw --no-sql --no-system-d3d-compiler --no-system-dxc-compiler --skip-plugin-types qmltooling,generic --no-ffmpeg --no-quickcontrols2fusion --no-quickcontrols2imagine --no-quickcontrols2universal deploy\SpaceConnect.exe || exit /b 1
+
+      - name: Bundle VC++ CRT DLLs
+        # vcvars (Setup MSVC) nao persiste entre steps — cada step e um processo.
+        # windeployqt tambem nao acha o redist sozinho nesta VM, entao copiamos
+        # as DLLs do VC143 CRT direto do diretorio do VS Build Tools.
+        shell: powershell
+        run: |
+          $crt = Get-ChildItem 'C:\Program Files (x86)\Microsoft Visual Studio\2022\*\VC\Redist\MSVC\*\x64\Microsoft.VC143.CRT' -Directory -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $crt) { throw 'Pasta Microsoft.VC143.CRT x64 nao encontrada no VS Build Tools' }
+          Copy-Item "$($crt.FullName)\*.dll" deploy\ -Force
+          Get-ChildItem deploy\ | Where-Object Name -Match 'vcruntime|msvcp' | ForEach-Object Name
 
       - name: Package portable zip
         shell: powershell
@@ -147,10 +155,18 @@ jobs:
           copy /Y libs\windows\lib\x64\*.dll deploy\ || exit /b 1
           copy /Y AntiHooking\release\AntiHooking.dll deploy\ || exit /b 1
           copy /Y app\SDL_GameControllerDB\gamecontrollerdb.txt deploy\ || exit /b 1
-          rem Bundle o VC++ CRT app-local (windeployqt nao acha o redist nesta VM):
-          rem sem vcruntime140_1.dll o app nao abre em Windows 10 limpo.
-          copy /Y "%VCToolsRedistDir%x64\Microsoft.VC143.CRT\*.dll" deploy\ || exit /b 1
           windeployqt --release --qmldir app\gui --no-opengl-sw --no-sql deploy\SpaceConnect.exe || exit /b 1
+
+      - name: Bundle VC++ CRT DLLs
+        # vcvars (Setup MSVC) nao persiste entre steps — cada step e um processo.
+        # windeployqt tambem nao acha o redist sozinho nesta VM, entao copiamos
+        # as DLLs do VC143 CRT direto do diretorio do VS Build Tools.
+        shell: powershell
+        run: |
+          $crt = Get-ChildItem 'C:\Program Files (x86)\Microsoft Visual Studio\2022\*\VC\Redist\MSVC\*\x64\Microsoft.VC143.CRT' -Directory -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $crt) { throw 'Pasta Microsoft.VC143.CRT x64 nao encontrada no VS Build Tools' }
+          Copy-Item "$($crt.FullName)\*.dll" deploy\ -Force
+          Get-ChildItem deploy\ | Where-Object Name -Match 'vcruntime|msvcp' | ForEach-Object Name
 
       - name: Package portable zip
         shell: powershell
