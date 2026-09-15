@@ -111,7 +111,7 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
         run: |
           $version = (Get-Content desktop/app/version.txt).Trim()
-          ./ci/publish-release.ps1 -Tag "v$version" "SpaceConnect-$version-windows-x64.zip" "SpaceConnect-$version-windows-x64.msi"
+          & ./ci/publish-release.ps1 -Tag "v$version" -Files @("SpaceConnect-$version-windows-x64.zip", "SpaceConnect-$version-windows-x64.msi")
 
   windows-legacy:
     name: Windows x64 (legacy, Win7/8/8.1)
@@ -203,7 +203,7 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
         run: |
           $version = (Get-Content desktop/app/version.txt).Trim()
-          ./ci/publish-release.ps1 -Tag "v$version" "SpaceConnect-$version-windows-legacy-x64.zip" "SpaceConnect-$version-windows-legacy-x64.msi"
+          & ./ci/publish-release.ps1 -Tag "v$version" -Files @("SpaceConnect-$version-windows-legacy-x64.zip", "SpaceConnect-$version-windows-legacy-x64.msi")
 
   macos:
     name: macOS universal
