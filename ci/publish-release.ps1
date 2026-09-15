@@ -39,26 +39,16 @@ foreach ($f in $Files) {
     if ($old) {
         Invoke-RestMethod -Method Delete -Headers $headers -Uri "https://api.github.com/repos/$repo/releases/assets/$($old.id)" | Out-Null
     }
-    $uploadHeaders = @{
-        Authorization          = $headers.Authorization
-        Accept                 = $headers.Accept
-        'X-GitHub-Api-Version' = $headers.'X-GitHub-Api-Version'
-        'Content-Type'         = 'application/octet-stream'
+    # Upload via curl.exe (nativo no Win10+): o Invoke-RestMethod do PS 5.1 fecha
+    # a conexao em uploads grandes (~50MB+) com "Erro inesperado em um envio".
+    $url = "https://uploads.github.com/repos/$repo/releases/$($release.id)/assets?name=$name"
+    $ok = $false
+    for ($attempt = 1; $attempt -le 3 -and -not $ok; $attempt++) {
+        if ($attempt -gt 1) { Write-Host "retry $attempt para $name"; Start-Sleep -Seconds 5 }
+        & curl.exe -sf -X POST -H "Authorization: Bearer $env:GH_TOKEN" -H "Content-Type: application/octet-stream" `
+            --data-binary "@$f" --retry 3 --retry-delay 5 $url | Out-Null
+        $ok = ($LASTEXITCODE -eq 0)
     }
-    try {
-        Invoke-RestMethod -Method Post -Headers $uploadHeaders `
-            -Uri "https://uploads.github.com/repos/$repo/releases/$($release.id)/assets?name=$name" `
-            -InFile $f | Out-Null
-        Write-Host "uploaded: $name"
-    } catch {
-        $resp = $_.Exception.Response
-        if ($resp) {
-            $stream = $resp.GetResponseStream()
-            $reader = New-Object System.IO.StreamReader($stream)
-            Write-Host "HTTP $([int]$resp.StatusCode) $($resp.StatusDescription): $($reader.ReadToEnd())"
-        } else {
-            Write-Host "Upload error: $($_.Exception.Message)"
-        }
-        throw
-    }
+    if (-not $ok) { throw "Falha no upload de $name apos 3 tentativas" }
+    Write-Host "uploaded: $name"
 }
