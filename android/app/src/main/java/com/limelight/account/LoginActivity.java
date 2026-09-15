@@ -164,6 +164,14 @@ public class LoginActivity extends Activity {
     }
 
     private void showTwoFactorDialog(String tempToken, Button loginButton) {
+        // The login callback arrives from an async network response, so by the
+        // time we get here the activity may already be finishing/destroyed
+        // (screen rotation, user left the screen, back pressed). Showing a
+        // dialog on a dead window token throws WindowManager$BadTokenException.
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+
         final EditText codeField = new EditText(this);
         codeField.setInputType(InputType.TYPE_CLASS_NUMBER);
         codeField.setHint(R.string.launcher_two_factor_hint);
