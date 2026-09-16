@@ -1713,6 +1713,43 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
     }
 
+    // Estado do toggle "Ocultar controles da tela" (opção do game menu). Quando ativo, esconde o
+    // gamepad virtual, o teclado completo e o botão de teclas especiais, deixando a imagem limpa
+    // (útil pra quem joga com controle/teclado físico, ou só quer ver a tela sem os overlays). O
+    // botão de menu (gameMenuButton) continua visível de propósito, pra sempre dar pra reverter.
+    private boolean onScreenControlsHidden = false;
+
+    public boolean areOnScreenControlsHidden() {
+        return onScreenControlsHidden;
+    }
+
+    public void toggleOnScreenControls() {
+        onScreenControlsHidden = !onScreenControlsHidden;
+        final boolean hidden = onScreenControlsHidden;
+        runOnUiThread(() -> {
+            if (hidden) {
+                if (virtualController != null) {
+                    virtualController.hide();
+                }
+                if (fullKeyboardController != null) {
+                    fullKeyboardController.hide();
+                }
+                View specialKeys = findViewById(R.id.specialKeysButton);
+                if (specialKeys != null) {
+                    specialKeys.setVisibility(View.GONE);
+                }
+            } else {
+                if (virtualController != null && prefConfig.onscreenController) {
+                    virtualController.show();
+                }
+                View specialKeys = findViewById(R.id.specialKeysButton);
+                if (specialKeys != null) {
+                    specialKeys.setVisibility(View.VISIBLE);
+                }
+            }
+        });
+    }
+
     // Ported from Artemis (simplified: no clipboard sync since that needs their Apollo host
     // fork). Ends the stream immediately without a confirmation prompt - for when the user
     // wants to back out quickly (e.g. accidentally started the wrong PC/app).

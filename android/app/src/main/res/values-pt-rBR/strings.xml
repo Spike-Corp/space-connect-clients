@@ -469,4 +469,6 @@
     <string name="bitrate_profile_physical">VM Física (até 100 Mbps)</string>
     <string name="bitrate_profile_cloud">Cloud VM comum (até 25 Mbps)</string>
     <string name="game_menu_toggle_full_keyboard">Alternar teclado completo (F1-F12)</string>
+    <string name="game_menu_hide_controls">Ocultar controles da tela</string>
+    <string name="game_menu_show_controls">Mostrar controles da tela</string>
 </resources>

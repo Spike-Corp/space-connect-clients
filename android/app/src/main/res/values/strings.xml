@@ -97,6 +97,8 @@
     <string name="game_menu_send_special_keys">Send special keys</string>
     <string name="game_menu_toggle_keyboard">Toggle keyboard</string>
     <string name="game_menu_toggle_full_keyboard">Toggle full keyboard (F1-F12)</string>
+    <string name="game_menu_hide_controls">Hide on-screen controls</string>
+    <string name="game_menu_show_controls">Show on-screen controls</string>
     <string name="game_menu_select_mouse_mode">Select mouse mode</string>
     <string name="game_menu_toggle_local_cursor">Toggle local cursor visibility</string>
     <string name="mouse_mode_multi_touch">Multi touch</string>

@@ -747,6 +747,7 @@ static int parseOpusConfigurations(PRTSP_MESSAGE response) {
         char* paramStart;
         int err;
         int channelCount;
+        bool normalConfigParsed = false;
 
         channelCount = CHANNEL_COUNT_FROM_AUDIO_CONFIGURATION(StreamConfig.audioConfiguration);
 
@@ -759,44 +760,56 @@ static int parseOpusConfigurations(PRTSP_MESSAGE response) {
 
             // Parse the normal quality Opus config
             err = parseOpusConfigFromParamString(paramStart, channelCount, &NormalQualityOpusConfig);
-            if (err != 0) {
-                return err;
-            }
+            if (err == 0) {
+                normalConfigParsed = true;
 
-            // GFE's normal-quality channel mapping differs from the one our clients use.
-            // They use FL FR C RL RR SL SR LFE, but we use FL FR C LFE RL RR SL SR. We'll need
-            // to swap the mappings to match the expected values.
-            if (channelCount == 6 || channelCount == 8) {
-                OPUS_MULTISTREAM_CONFIGURATION originalMapping = NormalQualityOpusConfig;
+                // GFE's normal-quality channel mapping differs from the one our clients use.
+                // They use FL FR C RL RR SL SR LFE, but we use FL FR C LFE RL RR SL SR. We'll need
+                // to swap the mappings to match the expected values.
+                if (channelCount == 6 || channelCount == 8) {
+                    OPUS_MULTISTREAM_CONFIGURATION originalMapping = NormalQualityOpusConfig;
 
-                // LFE comes after C
-                NormalQualityOpusConfig.mapping[3] = originalMapping.mapping[channelCount - 1];
+                    // LFE comes after C
+                    NormalQualityOpusConfig.mapping[3] = originalMapping.mapping[channelCount - 1];
 
-                // Slide everything else up
-                memcpy(&NormalQualityOpusConfig.mapping[4],
-                       &originalMapping.mapping[3],
-                       channelCount - 4);
-            }
-
-            // If this configuration is compatible with high quality mode, we may have another
-            // matching surround-params value for high quality mode.
-            paramStart = strstr(paramStart, paramsPrefix);
-            if (paramStart) {
-                // Skip the prefix
-                paramStart += strlen(paramsPrefix);
-
-                // Parse the high quality Opus config
-                err = parseOpusConfigFromParamString(paramStart, channelCount, &HighQualityOpusConfig);
-                if (err != 0) {
-                    return err;
+                    // Slide everything else up
+                    memcpy(&NormalQualityOpusConfig.mapping[4],
+                           &originalMapping.mapping[3],
+                           channelCount - 4);
                 }
 
-                // We can request high quality audio
-                HighQualitySurroundSupported = true;
+                // If this configuration is compatible with high quality mode, we may have another
+                // matching surround-params value for high quality mode.
+                paramStart = strstr(paramStart, paramsPrefix);
+                if (paramStart) {
+                    // Skip the prefix
+                    paramStart += strlen(paramsPrefix);
+
+                    // Parse the high quality Opus config
+                    err = parseOpusConfigFromParamString(paramStart, channelCount, &HighQualityOpusConfig);
+                    if (err == 0) {
+                        // We can request high quality audio
+                        HighQualitySurroundSupported = true;
+                    }
+                    else {
+                        // High-quality surround-params malformed: just don't advertise HQ
+                        // surround. This is non-fatal (normal quality already parsed OK).
+                        Limelog("Malformed high-quality surround-params (err %d); disabling HQ surround\n", err);
+                    }
+                }
+            }
+            else {
+                // The host advertised surround-params but with a malformed value. This has been
+                // seen with hosts whose surround audio sink is broken (e.g. a virtual audio cable
+                // in an error state). Instead of aborting the whole connection — which is the
+                // "error -3"/"error -4" the user saw, with the stream never starting — fall through
+                // to the hardcoded fallback below (same behavior as when surround-params is absent).
+                Limelog("Malformed surround-params (err %d) for %d channels; using hardcoded fallback\n", err, channelCount);
             }
         }
-        else {
-            Limelog("No surround parameters found for channel count: %d\n", channelCount);
+
+        if (!normalConfigParsed) {
+            Limelog("No usable surround parameters for channel count: %d\n", channelCount);
 
             // It's unknown whether all GFE versions that supported surround sound included these
             // surround sound parameters. In case they didn't, we'll specifically handle 5.1 surround
