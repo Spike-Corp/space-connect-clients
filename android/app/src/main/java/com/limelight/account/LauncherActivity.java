@@ -79,6 +79,8 @@ public class LauncherActivity extends Activity {
         findViewById(R.id.launcherSettingsButton).setOnClickListener(v ->
                 startActivity(new Intent(LauncherActivity.this, StreamSettings.class)));
         findViewById(R.id.launcherUploadButton).setOnClickListener(v -> pickFileForUpload());
+        findViewById(R.id.launcherNetworkButton).setOnClickListener(v ->
+                startActivity(new Intent(LauncherActivity.this, LatencyTestActivity.class)));
     }
 
     @Override

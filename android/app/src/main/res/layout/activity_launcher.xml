@@ -124,6 +124,18 @@
                 android:padding="14dp"
                 android:scaleType="centerInside"
                 android:src="@drawable/ic_settings" />
+
+            <ImageButton
+                android:id="@+id/launcherNetworkButton"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:layout_marginStart="10dp"
+                android:layout_marginEnd="10dp"
+                android:background="@drawable/bg_card"
+                android:contentDescription="@string/launcher_latency_test"
+                android:padding="14dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_speed" />
         </LinearLayout>
 
         <Button

@@ -61,6 +61,7 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
     private int lastRunningAppId;
     private boolean suspendGridUpdates;
     private boolean inForeground;
+    private boolean autoDesktopTried;
     private boolean showHiddenApps;
     private HashSet<Integer> hiddenAppIds = new HashSet<>();
 
@@ -253,6 +254,8 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
                         blockingLoadSpinner.dismiss();
                         blockingLoadSpinner = null;
                     }
+
+                    maybeAutoLaunchDesktop(details);
                 } catch (XmlPullParserException | IOException e) {
                     e.printStackTrace();
                 }
@@ -542,6 +545,38 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
                 }
             }
         });
+    }
+
+    // Auto-lança o "Desktop" (virtual desktop) assim que a lista de apps chega,
+    // uma única vez por sessão do usuário. Se já existe algo rodando na VM
+    // (runningGameId != 0), NÃO força — o usuário vê o app rodando e pode retomar
+    // manualmente (o pedido: conectar direto no desktop, mas deixar voltar ao
+    // grid se cair/desconectar).
+    private void maybeAutoLaunchDesktop(ComputerDetails details) {
+        if (autoDesktopTried) return;
+        if (managerBinder == null || computer == null) return;
+        if (details.runningGameId != 0) { autoDesktopTried = true; return; }
+        for (int i = 0; i < appGridAdapter.getCount(); i++) {
+            AppObject obj = (AppObject) appGridAdapter.getItem(i);
+            if (obj == null || obj.app == null) continue;
+            String name = obj.app.getAppName() == null ? "" : obj.app.getAppName().trim();
+            if (name.equalsIgnoreCase("desktop") || name.toLowerCase().contains("virtual desktop")) {
+                autoDesktopTried = true;
+                final NvApp target = obj.app;
+                suspendGridUpdates = true;
+                if (poller != null) poller.stop();
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (isFinishing() || isDestroyed()) return;
+                        ServerHelper.doStart(AppView.this, target, computer, managerBinder);
+                    }
+                });
+                return;
+            }
+        }
+        // Não achou Desktop ainda — não marca tried pra tentar no próximo update
+        // (a lista pode chegar vazia na primeira resposta de cache).
     }
 
     private void updateUiWithAppList(final List<NvApp> appList) {

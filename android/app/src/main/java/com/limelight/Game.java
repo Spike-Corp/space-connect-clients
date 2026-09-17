@@ -250,9 +250,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         // Inflate the content
         setContentView(R.layout.activity_game);
 
-        // Start the spinner
+        // Start the spinner (mensagem amigável de boot da VM)
         spinner = SpinnerDialog.displayDialog(this, getResources().getString(R.string.conn_establishing_title),
-                getResources().getString(R.string.conn_establishing_msg), true);
+                getResources().getString(R.string.conn_establishing_msg_secure), true);
 
         // Read the stream preferences
         prefConfig = PreferenceConfiguration.readPreferences(this);
@@ -2868,10 +2868,24 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             @Override
             public void run() {
                 if (spinner != null) {
-                    spinner.setMessage(getResources().getString(R.string.conn_starting) + " " + stage);
+                    spinner.setMessage(getResources().getString(R.string.conn_starting) + " " + friendlyStage(stage));
                 }
             }
         });
+    }
+
+    // Mensagens amigáveis de inicialização (o stage vem em inglês do moonlight-common-c).
+    private String friendlyStage(String stage) {
+        if (stage == null) return "";
+        String s = stage.toLowerCase();
+        if (s.contains("platform init")) return getString(R.string.stage_platform_init);
+        if (s.contains("name resolution")) return getString(R.string.stage_name_resolution);
+        if (s.contains("audio")) return getString(R.string.stage_audio);
+        if (s.contains("rtsp")) return getString(R.string.stage_rtsp);
+        if (s.contains("control")) return getString(R.string.stage_control);
+        if (s.contains("video")) return getString(R.string.stage_video);
+        if (s.contains("input")) return getString(R.string.stage_input);
+        return stage;
     }
 
     @Override

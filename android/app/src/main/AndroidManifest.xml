@@ -120,6 +120,12 @@
             <meta-data android:name="WindowManagerPreference:FreeformWindowOrientation" android:value="landscape" />
         </activity>
         <activity
+            android:name=".account.LatencyTestActivity"
+            android:exported="false"
+            android:resizeableActivity="true"
+            android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection">
+        </activity>
+        <activity
             android:name=".account.LauncherActivity"
             android:exported="false"
             android:resizeableActivity="true"
