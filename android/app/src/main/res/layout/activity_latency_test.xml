@@ -5,7 +5,7 @@
     android:orientation="vertical"
     android:gravity="center"
     android:padding="28dp"
-    android:background="@color/moonlight_background">
+    android:background="@drawable/bg_app_gradient">
 
     <TextView
         android:id="@+id/latencyTitle"
@@ -14,7 +14,7 @@
         android:text="@string/latency_title"
         android:textSize="22sp"
         android:textStyle="bold"
-        android:textColor="@android:color/white" />
+        android:textColor="@color/moonlight_foreground" />
 
     <TextView
         android:id="@+id/latencyResult"
@@ -24,7 +24,7 @@
         android:text="—"
         android:textSize="64sp"
         android:textStyle="bold"
-        android:textColor="@android:color/white" />
+        android:textColor="@color/moonlight_gold" />
 
     <TextView
         android:id="@+id/latencyVerdict"
@@ -33,7 +33,7 @@
         android:layout_marginTop="8dp"
         android:textSize="16sp"
         android:textStyle="bold"
-        android:textColor="@android:color/white" />
+        android:textColor="@color/moonlight_teal" />
 
     <TextView
         android:id="@+id/latencyDetail"
@@ -42,7 +42,7 @@
         android:layout_marginTop="12dp"
         android:gravity="center"
         android:textSize="13sp"
-        android:textColor="#B0B0B0"
+        android:textColor="@color/moonlight_muted_foreground"
         android:text="@string/latency_hint" />
 
     <ProgressBar
@@ -54,11 +54,14 @@
 
     <Button
         android:id="@+id/latencyStart"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
         android:layout_marginTop="28dp"
+        android:background="@drawable/bg_button_purple"
         android:paddingStart="32dp"
         android:paddingEnd="32dp"
+        android:textColor="@color/moonlight_gold_foreground"
+        android:textAllCaps="false"
         android:text="@string/latency_start" />
 
 </LinearLayout>

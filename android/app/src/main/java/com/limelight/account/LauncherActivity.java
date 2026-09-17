@@ -60,8 +60,11 @@ public class LauncherActivity extends Activity {
         endSessionButton = findViewById(R.id.launcherEndSessionButton);
         progressBar = findViewById(R.id.launcherProgress);
 
+        String email = AccountManager.getLoggedInEmail(this);
+        TextView userNameText = findViewById(R.id.launcherUserName);
+        userNameText.setText(formatDisplayName(email));
         TextView accountText = findViewById(R.id.launcherAccount);
-        accountText.setText(AccountManager.getLoggedInEmail(this));
+        accountText.setText(email);
 
         findViewById(R.id.launcherRefreshButton).setOnClickListener(v -> refreshStatus(true));
         findViewById(R.id.launcherLogoutButton).setOnClickListener(v -> {
@@ -81,6 +84,30 @@ public class LauncherActivity extends Activity {
         findViewById(R.id.launcherUploadButton).setOnClickListener(v -> pickFileForUpload());
         findViewById(R.id.launcherNetworkButton).setOnClickListener(v ->
                 startActivity(new Intent(LauncherActivity.this, LatencyTestActivity.class)));
+    }
+
+    private static String formatDisplayName(String email) {
+        if (email == null || email.trim().isEmpty()) {
+            return "Jogador";
+        }
+        String localPart = email.trim();
+        int atIndex = localPart.indexOf('@');
+        if (atIndex > 0) {
+            localPart = localPart.substring(0, atIndex);
+        }
+        localPart = localPart.replace('.', ' ').replace('_', ' ').replace('-', ' ').trim();
+        if (localPart.isEmpty()) {
+            return "Jogador";
+        }
+        String[] words = localPart.split("\\s+");
+        StringBuilder displayName = new StringBuilder();
+        for (String word : words) {
+            if (word.isEmpty()) continue;
+            if (displayName.length() > 0) displayName.append(' ');
+            displayName.append(Character.toUpperCase(word.charAt(0)));
+            if (word.length() > 1) displayName.append(word.substring(1));
+        }
+        return displayName.toString();
     }
 
     @Override

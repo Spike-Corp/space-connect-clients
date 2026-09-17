@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="24dp"
+    android:paddingTop="4dp"
+    android:paddingEnd="24dp"
+    android:paddingBottom="8dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/launcher_two_factor_description"
+        android:textColor="?attr/appMutedForegroundColor"
+        android:textSize="15sp" />
+
+    <EditText
+        android:id="@+id/twoFactorCodeField"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginTop="18dp"
+        android:background="@drawable/bg_input_field"
+        android:gravity="center"
+        android:hint="@string/launcher_two_factor_hint"
+        android:inputType="number"
+        android:maxLength="6"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:textColor="?attr/appForegroundColor"
+        android:textColorHint="?attr/appMutedForegroundColor"
+        android:textSize="22sp"
+        android:letterSpacing="0.12" />
+
+    <Button
+        android:id="@+id/twoFactorPasteButton"
+        android:layout_width="wrap_content"
+        android:layout_height="44dp"
+        android:layout_gravity="end"
+        android:layout_marginTop="6dp"
+        android:text="@string/launcher_two_factor_paste"
+        android:textAllCaps="false"
+        android:textColor="@color/moonlight_purple"
+        android:textSize="14sp" />
+</LinearLayout>

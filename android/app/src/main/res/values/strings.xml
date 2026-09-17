@@ -238,7 +238,9 @@
     <string name="login_error">Check your email and password and try again</string>
     <string name="launcher_android_version_required">Space Connect requires Android 6.0 or newer</string>
     <string name="launcher_two_factor_title">Two-factor authentication</string>
+    <string name="launcher_two_factor_description">Open your authenticator app. The code is verified when you confirm it.</string>
     <string name="launcher_two_factor_hint">6-digit code</string>
+    <string name="launcher_two_factor_paste">Paste code</string>
     <string name="launcher_confirm">Confirm</string>
     <string name="launcher_loading">Loading your SpaceCloud</string>
     <string name="launcher_status_error">Could not update status</string>

@@ -6,9 +6,9 @@
         <shape android:shape="rectangle">
             <gradient
                 android:type="linear"
-                android:angle="270"
-                android:startColor="@color/moonlight_purple"
-                android:endColor="@color/moonlight_purple_shadow"/>
+                android:angle="0"
+                android:startColor="@color/moonlight_gold"
+                android:endColor="@color/moonlight_purple"/>
             <corners android:radius="10dp"/>
         </shape>
     </item>

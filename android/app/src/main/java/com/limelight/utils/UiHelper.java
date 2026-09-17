@@ -47,20 +47,18 @@ public class UiHelper {
     private static Typeface displayTypeface;
     private static Typeface bodyTypeface;
 
-    // Bold, geometric "sci-fi/gamer" display font (Orbitron, SIL Open Font License) - used for
-    // wordmarks/headings on the Splash and Login screens.
+    // Use Android's stable sans-serif family so the native client stays close to the web
+    // design system without depending on a browser-only WOFF2 asset.
     public static Typeface getDisplayTypeface(Context context) {
         if (displayTypeface == null) {
-            displayTypeface = Typeface.createFromAsset(context.getAssets(), "fonts/orbitron_bold.ttf");
+            displayTypeface = Typeface.create("sans-serif", Typeface.BOLD);
         }
         return displayTypeface;
     }
 
-    // Squarish, technical body font (Rajdhani, SIL Open Font License) - used for body text,
-    // fields, and buttons alongside the display font above.
     public static Typeface getBodyTypeface(Context context) {
         if (bodyTypeface == null) {
-            bodyTypeface = Typeface.createFromAsset(context.getAssets(), "fonts/rajdhani_semibold.ttf");
+            bodyTypeface = Typeface.create("sans-serif", Typeface.NORMAL);
         }
         return bodyTypeface;
     }

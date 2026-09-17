@@ -6,6 +6,8 @@ import com.limelight.utils.UiHelper;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
@@ -45,7 +47,6 @@ public class LoginActivity extends Activity {
         TextView createAccountLink = findViewById(R.id.createAccountLink);
         TextView forgotPasswordLink = findViewById(R.id.forgotPasswordLink);
 
-        ((TextView) findViewById(R.id.loginWordmark)).setTypeface(displayFont);
         ((TextView) findViewById(R.id.loginSubtitle)).setTypeface(bodyFont);
         emailField.setTypeface(bodyFont);
         passwordField.setTypeface(bodyFont);
@@ -172,15 +173,28 @@ public class LoginActivity extends Activity {
             return;
         }
 
-        final EditText codeField = new EditText(this);
-        codeField.setInputType(InputType.TYPE_CLASS_NUMBER);
-        codeField.setHint(R.string.launcher_two_factor_hint);
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_two_factor, null);
+        final EditText codeField = dialogView.findViewById(R.id.twoFactorCodeField);
+        Button pasteButton = dialogView.findViewById(R.id.twoFactorPasteButton);
+        Typeface bodyFont = UiHelper.getBodyTypeface(this);
+        codeField.setTypeface(bodyFont);
+        pasteButton.setTypeface(bodyFont);
+        pasteButton.setOnClickListener(v -> {
+            ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+            if (clipboard == null || !clipboard.hasPrimaryClip()) return;
+            CharSequence pasted = clipboard.getPrimaryClip().getItemAt(0).coerceToText(this);
+            if (pasted == null) return;
+            String digits = pasted.toString().replaceAll("\\D", "");
+            if (digits.length() > 6) digits = digits.substring(0, 6);
+            codeField.setText(digits);
+            codeField.setSelection(codeField.length());
+        });
 
-        new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(R.string.launcher_two_factor_title)
-                .setView(codeField)
+                .setView(dialogView)
                 .setNegativeButton(R.string.game_menu_cancel, null)
-                .setPositiveButton(R.string.launcher_confirm, (dialog, which) -> {
+                .setPositiveButton(R.string.launcher_confirm, (ignoredDialog, which) -> {
                     loginButton.setEnabled(false);
                     AccountManager.verifyTwoFactor(
                             LoginActivity.this,
@@ -188,7 +202,12 @@ public class LoginActivity extends Activity {
                             codeField.getText().toString().trim(),
                             loginCallback(loginButton));
                 })
-                .show();
+                .create();
+        dialog.setOnShowListener(ignored -> {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTypeface(bodyFont, Typeface.BOLD);
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTypeface(bodyFont);
+        });
+        dialog.show();
     }
 
     private void goToLauncher() {

@@ -58,9 +58,11 @@
 
         <ImageView
             android:id="@+id/splashLogo"
-            android:layout_width="96dp"
-            android:layout_height="96dp"
-            android:src="@drawable/ic_splash_logo"
+            android:layout_width="230dp"
+            android:layout_height="150dp"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"
+            android:src="@drawable/logo_spacecloud_brandbook"
             android:contentDescription="@null"/>
 
         <TextView
@@ -71,7 +73,8 @@
             android:text="@string/login_app_name"
             android:textColor="@color/moonlight_foreground"
             android:textStyle="bold"
-            android:textSize="28sp"/>
+            android:textSize="28sp"
+            android:visibility="gone"/>
 
         <ImageView
             android:id="@+id/splashSpinner"
