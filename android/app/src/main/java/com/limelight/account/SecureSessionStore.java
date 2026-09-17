@@ -43,6 +43,9 @@ final class SecureSessionStore {
         session.accessToken = auth.accessToken;
         session.refreshToken = auth.refreshToken;
         session.email = auth.user != null ? auth.user.email : previous != null ? previous.email : null;
+        session.name = auth.user != null && auth.user.name != null && !auth.user.name.trim().isEmpty()
+                ? auth.user.name
+                : previous != null ? previous.name : null;
         session.deviceId = deviceId;
         session.accessExpiresAt = System.currentTimeMillis()
                 + Math.max(60, auth.accessTokenExpiresIn) * 1000L;
@@ -120,6 +123,7 @@ final class SecureSessionStore {
         String accessToken;
         String refreshToken;
         String email;
+        String name;
         String deviceId;
         long accessExpiresAt;
     }

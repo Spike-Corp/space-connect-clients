@@ -15,6 +15,7 @@ import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.http.PairingManager;
 import com.limelight.account.AccountManager;
+import com.limelight.account.LauncherActivity;
 import com.limelight.account.SpaceConnectApiClient;
 import com.limelight.nvstream.http.PairingManager.PairState;
 import com.limelight.preferences.GlPreferences;
@@ -159,6 +160,11 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                     Toast.makeText(PcView.this, "https://gamingflix.space/catalogo", Toast.LENGTH_LONG).show();
                 }
             }
+        });
+        findViewById(R.id.pcHomeButton).setOnClickListener(v -> {
+            Intent home = new Intent(PcView.this, LauncherActivity.class);
+            home.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            startActivity(home);
         });
 
         getFragmentManager().beginTransaction()

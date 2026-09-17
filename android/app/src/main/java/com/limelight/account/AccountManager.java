@@ -53,6 +53,11 @@ public final class AccountManager {
         return session != null ? session.email : null;
     }
 
+    public static String getLoggedInName(Context context) {
+        SecureSessionStore.Session session = SESSION_STORE.load(context.getApplicationContext());
+        return session != null ? session.name : null;
+    }
+
     public static void login(
             Context context,
             String email,

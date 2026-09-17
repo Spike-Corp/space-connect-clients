@@ -238,9 +238,13 @@
     <string name="login_error">Check your email and password and try again</string>
     <string name="launcher_android_version_required">Space Connect requires Android 6.0 or newer</string>
     <string name="launcher_two_factor_title">Two-factor authentication</string>
-    <string name="launcher_two_factor_description">Open your authenticator app. The code is verified when you confirm it.</string>
+    <string name="launcher_two_factor_description">Open your authenticator app. The code is verified automatically when filled.</string>
+    <string name="launcher_two_factor_label">6-digit code</string>
     <string name="launcher_two_factor_hint">6-digit code</string>
     <string name="launcher_two_factor_paste">Paste code</string>
+    <string name="launcher_two_factor_back">Back to login</string>
+    <string name="launcher_two_factor_verifying">Verifying code…</string>
+    <string name="launcher_two_factor_invalid">Enter the 6-digit code from your authenticator app.</string>
     <string name="launcher_confirm">Confirm</string>
     <string name="launcher_loading">Loading your SpaceCloud</string>
     <string name="launcher_status_error">Could not update status</string>
@@ -272,6 +276,14 @@
     <string name="launcher_upload_pick_title">Choose a file to send</string>
     <string name="launcher_upload_in_progress">Sending file to your PC…</string>
     <string name="launcher_upload_success_fallback">File sent to your PC\'s Downloads folder</string>
+    <string name="launcher_toolbar_title">Your cloud gaming space</string>
+    <string name="launcher_greeting">Hello, player</string>
+    <string name="launcher_greeting_named">Hello, %1$s</string>
+    <string name="launcher_tools_title">Quick actions</string>
+    <string name="launcher_help">Help</string>
+    <string name="launcher_connection_invalid">The connection data from SpaceCloud is incomplete. Try again.</string>
+    <string name="launcher_home">Home</string>
+    <string name="pcs_title">Your computers</string>
 
     <string-array name="splash_loading_tips">
         <item>Connecting you to your PC…</item>

@@ -4,6 +4,7 @@ import com.limelight.PcView;
 import com.limelight.R;
 import com.limelight.preferences.AddComputerManually;
 import com.limelight.preferences.StreamSettings;
+import com.limelight.utils.HelpLauncher;
 import com.limelight.utils.UiHelper;
 
 import android.app.Activity;
@@ -62,9 +63,17 @@ public class LauncherActivity extends Activity {
 
         String email = AccountManager.getLoggedInEmail(this);
         TextView userNameText = findViewById(R.id.launcherUserName);
-        userNameText.setText(formatDisplayName(email));
+        String accountName = AccountManager.getLoggedInName(this);
+        userNameText.setText(accountName != null && !accountName.trim().isEmpty()
+                ? getString(R.string.launcher_greeting_named, accountName.trim())
+                : getString(R.string.launcher_greeting_named, formatDisplayName(email)));
         TextView accountText = findViewById(R.id.launcherAccount);
         accountText.setText(email);
+        userNameText.setTypeface(UiHelper.getDisplayTypeface(this), android.graphics.Typeface.BOLD);
+        accountText.setTypeface(UiHelper.getBodyTypeface(this));
+        ((TextView) findViewById(R.id.launcherToolbarTitle)).setTypeface(UiHelper.getBodyTypeface(this));
+        statusText.setTypeface(UiHelper.getBodyTypeface(this), android.graphics.Typeface.BOLD);
+        detailsText.setTypeface(UiHelper.getBodyTypeface(this));
 
         findViewById(R.id.launcherRefreshButton).setOnClickListener(v -> refreshStatus(true));
         findViewById(R.id.launcherLogoutButton).setOnClickListener(v -> {
@@ -84,6 +93,12 @@ public class LauncherActivity extends Activity {
         findViewById(R.id.launcherUploadButton).setOnClickListener(v -> pickFileForUpload());
         findViewById(R.id.launcherNetworkButton).setOnClickListener(v ->
                 startActivity(new Intent(LauncherActivity.this, LatencyTestActivity.class)));
+        findViewById(R.id.launcherNetworkHeaderButton).setOnClickListener(v ->
+                startActivity(new Intent(LauncherActivity.this, LatencyTestActivity.class)));
+        findViewById(R.id.launcherSettingsHeaderButton).setOnClickListener(v ->
+                startActivity(new Intent(LauncherActivity.this, StreamSettings.class)));
+        findViewById(R.id.launcherHelpButton).setOnClickListener(v ->
+                HelpLauncher.launchUrl(this, "https://spacecloud.gg/ajuda"));
     }
 
     private static String formatDisplayName(String email) {
@@ -301,7 +316,22 @@ public class LauncherActivity extends Activity {
             public void onSuccess(SpaceConnectApiClient.ConnectionResponse connection) {
                 requestRunning = false;
                 progressBar.setVisibility(View.GONE);
-                pendingHost = connection.host + ":" + connection.port;
+                String address = connection.host;
+                if (address == null || address.trim().isEmpty()) {
+                    address = connection.ipv6;
+                }
+                if (address == null || address.trim().isEmpty() || connection.port <= 0) {
+                    Toast.makeText(
+                            LauncherActivity.this,
+                            R.string.launcher_connection_invalid,
+                            Toast.LENGTH_LONG).show();
+                    return;
+                }
+                address = address.trim();
+                if (address.indexOf(':') >= 0 && !address.startsWith("[")) {
+                    address = "[" + address + "]";
+                }
+                pendingHost = address + ":" + connection.port;
                 // Cache the plan-based bitrate ceiling from the backend so StreamSettings can
                 // raise/lower the bitrate slider max to match this machine's provider (proxmox
                 // physical = up to 100 Mbps, cloud = 25 Mbps) without needing an app update.

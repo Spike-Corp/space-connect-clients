@@ -12,6 +12,7 @@
     <color name="moonlight_gold_shadow">#2C49A8</color>
     <color name="moonlight_border">#3A2B59</color>
     <color name="moonlight_danger">#FF4C6D</color>
+    <color name="moonlight_danger_surface">#2B1220</color>
     <color name="moonlight_teal">#4CFFA9</color>
     <color name="moonlight_teal_shadow">#24B875</color>
     <color name="moonlight_purple">#A482FA</color>

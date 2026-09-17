@@ -6,6 +6,7 @@ import com.limelight.utils.UiHelper;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
@@ -14,11 +15,15 @@ import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.InputType;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.Toast;
 
 public class LoginActivity extends Activity {
@@ -175,10 +180,73 @@ public class LoginActivity extends Activity {
 
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_two_factor, null);
         final EditText codeField = dialogView.findViewById(R.id.twoFactorCodeField);
+        TextView errorText = dialogView.findViewById(R.id.twoFactorError);
         Button pasteButton = dialogView.findViewById(R.id.twoFactorPasteButton);
+        Button confirmButton = dialogView.findViewById(R.id.twoFactorConfirmButton);
+        Button backButton = dialogView.findViewById(R.id.twoFactorBackButton);
         Typeface bodyFont = UiHelper.getBodyTypeface(this);
         codeField.setTypeface(bodyFont);
         pasteButton.setTypeface(bodyFont);
+        confirmButton.setTypeface(bodyFont, Typeface.BOLD);
+        backButton.setTypeface(bodyFont);
+
+        final Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(dialogView);
+        dialog.setCancelable(true);
+        dialog.setCanceledOnTouchOutside(true);
+
+        final boolean[] verifying = {false};
+        final Runnable submitCode = () -> {
+            if (verifying[0]) return;
+            String code = codeField.getText().toString().trim();
+            if (!code.matches("\\d{6}")) {
+                errorText.setText(R.string.launcher_two_factor_invalid);
+                errorText.setVisibility(View.VISIBLE);
+                codeField.requestFocus();
+                return;
+            }
+
+            verifying[0] = true;
+            errorText.setVisibility(View.GONE);
+            confirmButton.setEnabled(false);
+            confirmButton.setText(R.string.launcher_two_factor_verifying);
+            AccountManager.verifyTwoFactor(LoginActivity.this, tempToken, code,
+                    new AccountManager.LoginCallback() {
+                        @Override
+                        public void onSuccess() {
+                            if (isFinishing() || isDestroyed()) return;
+                            dialog.dismiss();
+                            loginButton.setEnabled(true);
+                            goToLauncher();
+                        }
+
+                        @Override
+                        public void onTwoFactorRequired(String ignoredToken) {
+                            showError(R.string.launcher_two_factor_invalid);
+                        }
+
+                        @Override
+                        public void onError(String message) {
+                            if (isFinishing() || isDestroyed()) return;
+                            errorText.setText(message);
+                            errorText.setVisibility(View.VISIBLE);
+                            verifying[0] = false;
+                            confirmButton.setEnabled(true);
+                            confirmButton.setText(R.string.launcher_confirm);
+                        }
+
+                        private void showError(int messageId) {
+                            if (isFinishing() || isDestroyed()) return;
+                            errorText.setText(messageId);
+                            errorText.setVisibility(View.VISIBLE);
+                            verifying[0] = false;
+                            confirmButton.setEnabled(true);
+                            confirmButton.setText(R.string.launcher_confirm);
+                        }
+                    });
+        };
+
         pasteButton.setOnClickListener(v -> {
             ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
             if (clipboard == null || !clipboard.hasPrimaryClip()) return;
@@ -189,25 +257,37 @@ public class LoginActivity extends Activity {
             codeField.setText(digits);
             codeField.setSelection(codeField.length());
         });
+        confirmButton.setOnClickListener(v -> submitCode.run());
+        backButton.setOnClickListener(v -> dialog.dismiss());
+        codeField.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
 
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle(R.string.launcher_two_factor_title)
-                .setView(dialogView)
-                .setNegativeButton(R.string.game_menu_cancel, null)
-                .setPositiveButton(R.string.launcher_confirm, (ignoredDialog, which) -> {
-                    loginButton.setEnabled(false);
-                    AccountManager.verifyTwoFactor(
-                            LoginActivity.this,
-                            tempToken,
-                            codeField.getText().toString().trim(),
-                            loginCallback(loginButton));
-                })
-                .create();
-        dialog.setOnShowListener(ignored -> {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTypeface(bodyFont, Typeface.BOLD);
-            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTypeface(bodyFont);
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                errorText.setVisibility(View.GONE);
+                if (s.length() == 6 && !verifying[0]) submitCode.run();
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+            }
         });
+
+        dialog.setOnCancelListener(ignored -> loginButton.setEnabled(true));
         dialog.show();
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawableResource(android.R.color.transparent);
+            WindowManager.LayoutParams params = window.getAttributes();
+            params.width = (int) (Math.min(390, getResources().getDisplayMetrics().widthPixels / getResources().getDisplayMetrics().density - 32)
+                    * getResources().getDisplayMetrics().density);
+            params.height = WindowManager.LayoutParams.WRAP_CONTENT;
+            window.setAttributes(params);
+            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+        }
+        codeField.requestFocus();
     }
 
     private void goToLauncher() {

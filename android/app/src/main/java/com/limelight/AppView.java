@@ -7,12 +7,14 @@ import java.util.List;
 
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
+import com.limelight.account.LauncherActivity;
 import com.limelight.grid.AppGridAdapter;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.http.PairingManager;
 import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.preferences.StreamSettings;
 import com.limelight.ui.AdapterFragment;
 import com.limelight.ui.AdapterFragmentCallbacks;
 import com.limelight.utils.CacheHelper;
@@ -317,6 +319,16 @@ public class AppView extends Activity implements AdapterFragmentCallbacks {
         TextView label = findViewById(R.id.appListText);
         setTitle(computerName);
         label.setText(computerName);
+        TextView toolbarTitle = findViewById(R.id.appToolbarTitle);
+        toolbarTitle.setText(computerName);
+        toolbarTitle.setTypeface(UiHelper.getBodyTypeface(this), android.graphics.Typeface.BOLD);
+        findViewById(R.id.appHomeButton).setOnClickListener(v -> {
+            Intent home = new Intent(AppView.this, LauncherActivity.class);
+            home.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            startActivity(home);
+        });
+        findViewById(R.id.appSettingsButton).setOnClickListener(v ->
+                startActivity(new Intent(AppView.this, StreamSettings.class)));
 
         // Bind to the computer manager service
         bindService(new Intent(this, ComputerManagerService.class), serviceConnection,

@@ -260,7 +260,13 @@
     <string name="login_error">Verifique seu e-mail e senha e tente novamente</string>
     <string name="launcher_android_version_required">O Space Connect exige Android 6.0 ou superior</string>
     <string name="launcher_two_factor_title">Autenticação em duas etapas</string>
+    <string name="launcher_two_factor_description">Abra seu app autenticador. O código será verificado automaticamente assim que preenchido.</string>
+    <string name="launcher_two_factor_label">Código de 6 dígitos</string>
     <string name="launcher_two_factor_hint">Código de 6 dígitos</string>
+    <string name="launcher_two_factor_paste">Colar código</string>
+    <string name="launcher_two_factor_back">Voltar ao login</string>
+    <string name="launcher_two_factor_verifying">Verificando código…</string>
+    <string name="launcher_two_factor_invalid">Digite o código de 6 dígitos do seu app autenticador.</string>
     <string name="launcher_confirm">Confirmar</string>
     <string name="launcher_loading">Carregando sua SpaceCloud</string>
     <string name="launcher_status_error">Não foi possível atualizar o status</string>
@@ -292,6 +298,14 @@
     <string name="launcher_upload_pick_title">Escolha um arquivo pra enviar</string>
     <string name="launcher_upload_in_progress">Enviando arquivo pro PC…</string>
     <string name="launcher_upload_success_fallback">Arquivo enviado pra pasta Downloads do seu PC</string>
+    <string name="launcher_toolbar_title">Seu espaço de cloud gaming</string>
+    <string name="launcher_greeting">Olá, jogador</string>
+    <string name="launcher_greeting_named">Olá, %1$s</string>
+    <string name="launcher_tools_title">Ações rápidas</string>
+    <string name="launcher_help">Ajuda</string>
+    <string name="launcher_connection_invalid">Os dados de conexão da SpaceCloud estão incompletos. Tente novamente.</string>
+    <string name="launcher_home">Início</string>
+    <string name="pcs_title">Seus computadores</string>
 
 
     <string-array name="splash_loading_tips">
