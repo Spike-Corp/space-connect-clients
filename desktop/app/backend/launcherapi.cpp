@@ -511,7 +511,10 @@ void LauncherApi::uploadFileToVm(const QString& localFilePath)
     file->setParent(multiPart);
     multiPart->append(filePart);
 
-    QNetworkRequest request(kApiBase.resolved(QUrl(QStringLiteral("/api/user/session/upload"))));
+    // Era /api/user/session/upload (middleware `authenticate`, JWT do SITE) com um
+    // token de LAUNCHER (aud 'space-connect') → 401 "User not found" em todo upload.
+    // A rota certa é a do launcher, que aceita este token (mesma do app Android).
+    QNetworkRequest request(kApiBase.resolved(QUrl(QStringLiteral("session/upload"))));
     request.setRawHeader("Accept", "application/json");
     request.setRawHeader("User-Agent", "SpaceConnect-Qt/0.1.0");
     if (!m_AccessToken.isEmpty())

@@ -29,6 +29,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Patch launcher upload endpoint
+        # launcherapi.cpp apontava o upload pra /api/user/session/upload (JWT do site)
+        # com token launcher → 401 "User not found". Garante a rota launcher no binário
+        # mesmo se o checkout vier de commit antigo sem o fix.
+        shell: cmd
+        run: |
+          powershell -NoProfile -Command "(Get-Content app/backend/launcherapi.cpp -Raw) -replace [regex]::Escape('kApiBase.resolved(QUrl(QStringLiteral("""/api/user/session/upload""")))'), 'kApiBase.resolved(QUrl(QStringLiteral("""session/upload""")))' | Set-Content app/backend/launcherapi.cpp -NoNewline"
+          findstr /C:"session/upload" app\backend\launcherapi.cpp || exit /b 1
+
       - name: Setup MSVC (x64)
         uses: ilammy/msvc-dev-cmd@v1
         with:
@@ -126,6 +135,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Patch launcher upload endpoint
+        # launcherapi.cpp apontava o upload pra /api/user/session/upload (JWT do site)
+        # com token launcher → 401 "User not found". Garante a rota launcher no binário
+        # mesmo se o checkout vier de commit antigo sem o fix.
+        shell: cmd
+        run: |
+          powershell -NoProfile -Command "(Get-Content app/backend/launcherapi.cpp -Raw) -replace [regex]::Escape('kApiBase.resolved(QUrl(QStringLiteral("""/api/user/session/upload""")))'), 'kApiBase.resolved(QUrl(QStringLiteral("""session/upload""")))' | Set-Content app/backend/launcherapi.cpp -NoNewline"
+          findstr /C:"session/upload" app\backend\launcherapi.cpp || exit /b 1
 
       - name: Setup MSVC (x64)
         uses: ilammy/msvc-dev-cmd@v1
