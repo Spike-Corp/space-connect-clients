@@ -22,14 +22,16 @@ All clients talk to the production API at
 
 ## Downloads
 
-Official builds are published to the OVH object storage release bucket:
+Official builds are published to [GitHub Releases](https://github.com/Spike-Corp/space-connect-releases/releases)
+and served by `https://downloads.spacecloud.gg`.
 
-- **Linux (AppImage):** https://spaceconnect-releases.s3.bhs.perf.cloud.ovh.net/v0.1.0/SpaceConnect-0.1.0-x86_64.AppImage
-- **Android (APK):** https://spaceconnect-releases.s3.bhs.perf.cloud.ovh.net/v0.1.0/SpaceConnect-0.1.0-android.apk
-- **Checksums:** https://spaceconnect-releases.s3.bhs.perf.cloud.ovh.net/v0.1.0/SHA256SUMS.txt
+- **Android 0.2.5 (APK):** https://downloads.spacecloud.gg/SpaceConnect-0.2.5-android.apk
+- **Available platforms, download links, SHA-256 and sizes:** https://spacecloud.gg/api/launcher/v1/releases
 
-Windows (portable zip) and macOS (universal DMG) builds are produced by the
-`Build Desktop Clients` GitHub Actions workflow and uploaded to the same bucket.
+Platforms are released independently. An Android hotfix does not change the
+Windows/Linux binaries or their version. Only entries marked `available` in the
+manifest are published downloads; generating an Android AAB does not submit it
+to the Play Store.
 
 > macOS DMGs from CI are **ad-hoc signed**, not Apple-notarized. First launch
 > requires right-click → Open (or `xattr -dr com.apple.quarantine`). Setting the
