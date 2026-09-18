@@ -121,11 +121,14 @@ jobs:
         run: |
           $version = (Get-Content desktop/app/version.txt).Trim()
           $zipName = "SpaceConnect-$version-windows-x64.zip"
-          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = 'application/vnd.github+json' }
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/vnd.github+json" }
           $existing = @()
-          try { $rel = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/Spike-Corp/space-connect-releases/releases/tags/v$version"; $existing = @($rel.assets | ForEach-Object { $_.name }) } catch {}
+          try {
+            $rel = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/Spike-Corp/space-connect-releases/releases/tags/v$version"
+            $existing = @($rel.assets | ForEach-Object { $_.name })
+          } catch { }
           if ($existing -contains $zipName) {
-            Write-Host "$zipName ja publicado neste release — pulando (idempotente)."
+            Write-Host "asset ja existe, pulando publish"
           } else {
             & ./ci/publish-release.ps1 -Tag "v$version" -Files @($zipName, "SpaceConnect-$version-windows-x64.msi")
           }
