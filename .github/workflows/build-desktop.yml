@@ -120,7 +120,15 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
         run: |
           $version = (Get-Content desktop/app/version.txt).Trim()
-          & ./ci/publish-release.ps1 -Tag "v$version" -Files @("SpaceConnect-$version-windows-x64.zip", "SpaceConnect-$version-windows-x64.msi")
+          $zipName = "SpaceConnect-$version-windows-x64.zip"
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = 'application/vnd.github+json' }
+          $existing = @()
+          try { $rel = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/Spike-Corp/space-connect-releases/releases/tags/v$version"; $existing = @($rel.assets | ForEach-Object { $_.name }) } catch {}
+          if ($existing -contains $zipName) {
+            Write-Host "$zipName ja publicado neste release — pulando (idempotente)."
+          } else {
+            & ./ci/publish-release.ps1 -Tag "v$version" -Files @($zipName, "SpaceConnect-$version-windows-x64.msi")
+          }
 
   windows-legacy:
     name: Windows x64 (legacy, Win7/8/8.1)
