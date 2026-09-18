@@ -8,16 +8,19 @@
     <LinearLayout
         android:id="@+id/launcherToolbar"
         android:layout_width="match_parent"
-        android:layout_height="68dp"
+        android:layout_height="wrap_content"
+        android:minHeight="60dp"
         android:background="@color/moonlight_surface"
         android:gravity="center_vertical"
-        android:paddingStart="20dp"
-        android:paddingEnd="12dp">
+        android:paddingStart="16dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp">
 
         <ImageView
             android:id="@+id/launcherTopLogo"
-            android:layout_width="126dp"
-            android:layout_height="48dp"
+            android:layout_width="112dp"
+            android:layout_height="40dp"
             android:contentDescription="@string/launcher_toolbar_title"
             android:scaleType="centerInside"
             android:src="@drawable/logo_spacecloud_brandbook" />
@@ -204,37 +207,55 @@
                 <Button
                     android:id="@+id/launcherControllerButton"
                     android:layout_width="0dp"
-                    android:layout_height="50dp"
+                    android:layout_height="wrap_content"
+                    android:minHeight="50dp"
                     android:layout_weight="1"
                     android:background="@drawable/bg_button_ghost"
-                        android:text="@string/launcher_shortcut_controller"
+                    android:text="@string/launcher_shortcut_controller"
                     android:textAllCaps="false"
                     android:textColor="?attr/appForegroundColor"
-                    android:textSize="13sp" />
+                    android:textSize="12sp"
+                    android:singleLine="false"
+                    android:maxLines="2"
+                    android:gravity="center"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="4dp" />
 
                 <Button
                     android:id="@+id/launcherSettingsButton"
                     android:layout_width="0dp"
-                    android:layout_height="50dp"
+                    android:layout_height="wrap_content"
+                    android:minHeight="50dp"
                     android:layout_marginStart="10dp"
                     android:layout_weight="1"
                     android:background="@drawable/bg_button_ghost"
                     android:text="@string/launcher_shortcut_settings"
                     android:textAllCaps="false"
                     android:textColor="?attr/appForegroundColor"
-                    android:textSize="13sp" />
+                    android:textSize="12sp"
+                    android:singleLine="false"
+                    android:maxLines="2"
+                    android:gravity="center"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="4dp" />
 
                 <Button
                     android:id="@+id/launcherNetworkButton"
                     android:layout_width="0dp"
-                    android:layout_height="50dp"
+                    android:layout_height="wrap_content"
+                    android:minHeight="50dp"
                     android:layout_marginStart="10dp"
                     android:layout_weight="1"
                     android:background="@drawable/bg_button_ghost"
                     android:text="@string/launcher_latency_test"
                     android:textAllCaps="false"
                     android:textColor="?attr/appForegroundColor"
-                    android:textSize="13sp" />
+                    android:textSize="12sp"
+                    android:singleLine="false"
+                    android:maxLines="2"
+                    android:gravity="center"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="4dp" />
             </LinearLayout>
 
             <LinearLayout

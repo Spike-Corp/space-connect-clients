@@ -26,6 +26,22 @@
         <item name="android:colorAccent">@color/moonlight_purple</item>
         <item name="android:textColorPrimary">?attr/appForegroundColor</item>
         <item name="android:textColorSecondary">?attr/appMutedForegroundColor</item>
+        <!-- Dialogs (spinner de conexão do Game, 2FA, confirmações) sempre no tema
+             escuro da marca. Sem isso, OEMs que clareiam dialogs do sistema (OneUI/
+             Samsung é o caso conhecido) desenham o AlertDialog com fundo claro do
+             sistema + nosso texto claro = mensagem invisível ("não mostra o que está
+             acontecendo na máquina"). -->
+        <item name="android:alertDialogTheme">@style/SpaceAlertDialog</item>
+    </style>
+
+    <style name="SpaceAlertDialog" parent="android:Theme.Material.Dialog.Alert">
+        <!-- Fundo escuro fixo → texto precisa ser o claro da paleta dark SEMPRE
+             (não ?attr/appForegroundColor, que no tema Light vira escuro e sumiria). -->
+        <item name="android:background">@color/moonlight_surface</item>
+        <item name="android:colorBackground">@color/moonlight_surface</item>
+        <item name="android:textColorPrimary">@color/moonlight_foreground</item>
+        <item name="android:textColorSecondary">@color/moonlight_muted_foreground</item>
+        <item name="android:colorAccent">@color/moonlight_purple</item>
     </style>
 
 </resources>
