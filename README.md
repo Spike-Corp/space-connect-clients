@@ -58,8 +58,22 @@ make -j$(nproc)          # Windows: scripts\jom.exe release
 
 ```bash
 cd android
-./gradlew assembleNonRootRelease   # application id: gg.spacecloud.connect
+./gradlew assembleNonRootRelease   # application id: gg.spacecloud.gg.connect
 ```
+
+Android 0.2.5 fixes the loading dialog remaining over an already connected stream.
+Connection stages remain visible while connecting; completing the connection
+dismisses the dialog without finishing the streaming Activity.
+
+```bash
+cd android
+./gradlew :app:testNonRootDebugUnitTest --tests 'com.limelight.utils.SpinnerDialogTest'
+```
+
+These Robolectric tests exercise Android 7/API 24 and Android 14/API 34 dialog
+lifecycle, queued callbacks and cancellation. They do not replace installed-app
+testing on Samsung One UI or a real streaming session. CI runs the unit suite
+before publishing the signed APK/AAB.
 
 ## License
 
