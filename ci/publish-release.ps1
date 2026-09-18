@@ -30,11 +30,13 @@ if (-not $release) {
 }
 Write-Host "Release $Tag id=$($release.id)"
 
-$assets = @(Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/$repo/releases/$($release.id)/assets?per_page=100")
-
 foreach ($f in $Files) {
     if (-not (Test-Path $f)) { throw "missing artifact: $f" }
     $name = Split-Path $f -Leaf
+    # Lista FRESCA a cada arquivo (bug real 18/09/2026: a lista era fetchada uma vez
+    # no topo; se ficava velha o delete dava 404 e o upload caía em 422 already_exists
+    # — e o curl SEM -f reportava sucesso, publicando nada silenciosamente).
+    $assets = @(Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/$repo/releases/$($release.id)/assets?per_page=100")
     $old = $assets | Where-Object { $_.name -eq $name } | Select-Object -First 1
     if ($old -and $old.id) {
         try {
@@ -50,7 +52,7 @@ foreach ($f in $Files) {
     $ok = $false
     for ($attempt = 1; $attempt -le 3 -and -not $ok; $attempt++) {
         if ($attempt -gt 1) { Write-Host "retry $attempt para $name"; Start-Sleep -Seconds 5 }
-        $out = & curl.exe -sS -X POST -H "Authorization: Bearer $env:GH_TOKEN" -H "Content-Type: application/octet-stream" `
+        $out = & curl.exe -sS -f -X POST -H "Authorization: Bearer $env:GH_TOKEN" -H "Content-Type: application/octet-stream" `
             --data-binary "@$f" --retry 2 --retry-delay 5 $url 2>&1
         $ok = ($LASTEXITCODE -eq 0)
         if (-not $ok) { Write-Host "curl erro ($LASTEXITCODE): $out" }
