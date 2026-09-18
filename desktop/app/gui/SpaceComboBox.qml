@@ -22,9 +22,9 @@ AutoResizingComboBox {
     background: Rectangle {
         implicitHeight: 38
         radius: 8
-        color: "#201A33"
+        color: "#110d17"
         border.width: 1.5
-        border.color: (control.activeFocus || control.hovered || control.popup.visible) ? "#9B6BFF" : "#4A4166"
+        border.color: (control.activeFocus || control.hovered || control.popup.visible) ? "#a482fa" : "#110d17"
         opacity: control.enabled ? 1.0 : 0.5
 
         Behavior on border.color { ColorAnimation { duration: 100 } }
@@ -33,7 +33,7 @@ AutoResizingComboBox {
     contentItem: Text {
         text: control.displayText
         font: control.font
-        color: control.enabled ? "#F1EDFB" : "#6B6480"
+        color: control.enabled ? "#f8f5ff" : "#9793aa"
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
         leftPadding: control.leftPadding
@@ -44,14 +44,14 @@ AutoResizingComboBox {
         x: control.width - width - 14
         y: control.topPadding + (control.availableHeight - height) / 2
         text: "\u25BE"
-        color: "#9B6BFF"
+        color: "#a482fa"
         font.pixelSize: 14
     }
 
     popup.background: Rectangle {
         radius: 8
-        color: "#201A33"
+        color: "#110d17"
         border.width: 1.5
-        border.color: "#9B6BFF"
+        border.color: "#a482fa"
     }
 }

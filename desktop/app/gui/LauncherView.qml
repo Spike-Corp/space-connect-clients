@@ -94,7 +94,7 @@ Item {
 
         Label {
             text: "SPACE CONNECT"
-            color: "#9B6BFF"
+            color: "#a482fa"
             font.pixelSize: 30
             font.bold: true
             Layout.alignment: Qt.AlignHCenter
@@ -102,7 +102,7 @@ Item {
 
         Label {
             text: LauncherApi.email
-            color: "#A79BC9"
+            color: "#9793aa"
             Layout.alignment: Qt.AlignHCenter
         }
 
@@ -110,9 +110,9 @@ Item {
             Layout.fillWidth: true
             implicitHeight: statusColumn.implicitHeight + 48
             radius: 14
-            color: "#201A33"
+            color: "#110d17"
             border.width: 1
-            border.color: "#E4D9FF"
+            border.color: "#e8e2ff"
 
             ColumnLayout {
                 id: statusColumn
@@ -122,7 +122,7 @@ Item {
 
                 Label {
                     text: statusTitle()
-                    color: "#F1EDFB"
+                    color: "#f8f5ff"
                     font.pixelSize: 24
                     font.bold: true
                     Layout.fillWidth: true
@@ -130,7 +130,7 @@ Item {
 
                 Label {
                     text: statusDetails()
-                    color: "#A79BC9"
+                    color: "#9793aa"
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                 }
@@ -138,7 +138,7 @@ Item {
                 Label {
                     visible: LauncherApi.errorMessage.length > 0
                     text: LauncherApi.errorMessage
-                    color: "#FF5D5D"
+                    color: "#F87171"
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                 }
@@ -176,6 +176,15 @@ Item {
                     Layout.fillWidth: true
                     onClicked: uploadFileDialog.open()
                 }
+
+                Button {
+                    // Paridade com o Android: teste de rede/latência (mediana +
+                    // jitter + veredito pra cloud gaming).
+                    text: qsTr("Test network / latency")
+                    enabled: !LauncherApi.busy
+                    Layout.fillWidth: true
+                    onClicked: navigateTo("qrc:/gui/LatencyTestView.qml", "LatencyTestView")
+                }
             }
         }
 
@@ -206,7 +215,7 @@ Item {
             Label {
                 text: qsTr("Choose a password for your PC (used for Windows login too).")
                 wrapMode: Text.WordWrap
-                color: "#A79BC9"
+                color: "#9793aa"
                 Layout.fillWidth: true
             }
 

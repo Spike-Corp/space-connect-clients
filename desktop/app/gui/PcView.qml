@@ -114,9 +114,9 @@ CenteredGridView {
         // Android client's bg_card + accent-highlight styling.
         background: Rectangle {
             radius: 14
-            color: "#201A33"
+            color: "#110d17"
             border.width: pcDelegate.highlighted ? 2 : 1
-            border.color: (pcDelegate.highlighted || pcDelegate.hovered) ? "#9B6BFF" : "#E4D9FF"
+            border.color: (pcDelegate.highlighted || pcDelegate.hovered) ? "#a482fa" : "#e8e2ff"
         }
 
         property alias pcContextMenu : pcContextMenuLoader.item

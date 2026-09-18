@@ -27,9 +27,9 @@ ApplicationWindow {
     // Not sampled from any copyrighted artwork.
     background: Rectangle {
         gradient: Gradient {
-            GradientStop { position: 0.0; color: "#1B1030" }
-            GradientStop { position: 0.55; color: "#8B3FD4" }
-            GradientStop { position: 1.0; color: "#FF6F5E" }
+            GradientStop { position: 0.0; color: "#0d0816" }
+            GradientStop { position: 0.55; color: "#a482fa" }
+            GradientStop { position: 1.0; color: "#4572fa" }
         }
     }
 
@@ -38,7 +38,7 @@ ApplicationWindow {
         // in order to improve contrast between GFE's placeholder box art
         // and the background of the app grid.
         if (SystemProperties.usesMaterial3Theme) {
-            Material.background = "#303030"
+            Material.background = "#110d17"
         }
 
         // Show the window according to the user's preferences

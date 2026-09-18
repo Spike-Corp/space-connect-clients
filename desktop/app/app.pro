@@ -181,6 +181,7 @@ SOURCES += \
     backend/identitymanager.cpp \
     backend/micforwarder.cpp \
     backend/launcherapi.cpp \
+    backend/latencytester.cpp \
     backend/launcherjson.cpp \
     backend/recaptchafetcher.cpp \
     backend/nvcomputer.cpp \
@@ -227,6 +228,7 @@ HEADERS += \
     backend/identitymanager.h \
     backend/micforwarder.h \
     backend/launcherapi.h \
+    backend/latencytester.h \
     backend/launcherjson.h \
     backend/recaptchafetcher.h \
     backend/nvcomputer.h \

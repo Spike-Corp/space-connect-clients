@@ -46,6 +46,7 @@
 #include "backend/computermanager.h"
 #include "backend/systemproperties.h"
 #include "backend/launcherapi.h"
+#include "backend/latencytester.h"
 #include "streaming/session.h"
 #include "settings/streamingpreferences.h"
 #include "gui/sdlgamepadkeynavigation.h"
@@ -709,6 +710,11 @@ int main(int argc, char *argv[])
                                           [](QQmlEngine*, QJSEngine*) -> QObject* {
                                               return new LauncherApi();
                                           });
+    qmlRegisterSingletonType<LatencyTester>("LatencyTester", 1, 0,
+                                            "LatencyTester",
+                                            [](QQmlEngine*, QJSEngine*) -> QObject* {
+                                                return new LatencyTester();
+                                            });
 
     // Create the identity manager on the main thread
     IdentityManager::get();

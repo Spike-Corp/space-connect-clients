@@ -105,7 +105,7 @@ Flickable {
             id: basicSettingsGroupBox
             width: (parent.width - (parent.leftPadding + parent.rightPadding))
             padding: 12
-            label: SectionHeader { iconSource: "qrc:/res/icons/gauge.svg"; text: qsTr("Basic Settings"); accentColor: "#9B6BFF" }
+            label: SectionHeader { iconSource: "qrc:/res/icons/gauge.svg"; text: qsTr("Basic Settings"); accentColor: "#a482fa" }
             font.pointSize: 12
 
             Column {
@@ -984,7 +984,7 @@ Flickable {
             id: audioSettingsGroupBox
             width: (parent.width - (parent.leftPadding + parent.rightPadding))
             padding: 12
-            label: SectionHeader { iconSource: "qrc:/res/icons/volume.svg"; text: qsTr("Audio Settings"); accentColor: "#2EC4B6" }
+            label: SectionHeader { iconSource: "qrc:/res/icons/volume.svg"; text: qsTr("Audio Settings"); accentColor: "#4572fa" }
             font.pointSize: 12
 
             Column {
@@ -1166,7 +1166,7 @@ Flickable {
             id: hostSettingsGroupBox
             width: (parent.width - (parent.leftPadding + parent.rightPadding))
             padding: 12
-            label: SectionHeader { iconSource: "qrc:/res/icons/server-2.svg"; text: qsTr("Host Settings"); accentColor: "#FF8C32" }
+            label: SectionHeader { iconSource: "qrc:/res/icons/server-2.svg"; text: qsTr("Host Settings"); accentColor: "#FB923C" }
             font.pointSize: 12
 
             Column {
@@ -1206,7 +1206,7 @@ Flickable {
             id: uiSettingsGroupBox
             width: (parent.width - (parent.leftPadding + parent.rightPadding))
             padding: 12
-            label: SectionHeader { iconSource: "qrc:/res/icons/palette.svg"; text: qsTr("UI Settings"); accentColor: "#9B6BFF" }
+            label: SectionHeader { iconSource: "qrc:/res/icons/palette.svg"; text: qsTr("UI Settings"); accentColor: "#a482fa" }
             font.pointSize: 12
 
             Column {
@@ -1492,7 +1492,7 @@ Flickable {
             id: inputSettingsGroupBox
             width: (parent.width - (parent.leftPadding + parent.rightPadding))
             padding: 12
-            label: SectionHeader { iconSource: "qrc:/res/icons/mouse.svg"; text: qsTr("Input Settings"); accentColor: "#2EC4B6" }
+            label: SectionHeader { iconSource: "qrc:/res/icons/mouse.svg"; text: qsTr("Input Settings"); accentColor: "#4572fa" }
             font.pointSize: 12
 
             Column {
@@ -1640,7 +1640,7 @@ Flickable {
             id: gamepadSettingsGroupBox
             width: (parent.width - (parent.leftPadding + parent.rightPadding))
             padding: 12
-            label: SectionHeader { iconSource: "qrc:/res/icons/device-gamepad-2.svg"; text: qsTr("Gamepad Settings"); accentColor: "#FF8C32" }
+            label: SectionHeader { iconSource: "qrc:/res/icons/device-gamepad-2.svg"; text: qsTr("Gamepad Settings"); accentColor: "#FB923C" }
             font.pointSize: 12
 
             Column {
@@ -1715,7 +1715,7 @@ Flickable {
             id: advancedSettingsGroupBox
             width: (parent.width - (parent.leftPadding + parent.rightPadding))
             padding: 12
-            label: SectionHeader { iconSource: "qrc:/res/icons/adjustments-horizontal.svg"; text: qsTr("Advanced Settings"); accentColor: "#9B6BFF" }
+            label: SectionHeader { iconSource: "qrc:/res/icons/adjustments-horizontal.svg"; text: qsTr("Advanced Settings"); accentColor: "#a482fa" }
             font.pointSize: 12
 
             Column {
@@ -1922,7 +1922,7 @@ Flickable {
             id: accountSettingsGroupBox
             width: (parent.width - (parent.leftPadding + parent.rightPadding))
             padding: 12
-            label: SectionHeader { iconSource: "qrc:/res/icons/user-circle.svg"; text: qsTr("Account"); accentColor: "#2EC4B6" }
+            label: SectionHeader { iconSource: "qrc:/res/icons/user-circle.svg"; text: qsTr("Account"); accentColor: "#4572fa" }
             font.pointSize: 12
 
             Column {

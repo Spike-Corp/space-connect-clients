@@ -80,9 +80,9 @@ CenteredGridView {
         // Android client's bg_card + accent-highlight styling.
         background: Rectangle {
             radius: 14
-            color: "#201A33"
+            color: "#110d17"
             border.width: appDelegate.highlighted ? 2 : 1
-            border.color: (appDelegate.highlighted || appDelegate.hovered) ? "#9B6BFF" : "#E4D9FF"
+            border.color: (appDelegate.highlighted || appDelegate.hovered) ? "#a482fa" : "#e8e2ff"
         }
 
         property alias appContextMenu: appContextMenuLoader.item
@@ -158,7 +158,7 @@ CenteredGridView {
                     ToolTip.timeout: 3000
                     ToolTip.visible: hovered
 
-                    Material.background: "#D0808080"
+                    Material.background: "#9793aa80"
                 }
 
                 RoundButton {
@@ -186,7 +186,7 @@ CenteredGridView {
                     ToolTip.timeout: 3000
                     ToolTip.visible: hovered
 
-                    Material.background: "#D0808080"
+                    Material.background: "#9793aa80"
                 }
             }
         }

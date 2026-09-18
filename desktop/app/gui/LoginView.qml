@@ -76,13 +76,13 @@ Item {
                 font.family: displayFontLoader.name
                 font.pixelSize: 30
                 font.letterSpacing: 2
-                color: "#9B6BFF"
+                color: "#a482fa"
                 Layout.alignment: Qt.AlignHCenter
             }
 
             Label {
                 text: qsTr("Sign in to start streaming")
-                color: "#A79BC9"
+                color: "#9793aa"
                 font.pointSize: 12
                 Layout.alignment: Qt.AlignHCenter
                 Layout.bottomMargin: 20
@@ -92,9 +92,9 @@ Item {
                 Layout.fillWidth: true
                 implicitHeight: fieldsColumn.implicitHeight + 48
                 radius: 14
-                color: "#201A33"
+                color: "#110d17"
                 border.width: 1
-                border.color: "#E4D9FF"
+                border.color: "#e8e2ff"
 
                 ColumnLayout {
                     id: fieldsColumn
@@ -144,7 +144,7 @@ Item {
                                         ctx.reset()
                                         var w = width, h = height
                                         var cx = w / 2, cy = h / 2
-                                        var col = showing ? "#9B6BFF" : "#A79BC9"
+                                        var col = showing ? "#a482fa" : "#9793aa"
                                         ctx.strokeStyle = col
                                         ctx.fillStyle = col
                                         ctx.lineWidth = 1.6
@@ -183,7 +183,7 @@ Item {
                     Label {
                         id: errorLabel
                         visible: false
-                        color: "#FF5D5D"
+                        color: "#F87171"
                         wrapMode: Label.WordWrap
                         Layout.fillWidth: true
                     }
@@ -207,7 +207,7 @@ Item {
 
             Label {
                 text: qsTr("Forgot your password?")
-                color: "#2EC4B6"
+                color: "#4572fa"
                 font.underline: true
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 20
