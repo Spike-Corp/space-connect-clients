@@ -200,6 +200,11 @@ public class LauncherActivity extends Activity {
                 primaryButton.setVisibility(View.GONE);
             } else {
                 statusText.setText(R.string.launcher_status_starting);
+                // Mostra a fase real do boot (criação/proteção/rede) em vez de só "starting".
+                String phase = status.session.machine != null ? status.session.machine.creationPhase : null;
+                if (phase != null && !phase.isEmpty()) {
+                    detailsText.setText(creationPhaseLabel(phase));
+                }
                 primaryButton.setText(R.string.launcher_wait);
                 primaryButton.setEnabled(false);
             }
@@ -219,6 +224,27 @@ public class LauncherActivity extends Activity {
         if (hasMachine == null) {
             checkMachines();
         }
+    }
+
+    // Rótulo amigável da fase de criação/boot (mesmo vocabulário do site/desktop).
+    private String creationPhaseLabel(String phase) {
+        int res;
+        switch (phase) {
+            case "queued": res = R.string.phase_queued; break;
+            case "checking_snapshot": res = R.string.phase_checking_snapshot; break;
+            case "restoring_disk": res = R.string.phase_restoring_disk; break;
+            case "restoring_instance": res = R.string.phase_restoring_instance; break;
+            case "creating_instance": res = R.string.phase_creating_instance; break;
+            case "attaching_gpu": res = R.string.phase_attaching_gpu; break;
+            case "starting": res = R.string.phase_starting; break;
+            case "securing": res = R.string.phase_securing; break;
+            case "setting_password": res = R.string.phase_setting_password; break;
+            case "configuring_network": res = R.string.phase_configuring_network; break;
+            case "waiting_agent": res = R.string.phase_waiting_agent; break;
+            case "ready": res = R.string.phase_ready; break;
+            default: return getString(R.string.phase_generic);
+        }
+        return getString(res);
     }
 
     // Descobre se o usuário já tem alguma VM dedicada provisionada. Sem isso o
