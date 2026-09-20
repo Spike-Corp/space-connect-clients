@@ -36,11 +36,33 @@ Item {
         return qsTr("Ready to play")
     }
 
+    // Rótulo amigável da fase de criação/boot (mesmo vocabulário do site).
+    function creationPhaseLabel(phase) {
+        var map = {
+            "queued": qsTr("Allocating cloud resources"),
+            "checking_snapshot": qsTr("Checking saved snapshots"),
+            "restoring_disk": qsTr("Restoring VM disk"),
+            "restoring_instance": qsTr("Recreating cloud instance"),
+            "creating_instance": qsTr("Creating VM from template"),
+            "attaching_gpu": qsTr("Attaching GPU"),
+            "starting": qsTr("Starting the operating system"),
+            "securing": qsTr("Securing the environment"),
+            "setting_password": qsTr("Setting your access password"),
+            "configuring_network": qsTr("Configuring the network"),
+            "waiting_agent": qsTr("Connecting monitoring agent"),
+            "ready": qsTr("Almost ready!")
+        }
+        return map[phase] || qsTr("Preparing your machine")
+    }
+
     function statusDetails() {
         if (needsMachine())
             return qsTr("You don't have a dedicated PC yet. Create one to start playing.")
         if (LauncherApi.state === "queued")
             return qsTr("Position %1 of %2").arg(LauncherApi.queuePosition).arg(LauncherApi.queueTotal)
+        // Mostra a fase real do boot (criação/proteção/rede) em vez de um "starting" genérico.
+        if (LauncherApi.state === "starting" && LauncherApi.creationPhase)
+            return creationPhaseLabel(LauncherApi.creationPhase)
         if (LauncherApi.machineName)
             return qsTr("%1 · %2 minutes remaining").arg(LauncherApi.machineName).arg(LauncherApi.remainingMinutes)
         return qsTr("Join the shared queue. Your plan determines your priority.")

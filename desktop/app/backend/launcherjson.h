@@ -11,6 +11,7 @@ struct LauncherStatus
     int priority = 0;
     QString planSlug;
     QString machineName;
+    QString creationPhase;
     qint64 remainingMs = 0;
 };
 

@@ -23,6 +23,7 @@ class LauncherApi : public QObject
     Q_PROPERTY(int queueTotal READ queueTotal NOTIFY statusChanged)
     Q_PROPERTY(QString planSlug READ planSlug NOTIFY statusChanged)
     Q_PROPERTY(QString machineName READ machineName NOTIFY statusChanged)
+    Q_PROPERTY(QString creationPhase READ creationPhase NOTIFY statusChanged)
     Q_PROPERTY(qint64 remainingMinutes READ remainingMinutes NOTIFY statusChanged)
     // Falso enquanto ainda não sabemos (undecided) ou o usuário realmente não
     // tem nenhuma VM dedicada provisionada. Sem isso, o app só sabia "joinQueue",
@@ -51,6 +52,7 @@ public:
     int queueTotal() const { return m_QueueTotal; }
     QString planSlug() const { return m_PlanSlug; }
     QString machineName() const { return m_MachineName; }
+    QString creationPhase() const { return m_CreationPhase; }
     qint64 remainingMinutes() const { return m_RemainingMs / 60000; }
     bool hasMachine() const { return m_HasMachine; }
     bool machinesLoaded() const { return m_MachinesLoaded; }
@@ -121,6 +123,7 @@ private:
     QString m_State = QStringLiteral("idle");
     QString m_PlanSlug;
     QString m_MachineName;
+    QString m_CreationPhase;
     int m_QueuePosition = 0;
     int m_QueueTotal = 0;
     qint64 m_RemainingMs = 0;

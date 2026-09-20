@@ -180,8 +180,22 @@ void LauncherApi::refreshStatus()
                 setBusy(false);
                 if (status >= 200 && status < 300) {
                     applyStatus(root);
-                    if (m_State == QStringLiteral("idle"))
+                    // Re-checa as máquinas em qualquer transição de estado (não só idle):
+                    // quem criou/iniciou a VM pelo SITE tem a máquina registrada, mas o app
+                    // podia ter cacheado hasMachine=false num boot anterior e ficar preso em
+                    // "Create your PC" mesmo com a VM subindo. Agora atualiza sempre que o
+                    // estado muda ou ainda não carregou.
+                    if (m_State == QStringLiteral("idle") || !m_MachinesLoaded)
                         fetchMachines();
+                    // Se tem sessão/criação rolando, a máquina EXISTE — marca direto pra
+                    // não cair no estado "sem VM" enquanto o fetchMachines não responde.
+                    if (!m_HasMachine && (m_State == QStringLiteral("starting")
+                                          || m_State == QStringLiteral("queued")
+                                          || m_State == QStringLiteral("ready"))) {
+                        m_HasMachine = true;
+                        m_MachinesLoaded = true;
+                        emit machinesChanged();
+                    }
                 }
                 else if (status == 401) {
                     refreshTokens();
@@ -443,6 +457,7 @@ void LauncherApi::applyStatus(const QJsonObject& root)
         m_QueueTotal = status.queueTotal;
         m_PlanSlug = status.planSlug;
         m_MachineName = status.machineName;
+        m_CreationPhase = status.creationPhase;
         m_RemainingMs = status.remainingMs;
         setError(QString());
         emit statusChanged();
