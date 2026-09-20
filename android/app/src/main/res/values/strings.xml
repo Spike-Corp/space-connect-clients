@@ -265,6 +265,8 @@
     <string name="launcher_refresh">Refresh status</string>
     <string name="launcher_logout">Sign out</string>
     <string name="launcher_no_machine_details">You don\'t have a dedicated PC yet. Create it to start playing.</string>
+    <string name="launcher_select_machine_title">Select a PC</string>
+    <string name="launcher_select_machine_required">Select a PC before entering the queue.</string>
     <string name="launcher_create_machine">Create my PC</string>
     <string name="launcher_create_machine_title">Create your PC</string>
     <string name="launcher_create_machine_message">Confirm your password to create your dedicated SpaceCloud PC. This may take a few minutes.</string>

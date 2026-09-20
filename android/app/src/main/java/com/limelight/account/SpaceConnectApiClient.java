@@ -62,14 +62,27 @@ public final class SpaceConnectApiClient {
             String accessToken,
             double requestedHours,
             String provider) throws IOException, ApiException {
+        return joinQueue(accessToken, requestedHours, provider, null);
+    }
+
+    public StatusResponse joinQueue(
+            String accessToken,
+            double requestedHours,
+            String provider,
+            String machineId) throws IOException, ApiException {
         QueueRequest input = new QueueRequest();
         input.requestedHours = requestedHours;
         input.provider = provider;
+        input.machineId = machineId;
         return post("queue", input, accessToken, StatusResponse.class);
     }
 
     public ConnectionResponse getConnection(String accessToken) throws IOException, ApiException {
         return get("connection", accessToken, ConnectionResponse.class);
+    }
+
+    public ConnectionResponse getConnection(String accessToken, String machineId) throws IOException, ApiException {
+        return get("connection?machineId=" + safeMachineId(machineId), accessToken, ConnectionResponse.class);
     }
 
     public AuthResponse refresh(String refreshToken, String deviceId) throws IOException, ApiException {
@@ -105,6 +118,18 @@ public final class SpaceConnectApiClient {
 
     public EndSessionResponse endSession(String accessToken) throws IOException, ApiException {
         return post("session/end", new EmptyRequest(), accessToken, EndSessionResponse.class);
+    }
+
+    public EndSessionResponse endSession(String accessToken, String machineId) throws IOException, ApiException {
+        return post("session/end?machineId=" + safeMachineId(machineId), new EmptyRequest(), accessToken,
+                EndSessionResponse.class);
+    }
+
+    private static String safeMachineId(String machineId) {
+        if (machineId == null || !machineId.matches("^[a-fA-F0-9]{24}$")) {
+            throw new IllegalArgumentException("ID de máquina inválido");
+        }
+        return machineId;
     }
 
     // Envia um arquivo do aparelho pra pasta Downloads da VM do usuario
@@ -277,6 +302,7 @@ public final class SpaceConnectApiClient {
     private static final class QueueRequest {
         double requestedHours;
         String provider;
+        String machineId;
     }
 
     private static final class RefreshRequest {

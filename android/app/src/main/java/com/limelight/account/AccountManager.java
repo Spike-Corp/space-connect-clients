@@ -133,6 +133,13 @@ public final class AccountManager {
         executeAuthenticated(context, token -> API.joinQueue(token, 24, "proxmox"), callback);
     }
 
+    public static void joinQueue(
+            Context context,
+            String machineId,
+            ResultCallback<SpaceConnectApiClient.StatusResponse> callback) {
+        executeAuthenticated(context, token -> API.joinQueue(token, 24, "proxmox", machineId), callback);
+    }
+
     public static void leaveQueue(
             Context context,
             ResultCallback<SpaceConnectApiClient.StatusResponse> callback) {
@@ -161,10 +168,24 @@ public final class AccountManager {
         executeAuthenticated(context, API::getConnection, callback);
     }
 
+    public static void getConnection(
+            Context context,
+            String machineId,
+            ResultCallback<SpaceConnectApiClient.ConnectionResponse> callback) {
+        executeAuthenticated(context, token -> API.getConnection(token, machineId), callback);
+    }
+
     public static void endSession(
             Context context,
             ResultCallback<SpaceConnectApiClient.EndSessionResponse> callback) {
         executeAuthenticated(context, API::endSession, callback);
+    }
+
+    public static void endSession(
+            Context context,
+            String machineId,
+            ResultCallback<SpaceConnectApiClient.EndSessionResponse> callback) {
+        executeAuthenticated(context, token -> API.endSession(token, machineId), callback);
     }
 
     // Envia um arquivo (stream do SAF) pra pasta Downloads da VM do usuario.

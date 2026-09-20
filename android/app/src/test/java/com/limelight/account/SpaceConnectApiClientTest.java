@@ -134,6 +134,22 @@ public class SpaceConnectApiClientTest {
     }
 
     @Test
+    public void joinQueueIncludesTheSelectedMachineId() throws Exception {
+        server.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("{\"state\":\"queued\",\"queue\":{\"position\":1,\"total\":1}}"));
+
+        client.joinQueue("access-1", 24, "proxmox", "507f1f77bcf86cd799439011");
+
+        RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
+        assertNotNull(request);
+        assertEquals("/api/launcher/v1/queue", request.getPath());
+        assertEquals(true, request.getBody().readUtf8()
+                .contains("\"machineId\":\"507f1f77bcf86cd799439011\""));
+    }
+
+    @Test
     public void getConnectionParsesMoonlightHostAndPort() throws Exception {
         server.enqueue(new MockResponse()
                 .setResponseCode(200)
@@ -152,6 +168,20 @@ public class SpaceConnectApiClientTest {
 
         assertEquals("203.0.113.10", response.host);
         assertEquals(48000, response.port);
+    }
+
+    @Test
+    public void getConnectionTargetsTheSelectedMachine() throws Exception {
+        server.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("{\"host\":\"203.0.113.10\",\"port\":48000}"));
+
+        client.getConnection("access-1", "507f1f77bcf86cd799439011");
+
+        RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
+        assertNotNull(request);
+        assertEquals("/api/launcher/v1/connection?machineId=507f1f77bcf86cd799439011", request.getPath());
     }
 
     @Test

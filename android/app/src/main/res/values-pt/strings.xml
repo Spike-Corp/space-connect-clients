@@ -287,6 +287,8 @@
     <string name="launcher_refresh">Atualizar status</string>
     <string name="launcher_logout">Sair da conta</string>
     <string name="launcher_no_machine_details">Você ainda não tem um PC dedicado. Crie o seu pra começar a jogar.</string>
+    <string name="launcher_select_machine_title">Selecione o PC</string>
+    <string name="launcher_select_machine_required">Selecione um PC antes de entrar na fila.</string>
     <string name="launcher_create_machine">Criar meu PC</string>
     <string name="launcher_create_machine_title">Criar seu PC</string>
     <string name="launcher_create_machine_message">Confirme sua senha pra criar seu PC dedicado na SpaceCloud. Isso pode levar alguns minutos.</string>

@@ -40,6 +40,8 @@ public class LauncherActivity extends Activity {
     private boolean requestRunning;
     private String pendingHost;
     private Boolean hasMachine;
+    private SpaceConnectApiClient.MachineListItem[] machines;
+    private String selectedMachineId;
     private SpaceConnectApiClient.StatusResponse lastStatus;
 
     private final Runnable pollStatus = new Runnable() {
@@ -226,7 +228,13 @@ public class LauncherActivity extends Activity {
         AccountManager.getMachines(this, new AccountManager.ResultCallback<SpaceConnectApiClient.MachinesResponse>() {
             @Override
             public void onSuccess(SpaceConnectApiClient.MachinesResponse result) {
-                hasMachine = result.machines != null && result.machines.length > 0;
+                machines = result.machines;
+                hasMachine = machines != null && machines.length > 0;
+                if (machines != null && machines.length == 1) {
+                    selectedMachineId = machines[0].id;
+                } else if (!containsMachine(selectedMachineId)) {
+                    selectedMachineId = null;
+                }
                 render(lastStatus);
             }
 
@@ -277,7 +285,56 @@ public class LauncherActivity extends Activity {
     }
 
     private void joinQueue() {
-        runStatusAction(callback -> AccountManager.joinQueue(this, callback));
+        if (machines == null || machines.length == 0) {
+            checkMachines();
+            Toast.makeText(this, R.string.launcher_no_machine_details, Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (machines.length == 1) {
+            selectedMachineId = machines[0].id;
+            joinQueueForMachine(selectedMachineId);
+            return;
+        }
+
+        String[] labels = new String[machines.length];
+        for (int i = 0; i < machines.length; i++) {
+            String name = machines[i].name == null || machines[i].name.trim().isEmpty()
+                    ? machines[i].id
+                    : machines[i].name;
+            labels[i] = name + " (" + machines[i].provider + ")";
+        }
+        int checked = 0;
+        for (int i = 0; i < machines.length; i++) {
+            if (machines[i].id != null && machines[i].id.equals(selectedMachineId)) {
+                checked = i;
+                break;
+            }
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.launcher_select_machine_title)
+                .setSingleChoiceItems(labels, checked, (dialog, which) -> {
+                    selectedMachineId = machines[which].id;
+                    dialog.dismiss();
+                    joinQueueForMachine(selectedMachineId);
+                })
+                .setNegativeButton(R.string.game_menu_cancel, null)
+                .show();
+    }
+
+    private boolean containsMachine(String machineId) {
+        if (machineId == null || machines == null) return false;
+        for (SpaceConnectApiClient.MachineListItem machine : machines) {
+            if (machine != null && machineId.equals(machine.id)) return true;
+        }
+        return false;
+    }
+
+    private void joinQueueForMachine(String machineId) {
+        if (machineId == null || machineId.trim().isEmpty()) {
+            Toast.makeText(this, R.string.launcher_select_machine_required, Toast.LENGTH_LONG).show();
+            return;
+        }
+        runStatusAction(callback -> AccountManager.joinQueue(this, machineId, callback));
     }
 
     private void leaveQueue() {
@@ -309,9 +366,16 @@ public class LauncherActivity extends Activity {
 
     private void connect() {
         if (requestRunning) return;
+        String machineId = lastStatus != null && lastStatus.session != null
+                && lastStatus.session.machine != null ? lastStatus.session.machine.id : selectedMachineId;
+        if (machineId == null || machineId.trim().isEmpty()) {
+            Toast.makeText(this, R.string.launcher_select_machine_required, Toast.LENGTH_LONG).show();
+            return;
+        }
         requestRunning = true;
         progressBar.setVisibility(View.VISIBLE);
-        AccountManager.getConnection(this, new AccountManager.ResultCallback<SpaceConnectApiClient.ConnectionResponse>() {
+        AccountManager.getConnection(this, machineId,
+                new AccountManager.ResultCallback<SpaceConnectApiClient.ConnectionResponse>() {
             @Override
             public void onSuccess(SpaceConnectApiClient.ConnectionResponse connection) {
                 requestRunning = false;
@@ -360,14 +424,21 @@ public class LauncherActivity extends Activity {
                 progressBar.setVisibility(View.GONE);
                 Toast.makeText(LauncherActivity.this, message, Toast.LENGTH_LONG).show();
             }
-        });
+                });
     }
 
     private void endSession() {
         if (requestRunning) return;
+        String machineId = lastStatus != null && lastStatus.session != null
+                && lastStatus.session.machine != null ? lastStatus.session.machine.id : selectedMachineId;
+        if (machineId == null || machineId.trim().isEmpty()) {
+            Toast.makeText(this, R.string.launcher_select_machine_required, Toast.LENGTH_LONG).show();
+            return;
+        }
         requestRunning = true;
         progressBar.setVisibility(View.VISIBLE);
-        AccountManager.endSession(this, new AccountManager.ResultCallback<SpaceConnectApiClient.EndSessionResponse>() {
+        AccountManager.endSession(this, machineId,
+                new AccountManager.ResultCallback<SpaceConnectApiClient.EndSessionResponse>() {
             @Override
             public void onSuccess(SpaceConnectApiClient.EndSessionResponse result) {
                 requestRunning = false;
@@ -381,7 +452,7 @@ public class LauncherActivity extends Activity {
                 progressBar.setVisibility(View.GONE);
                 Toast.makeText(LauncherActivity.this, message, Toast.LENGTH_LONG).show();
             }
-        });
+                });
     }
 
     private void schedulePoll() {
