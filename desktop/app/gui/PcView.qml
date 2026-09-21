@@ -193,7 +193,7 @@ CenteredGridView {
                     text: qsTr("Turn on my VM")
                     onTriggered: {
                         LauncherApi.joinQueue()
-                        stackView.replace("qrc:/gui/LauncherView.qml")
+                        window.showLauncherView()
                     }
                     visible: !model.online
                 }
@@ -349,7 +349,7 @@ CenteredGridView {
 
         onAccepted: {
             LauncherApi.endSession()
-            stackView.replace("qrc:/gui/LauncherView.qml")
+            window.showLauncherView()
         }
     }
 

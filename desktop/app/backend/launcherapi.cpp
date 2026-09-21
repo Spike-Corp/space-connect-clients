@@ -37,6 +37,7 @@ LauncherApi::LauncherApi(QObject* parent)
     QSettings settings;
     m_RememberMe = settings.value(QStringLiteral("auth/rememberMe"), true).toBool();
     m_SavedEmail = settings.value(QStringLiteral("auth/email")).toString();
+    m_SelectedMachineId = settings.value(QStringLiteral("launcher/selectedMachineId")).toString();
     if (m_RememberMe && !m_SavedEmail.isEmpty()) {
         const qint64 savedAt = settings.value(QStringLiteral("auth/savedAt"), 0).toLongLong();
         const qint64 now = QDateTime::currentMSecsSinceEpoch();
@@ -135,8 +136,13 @@ void LauncherApi::handleAuthResponse(int status, const QJsonObject& root)
             emit emailChanged();
         }
         m_TempToken.clear();
+        const bool wasLoggedIn = m_LoggedIn;
         m_LoggedIn = !m_AccessToken.isEmpty() && !m_RefreshToken.isEmpty();
-        emit loggedInChanged();
+        // Só emite em mudança real: handlers de navegação reagem a este sinal e
+        // emissões espúrias provocavam replaces duplicados no StackView (views
+        // duplicadas → dialogs duplicados, ex.: 2 modais de 2FA ao mesmo tempo).
+        if (m_LoggedIn != wasLoggedIn)
+            emit loggedInChanged();
 
         QSettings settings;
         if (m_RememberMe) {
@@ -215,14 +221,73 @@ void LauncherApi::fetchMachines()
     request("GET", QStringLiteral("machines"), QJsonObject(), true,
             [this](int status, const QJsonObject& root) {
                 if (status >= 200 && status < 300) {
-                    m_HasMachine = root.value(QStringLiteral("machines")).toArray().size() > 0;
+                    const QJsonArray array = root.value(QStringLiteral("machines")).toArray();
+                    QVariantList list;
+                    list.reserve(array.size());
+                    for (const QJsonValue& value : array) {
+                        const QJsonObject machine = value.toObject();
+                        const QString id = machine.value(QStringLiteral("id")).toString();
+                        if (id.isEmpty())
+                            continue;
+                        const QString name = machine.value(QStringLiteral("name")).toString();
+                        const QString provider = machine.value(QStringLiteral("provider")).toString();
+                        QVariantMap entry;
+                        entry.insert(QStringLiteral("id"), id);
+                        entry.insert(QStringLiteral("name"), name);
+                        entry.insert(QStringLiteral("provider"), provider);
+                        entry.insert(QStringLiteral("state"), machine.value(QStringLiteral("state")).toString());
+                        // Rótulo pronto pro seletor (igual ao app Android: "nome (provider)").
+                        entry.insert(QStringLiteral("display"),
+                                     (name.isEmpty() ? id : name)
+                                         + (provider.isEmpty() ? QString() : QStringLiteral(" (%1)").arg(provider)));
+                        list.append(entry);
+                    }
+                    m_Machines = list;
+                    m_HasMachine = !list.isEmpty();
                     m_MachinesLoaded = true;
+
+                    // Seleção: com 1 máquina, ela é sempre a escolhida. Com 2+,
+                    // mantém a escolha salva se ainda existir; senão limpa pra
+                    // o usuário escolher no seletor (backend decide até lá).
+                    if (list.size() == 1) {
+                        setSelectedMachineId(list.first().toMap().value(QStringLiteral("id")).toString());
+                    }
+                    else {
+                        bool stillExists = false;
+                        for (const QVariant& item : list) {
+                            if (item.toMap().value(QStringLiteral("id")).toString() == m_SelectedMachineId) {
+                                stillExists = true;
+                                break;
+                            }
+                        }
+                        if (!stillExists)
+                            setSelectedMachineId(QString());
+                    }
                     emit machinesChanged();
                 }
                 // Falha ao buscar máquinas não deve travar a UI: fica no estado
                 // "ainda não sabemos" (machinesLoaded=false) e tenta de novo no
                 // próximo refreshStatus().
             });
+}
+
+void LauncherApi::setSelectedMachineId(const QString& id)
+{
+    if (m_SelectedMachineId == id)
+        return;
+    m_SelectedMachineId = id;
+    QSettings settings;
+    settings.setValue(QStringLiteral("launcher/selectedMachineId"), id);
+    emit machinesChanged();
+}
+
+QString LauncherApi::effectiveMachineId() const
+{
+    // Sessão ativa manda: conectar/encerrar têm que mirar a VM DA SESSÃO,
+    // mesmo que o usuário tenha selecionado outra no seletor (igual ao Android).
+    if (!m_StatusMachineId.isEmpty())
+        return m_StatusMachineId;
+    return m_SelectedMachineId;
 }
 
 void LauncherApi::createMachine(const QString& password)
@@ -259,11 +324,16 @@ void LauncherApi::joinQueue()
         return;
 
     setBusy(true);
+    QJsonObject body{
+        {QStringLiteral("requestedHours"), 24},
+        {QStringLiteral("provider"), QStringLiteral("proxmox")},
+    };
+    // Multi-máquina: entra na fila da VM escolhida no seletor (backend sem
+    // machineId assumia a sessão "padrão" e podia abrir a máquina errada).
+    if (!effectiveMachineId().isEmpty())
+        body.insert(QStringLiteral("machineId"), effectiveMachineId());
     request("POST", QStringLiteral("queue"),
-            QJsonObject{
-                {QStringLiteral("requestedHours"), 24},
-                {QStringLiteral("provider"), QStringLiteral("proxmox")},
-            },
+            body,
             true,
             [this](int status, const QJsonObject& root) {
                 setBusy(false);
@@ -280,7 +350,10 @@ void LauncherApi::leaveQueue()
         return;
 
     setBusy(true);
-    request("DELETE", QStringLiteral("queue"), QJsonObject(), true,
+    QString path = QStringLiteral("queue");
+    if (!effectiveMachineId().isEmpty())
+        path += QStringLiteral("?machineId=") + effectiveMachineId();
+    request("DELETE", path, QJsonObject(), true,
             [this](int status, const QJsonObject& root) {
                 setBusy(false);
                 if (status >= 200 && status < 300)
@@ -296,7 +369,10 @@ void LauncherApi::requestConnection()
         return;
 
     setBusy(true);
-    request("GET", QStringLiteral("connection"), QJsonObject(), true,
+    QString path = QStringLiteral("connection");
+    if (!effectiveMachineId().isEmpty())
+        path += QStringLiteral("?machineId=") + effectiveMachineId();
+    request("GET", path, QJsonObject(), true,
             [this](int status, const QJsonObject& root) {
                 setBusy(false);
                 if (status < 200 || status >= 300) {
@@ -342,7 +418,10 @@ void LauncherApi::endSession()
         return;
 
     setBusy(true);
-    request("POST", QStringLiteral("session/end"), QJsonObject(), true,
+    QJsonObject body;
+    if (!effectiveMachineId().isEmpty())
+        body.insert(QStringLiteral("machineId"), effectiveMachineId());
+    request("POST", QStringLiteral("session/end"), body, true,
             [this](int status, const QJsonObject& root) {
                 setBusy(false);
                 if (status >= 200 && status < 300) {
@@ -387,6 +466,7 @@ void LauncherApi::logout()
     m_RefreshToken.clear();
     m_TempToken.clear();
     m_Email.clear();
+    const bool wasLoggedIn = m_LoggedIn;
     m_LoggedIn = false;
 
     QSettings settings;
@@ -394,14 +474,22 @@ void LauncherApi::logout()
     settings.remove(QStringLiteral("auth/savedAt"));
 
     emit emailChanged();
-    emit loggedInChanged();
+    if (wasLoggedIn)
+        emit loggedInChanged();
     emit statusChanged();
 }
 
 void LauncherApi::refreshTokens()
 {
-    if (m_RefreshToken.isEmpty())
+    // Uma renovação por vez: sem este guard o app disparava DOIS refreshes
+    // concorrentes no startup (timer do construtor + poll inicial do LauncherView
+    // que tomava 401 por ainda não ter access token), ambos com o MESMO refresh
+    // token. O backend rotaciona o token a cada uso e o segundo request caía na
+    // detecção de reuso → dispositivo REVOGADO → usuário deslogado logo depois
+    // de ativar "lembrar por 30 dias" (e com 2FA, obrigado a logar de novo).
+    if (m_Refreshing || m_RefreshToken.isEmpty())
         return;
+    m_Refreshing = true;
 
     request("POST", QStringLiteral("auth/refresh"),
             QJsonObject{
@@ -410,6 +498,7 @@ void LauncherApi::refreshTokens()
             },
             false,
             [this](int status, const QJsonObject& root) {
+                m_Refreshing = false;
                 if (status >= 200 && status < 300) {
                     m_AccessToken = root.value(QStringLiteral("accessToken")).toString();
                     m_RefreshToken = root.value(QStringLiteral("refreshToken")).toString();
@@ -418,8 +507,10 @@ void LauncherApi::refreshTokens()
                         m_Email = user.value(QStringLiteral("email")).toString();
                         emit emailChanged();
                     }
+                    const bool wasLoggedIn = m_LoggedIn;
                     m_LoggedIn = true;
-                    emit loggedInChanged();
+                    if (!wasLoggedIn)
+                        emit loggedInChanged();
 
                     if (m_RememberMe) {
                         QSettings settings;
@@ -434,9 +525,18 @@ void LauncherApi::refreshTokens()
                     scheduleRefresh(root.value(QStringLiteral("accessTokenExpiresIn")).toInt(900));
                     refreshStatus();
                 }
-                else {
+                else if (status == 401) {
+                    // Sessão realmente inválida/expirada no servidor: desloga.
                     logout();
                     setError(QStringLiteral("Sua sessão expirou. Entre novamente."));
+                }
+                else {
+                    // Qualquer outra falha é transitória (sem internet no boot do
+                    // PC, 5xx, ou 409 = refresh já em voo absorvido pelo backend).
+                    // NÃO derruba a sessão local — o refresh token segue válido
+                    // no servidor. Antes disto, um simples boot sem Wi-Fi já
+                    // apagava o login salvo e forçava login (+2FA) de novo.
+                    m_RefreshTimer.start(60000);
                 }
             });
 }
@@ -457,6 +557,7 @@ void LauncherApi::applyStatus(const QJsonObject& root)
         m_QueueTotal = status.queueTotal;
         m_PlanSlug = status.planSlug;
         m_MachineName = status.machineName;
+        m_StatusMachineId = status.machineId;
         m_CreationPhase = status.creationPhase;
         m_RemainingMs = status.remainingMs;
         setError(QString());
@@ -551,6 +652,51 @@ void LauncherApi::uploadFileToVm(const QString& localFilePath)
         }
         reply->deleteLater();
     });
+}
+
+void LauncherApi::reportBug(const QString& description, const QString& emailHint)
+{
+    const QString trimmed = description.trimmed();
+    if (trimmed.size() < 10) {
+        emit bugReportFinished(false, tr("Descreva o problema em pelo menos 10 caracteres."));
+        return;
+    }
+
+    QJsonObject body{
+        {QStringLiteral("description"), trimmed.left(4000)},
+        {QStringLiteral("app"), platformName()},
+        {QStringLiteral("appVersion"), QCoreApplication::applicationVersion()},
+        {QStringLiteral("osVersion"), QSysInfo::prettyProductName()
+            + QStringLiteral(" (") + QSysInfo::currentCpuArchitecture() + QStringLiteral(")")},
+        {QStringLiteral("deviceModel"), QSysInfo::machineHostName()},
+        {QStringLiteral("deviceId"), deviceId()},
+        // Contexto pra entender COMO o bug aconteceu (visto na página "Bugs app").
+        {QStringLiteral("context"), QJsonObject{
+            {QStringLiteral("state"), m_State},
+            {QStringLiteral("queuePosition"), m_QueuePosition},
+            {QStringLiteral("queueTotal"), m_QueueTotal},
+            {QStringLiteral("planSlug"), m_PlanSlug},
+            {QStringLiteral("machineName"), m_MachineName},
+            {QStringLiteral("creationPhase"), m_CreationPhase},
+            {QStringLiteral("loggedIn"), m_LoggedIn},
+        }},
+    };
+    if (!emailHint.trimmed().isEmpty())
+        body.insert(QStringLiteral("email"), emailHint.trimmed());
+
+    // Autenticado quando há sessão — o backend amarra o relato à conta. Sem
+    // sessão (bug na própria tela de login), segue anônimo com o e-mail digitado.
+    request("POST", QStringLiteral("bug-report"), body, !m_AccessToken.isEmpty(),
+            [this](int status, const QJsonObject& root) {
+                if (status >= 200 && status < 300) {
+                    emit bugReportFinished(true, tr("Relato enviado. Obrigado por avisar!"));
+                }
+                else {
+                    emit bugReportFinished(false,
+                        errorObject(root).value(QStringLiteral("message")).toString(
+                            tr("Não foi possível enviar o relato. Tente novamente.")));
+                }
+            });
 }
 
 void LauncherApi::setBusy(bool busy)

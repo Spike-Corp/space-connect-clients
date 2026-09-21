@@ -126,6 +126,12 @@
             android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection">
         </activity>
         <activity
+            android:name=".account.BugReportActivity"
+            android:exported="false"
+            android:resizeableActivity="true"
+            android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection">
+        </activity>
+        <activity
             android:name=".account.LauncherActivity"
             android:exported="false"
             android:resizeableActivity="true"

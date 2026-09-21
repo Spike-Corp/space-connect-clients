@@ -9,6 +9,7 @@ import AutoUpdateChecker 1.0
 import StreamingPreferences 1.0
 import SystemProperties 1.0
 import SdlGamepadKeyNavigation 1.0
+import LauncherApi 1.0
 
 ApplicationWindow {
     property bool pollingActive: false
@@ -212,6 +213,42 @@ ApplicationWindow {
         else {
             // Create a new item
             stackView.push(url)
+        }
+    }
+
+    // Navegação de autenticação CENTRALIZADA. Antes, LoginView/LauncherView/
+    // SettingsView/PcView cada um fazia stackView.replace() ao mesmo tempo em
+    // resposta aos mesmos sinais — isso empilhava views duplicadas (o replace
+    // trocava o item do topo e deixava outras instâncias vivas embaixo), e cada
+    // LoginView viva abria o PRÓPRIO modal de 2FA → 2 modais na tela. Agora só
+    // estas duas funções trocam de tela, com transição imediata e guarda de tipo.
+    function showLoginView() {
+        if (stackView.depth > 1)
+            stackView.pop(null, StackView.Immediate)
+        if (qmltypeof(stackView.currentItem, "LoginView"))
+            return
+        stackView.replace(stackView.currentItem, "qrc:/gui/LoginView.qml", {}, StackView.Immediate)
+    }
+
+    function showLauncherView() {
+        if (stackView.depth > 1)
+            stackView.pop(null, StackView.Immediate)
+        if (qmltypeof(stackView.currentItem, "LauncherView"))
+            return
+        stackView.replace(stackView.currentItem, "qrc:/gui/LauncherView.qml", {}, StackView.Immediate)
+    }
+
+    Connections {
+        target: LauncherApi
+        function onLoggedInChanged() {
+            if (LauncherApi.loggedIn)
+                window.showLauncherView()
+            else
+                window.showLoginView()
+        }
+        function onTwoFactorRequired() {
+            if (!twoFactorDialog.visible)
+                twoFactorDialog.open()
         }
     }
 
@@ -446,6 +483,32 @@ ApplicationWindow {
         text: qsTr("Are you sure you want to quit?")
         // For keyboard/gamepad navigation
         onAccepted: Qt.quit()
+    }
+
+    // Modal de 2FA ÚNICO da janela (antes cada LoginView tinha o seu, e views
+    // duplicadas abriam 2 modais sobrepostos em posições erradas). Centralização
+    // explícita via x/y: anchors não se aplicam de forma confiável a Popup.
+    Dialog {
+        id: twoFactorDialog
+        title: qsTr("Two-factor authentication")
+        modal: true
+        parent: Overlay.overlay
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        onOpened: twoFactorField.forceActiveFocus()
+        onClosed: twoFactorField.text = ""
+        onAccepted: LauncherApi.verifyTwoFactor(twoFactorField.text)
+
+        TextField {
+            id: twoFactorField
+            implicitWidth: 260
+            placeholderText: qsTr("6-digit code")
+            inputMethodHints: Qt.ImhDigitsOnly
+            maximumLength: 6
+            Keys.onReturnPressed: twoFactorDialog.accept()
+            Keys.onEnterPressed: twoFactorDialog.accept()
+        }
     }
 
     // HACK: This belongs in StreamSegue but keeping a dialog around after the parent

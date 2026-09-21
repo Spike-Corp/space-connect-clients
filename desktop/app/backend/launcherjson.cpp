@@ -32,6 +32,10 @@ LauncherStatus LauncherJson::parseStatus(const QByteArray& json)
         session.value(QStringLiteral("remainingMs")).toDouble());
     const QJsonObject machine = session.value(QStringLiteral("machine")).toObject();
     status.machineName = machine.value(QStringLiteral("name")).toString();
+    // O id pode vir como "id" ou "_id" dependendo do serializer do backend.
+    status.machineId = machine.value(QStringLiteral("id")).toString();
+    if (status.machineId.isEmpty())
+        status.machineId = machine.value(QStringLiteral("_id")).toString();
     // Fase de criação/boot da VM (protegendo ambiente, anexando GPU, etc.) — o app
     // mostra isso em vez de um "Your PC is starting" genérico.
     status.creationPhase = machine.value(QStringLiteral("creationPhase")).toString();

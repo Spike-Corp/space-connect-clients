@@ -116,6 +116,14 @@ public final class SpaceConnectApiClient {
         return post("pair", input, accessToken, PairResponse.class);
     }
 
+    // Relato de bug de dentro do app (vai pra página "Bugs app" do admin).
+    // accessToken pode ser null (tela de login) — o backend aceita anônimo
+    // desde que o e-mail venha no corpo do request.
+    public SimpleResponse reportBug(String accessToken, BugReportRequest input)
+            throws IOException, ApiException {
+        return post("bug-report", input, accessToken, SimpleResponse.class);
+    }
+
     public EndSessionResponse endSession(String accessToken) throws IOException, ApiException {
         return post("session/end", new EmptyRequest(), accessToken, EndSessionResponse.class);
     }
@@ -343,6 +351,22 @@ public final class SpaceConnectApiClient {
             this.platform = platform;
             this.appVersion = appVersion;
         }
+    }
+
+    public static final class BugReportRequest {
+        public String description;
+        public String email;
+        public String app;
+        public String appVersion;
+        public String osVersion;
+        public String deviceModel;
+        public String deviceId;
+        // Contexto livre do app no momento do relato (estado da fila/sessão etc).
+        public java.util.Map<String, Object> context;
+    }
+
+    public static final class SimpleResponse {
+        public boolean success;
     }
 
     public static final class AuthResponse {

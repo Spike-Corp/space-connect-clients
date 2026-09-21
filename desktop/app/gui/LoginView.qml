@@ -30,7 +30,7 @@ Item {
 
     Component.onCompleted: {
         if (LauncherApi.loggedIn) {
-            stackView.replace("qrc:/gui/LauncherView.qml")
+            window.showLauncherView()
         } else if (LauncherApi.savedEmail) {
             emailField.text = LauncherApi.savedEmail
             passwordField.forceActiveFocus()
@@ -40,21 +40,23 @@ Item {
     Connections {
         target: LauncherApi
         function onLoginSucceeded() {
-            stackView.replace("qrc:/gui/LauncherView.qml")
-        }
-        function onLoggedInChanged() {
-            if (LauncherApi.loggedIn) {
-                stackView.replace("qrc:/gui/LauncherView.qml")
-            }
-        }
-        function onTwoFactorRequired() {
-            twoFactorDialog.open()
+            window.showLauncherView()
         }
         function onErrorMessageChanged() {
             if (LauncherApi.errorMessage) {
                 errorLabel.text = LauncherApi.errorMessage
                 errorLabel.visible = true
             }
+        }
+        function onBugReportFinished(success, message) {
+            if (success) {
+                loginBugDialog.close()
+                bugResultDialog.isError = false
+            } else {
+                bugResultDialog.isError = true
+            }
+            bugResultDialog.text = message
+            bugResultDialog.open()
         }
     }
 
@@ -217,22 +219,84 @@ Item {
                     onClicked: Qt.openUrlExternally("https://spacecloud.gg/panel/forgot-password")
                 }
             }
+
+            Label {
+                text: qsTr("Found a bug? Report it")
+                color: "#9793aa"
+                font.underline: true
+                Layout.alignment: Qt.AlignHCenter
+                Layout.topMargin: 6
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        loginBugEmailField.text = emailField.text
+                        loginBugDialog.open()
+                    }
+                }
+            }
+        }
+    }
+
+    // Relato de bug pré-login (ex.: o próprio login está quebrado). Vai pra
+    // página "Bugs app" do painel admin. Posição via x/y explícito — anchors
+    // não se aplicam de forma confiável a Popup.
+    Dialog {
+        id: loginBugDialog
+        title: qsTr("Report a bug")
+        modal: true
+        parent: Overlay.overlay
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        onOpened: {
+            loginBugEmailField.text = emailField.text || LauncherApi.savedEmail
+            loginBugText.forceActiveFocus()
+        }
+        onAccepted: LauncherApi.reportBug(loginBugText.text, loginBugEmailField.text)
+
+        ColumnLayout {
+            width: 340
+            spacing: 10
+
+            Label {
+                text: qsTr("Tell us what happened. The report goes straight to our team.")
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            TextField {
+                id: loginBugEmailField
+                placeholderText: qsTr("Your email")
+                inputMethodHints: Qt.ImhEmailCharactersOnly
+                Layout.fillWidth: true
+            }
+
+            TextArea {
+                id: loginBugText
+                placeholderText: qsTr("Describe the problem (what you did, what happened)...")
+                wrapMode: TextArea.Wrap
+                Layout.fillWidth: true
+                Layout.preferredHeight: 120
+            }
         }
     }
 
     Dialog {
-        id: twoFactorDialog
-        title: qsTr("Two-factor authentication")
+        id: bugResultDialog
+        property bool isError: false
+        property alias text: bugResultLabel.text
+        title: isError ? qsTr("Could not send") : qsTr("Report sent")
         modal: true
-        anchors.centerIn: parent
-        standardButtons: Dialog.Ok | Dialog.Cancel
-        onAccepted: LauncherApi.verifyTwoFactor(twoFactorField.text)
+        parent: Overlay.overlay
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
+        standardButtons: Dialog.Ok
 
-        TextField {
-            id: twoFactorField
-            placeholderText: qsTr("6-digit code")
-            inputMethodHints: Qt.ImhDigitsOnly
-            maximumLength: 6
+        Label {
+            id: bugResultLabel
+            wrapMode: Text.WordWrap
+            width: 300
         }
     }
 }

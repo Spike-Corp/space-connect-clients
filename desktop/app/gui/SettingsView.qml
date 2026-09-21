@@ -1941,9 +1941,12 @@ Flickable {
                     text: qsTr("Sign Out")
                     visible: LauncherApi.loggedIn
                     onClicked: {
+                        // A navegação pra tela de login é centralizada no
+                        // main.qml (reativa ao loggedInChanged). Fazer replace
+                        // manual aqui ALÉM do handler duplicava a LoginView —
+                        // cada instância abria o próprio modal de 2FA.
                         LauncherApi.logout()
-                        window.clearOnBack = true
-                        stackView.replace("qrc:/gui/LoginView.qml")
+                        window.showLoginView()
                     }
                 }
             }

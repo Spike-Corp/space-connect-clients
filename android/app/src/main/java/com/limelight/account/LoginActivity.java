@@ -96,6 +96,14 @@ public class LoginActivity extends Activity {
                 openAccountWebPage("/forgot-password");
             }
         });
+
+        // Relato de bug pré-login (ex.: o próprio login está quebrando).
+        findViewById(R.id.reportBugLink).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startActivity(new Intent(LoginActivity.this, BugReportActivity.class));
+            }
+        });
     }
 
     // Eye toggle at the end of the password field: switches between masked and

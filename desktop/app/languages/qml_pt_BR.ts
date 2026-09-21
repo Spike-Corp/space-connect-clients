@@ -343,6 +343,38 @@
         <source>The Moonlight host is not ready yet. Try again in a few seconds.</source>
         <translation>O host do Moonlight ainda não está pronto. Tente novamente em alguns segundos.</translation>
     </message>
+    <message>
+        <source>Report a problem</source>
+        <translation>Reportar problema</translation>
+    </message>
+    <message>
+        <source>Report a bug</source>
+        <translation>Reportar bug</translation>
+    </message>
+    <message>
+        <source>Which PC do you want to open?</source>
+        <translation>Qual PC você quer abrir?</translation>
+    </message>
+    <message>
+        <source>Select a machine</source>
+        <translation>Selecione uma máquina</translation>
+    </message>
+    <message>
+        <source>Tell us what happened. We include your app version and machine status automatically.</source>
+        <translation>Conte o que aconteceu. Já incluímos a versão do app e o status da sua máquina automaticamente.</translation>
+    </message>
+    <message>
+        <source>Describe the problem (what you did, what happened)...</source>
+        <translation>Descreva o problema (o que você fez, o que aconteceu)...</translation>
+    </message>
+    <message>
+        <source>Could not send</source>
+        <translation>Não foi possível enviar</translation>
+    </message>
+    <message>
+        <source>Report sent</source>
+        <translation>Relato enviado</translation>
+    </message>
 </context>
 <context>
     <name>LoginView</name>
@@ -406,6 +438,34 @@
         <location filename="../gui/LoginView.qml" line="133"/>
         <source>Forgot your password?</source>
         <translation>Esqueceu sua senha?</translation>
+    </message>
+    <message>
+        <source>Found a bug? Report it</source>
+        <translation>Encontrou um bug? Reporte aqui</translation>
+    </message>
+    <message>
+        <source>Report a bug</source>
+        <translation>Reportar bug</translation>
+    </message>
+    <message>
+        <source>Tell us what happened. The report goes straight to our team.</source>
+        <translation>Conte o que aconteceu. O relato vai direto pro nosso time.</translation>
+    </message>
+    <message>
+        <source>Your email</source>
+        <translation>Seu e-mail</translation>
+    </message>
+    <message>
+        <source>Describe the problem (what you did, what happened)...</source>
+        <translation>Descreva o problema (o que você fez, o que aconteceu)...</translation>
+    </message>
+    <message>
+        <source>Could not send</source>
+        <translation>Não foi possível enviar</translation>
+    </message>
+    <message>
+        <source>Report sent</source>
+        <translation>Relato enviado</translation>
     </message>
     <message>
         <source>Subscribe now to play</source>
@@ -1650,6 +1710,14 @@
         <location filename="../gui/main.qml" line="476"/>
         <source>Enter the IP address of your host PC:</source>
         <translation>Digite o endereço IP do seu computador host:</translation>
+    </message>
+    <message>
+        <source>Two-factor authentication</source>
+        <translation>Autenticação de dois fatores</translation>
+    </message>
+    <message>
+        <source>6-digit code</source>
+        <translation>Código de 6 dígitos</translation>
     </message>
 </context>
 </TS>

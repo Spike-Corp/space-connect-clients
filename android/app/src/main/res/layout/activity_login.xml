@@ -112,5 +112,14 @@
             android:textSize="15sp"
             android:padding="8dp" />
 
+        <TextView
+            android:id="@+id/reportBugLink"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/bug_report_link"
+            android:textColor="@color/moonlight_muted_foreground"
+            android:textSize="14sp"
+            android:padding="8dp" />
+
     </LinearLayout>
 </ScrollView>

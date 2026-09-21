@@ -6,6 +6,7 @@
 #include <QNetworkAccessManager>
 #include <QObject>
 #include <QTimer>
+#include <QVariantList>
 
 #include <functional>
 
@@ -31,6 +32,12 @@ class LauncherApi : public QObject
     // VM a partir da fila — só o /create-machine faz isso, igual ao site).
     Q_PROPERTY(bool hasMachine READ hasMachine NOTIFY machinesChanged)
     Q_PROPERTY(bool machinesLoaded READ machinesLoaded NOTIFY machinesChanged)
+    // Lista de VMs dedicadas do usuário (multi-plano) e a VM escolhida pra
+    // abrir. Quando há 2+ máquinas, a UI mostra um seletor (o app Android já
+    // tinha; o desktop não passava machineId em nada e o backend escolhia
+    // "a" sessão ativa — usuário com 2 planos não conseguia escolher).
+    Q_PROPERTY(QVariantList machines READ machines NOTIFY machinesChanged)
+    Q_PROPERTY(QString selectedMachineId READ selectedMachineId WRITE setSelectedMachineId NOTIFY machinesChanged)
 
 public:
     explicit LauncherApi(QObject* parent = nullptr);
@@ -56,6 +63,9 @@ public:
     qint64 remainingMinutes() const { return m_RemainingMs / 60000; }
     bool hasMachine() const { return m_HasMachine; }
     bool machinesLoaded() const { return m_MachinesLoaded; }
+    QVariantList machines() const { return m_Machines; }
+    QString selectedMachineId() const { return m_SelectedMachineId; }
+    void setSelectedMachineId(const QString& id);
 
     Q_INVOKABLE void login(const QString& email, const QString& password);
     Q_INVOKABLE void verifyTwoFactor(const QString& code);
@@ -71,6 +81,9 @@ public:
     Q_INVOKABLE void fetchMachines();
     Q_INVOKABLE void submitPairPin(const QString& pin);
     Q_INVOKABLE void uploadFileToVm(const QString& filePath);
+    // Relato de bug de dentro do app (vai pra página "Bugs app" do admin).
+    // Funciona mesmo deslogado (tela de login): nesse caso emailHint é usado.
+    Q_INVOKABLE void reportBug(const QString& description, const QString& emailHint);
     Q_INVOKABLE void logout();
     // Bitrate ceiling (Kbps) cached from the last connection reported by the backend.
     // 0 when never received; callers should fall back to a local heuristic.
@@ -90,6 +103,7 @@ signals:
     void twoFactorRequired();
     void connectionReady(QString address);
     void fileUploadSucceeded(QString fileName);
+    void bugReportFinished(bool success, QString message);
 
 private:
     using ResponseHandler = std::function<void(int, const QJsonObject&)>;
@@ -109,6 +123,9 @@ private:
     void setError(const QString& message);
     void sendPairAttempt(const QString& pin, int attempt);
     QString deviceId() const;
+    // VM alvo das ações (fila/conexão/encerrar): a da sessão ativa, se houver;
+    // senão a selecionada no seletor. Vazio = backend decide (comportamento antigo).
+    QString effectiveMachineId() const;
     static QString platformName();
 
     QNetworkAccessManager m_Network;
@@ -128,8 +145,16 @@ private:
     int m_QueueTotal = 0;
     qint64 m_RemainingMs = 0;
     bool m_Busy = false;
+    // Serializa o refresh de token: o app disparava 2 refreshes concorrentes no
+    // startup (timer do construtor + poll 401 do LauncherView) com o MESMO token,
+    // e o backend (rotação + detecção de reuso) revogava o dispositivo.
+    bool m_Refreshing = false;
     bool m_LoggedIn = false;
     bool m_RememberMe = true;
     bool m_HasMachine = false;
     bool m_MachinesLoaded = false;
+    QVariantList m_Machines;
+    QString m_SelectedMachineId;
+    // Máquina da sessão ativa reportada pelo /status (prioriza sobre a seleção).
+    QString m_StatusMachineId;
 };

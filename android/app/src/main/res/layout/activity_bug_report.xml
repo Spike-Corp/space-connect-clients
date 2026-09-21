@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="28dp"
+    android:background="@drawable/bg_app_gradient">
+
+    <TextView
+        android:id="@+id/bugReportTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/bug_report_title"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:textColor="@color/moonlight_foreground" />
+
+    <TextView
+        android:id="@+id/bugReportHint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:textSize="13sp"
+        android:textColor="@color/moonlight_muted_foreground"
+        android:text="@string/bug_report_hint" />
+
+    <TextView
+        android:id="@+id/bugReportMeta"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:textSize="12sp"
+        android:textColor="@color/moonlight_muted_foreground" />
+
+    <EditText
+        android:id="@+id/bugReportEmail"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_marginTop="20dp"
+        android:hint="@string/bug_report_email_hint"
+        android:inputType="textEmailAddress"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:textColor="@color/moonlight_foreground"
+        android:textColorHint="@color/moonlight_muted_foreground"
+        android:background="@drawable/bg_input_field" />
+
+    <EditText
+        android:id="@+id/bugReportDescription"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="12dp"
+        android:hint="@string/bug_report_description_hint"
+        android:inputType="textMultiLine|textCapSentences"
+        android:gravity="top"
+        android:minLines="6"
+        android:padding="16dp"
+        android:textColor="@color/moonlight_foreground"
+        android:textColorHint="@color/moonlight_muted_foreground"
+        android:background="@drawable/bg_input_field" />
+
+    <Button
+        android:id="@+id/bugReportSend"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_marginTop="16dp"
+        android:background="@drawable/bg_button_purple"
+        android:textColor="@color/moonlight_gold_foreground"
+        android:textAllCaps="false"
+        android:text="@string/bug_report_send" />
+
+</LinearLayout>

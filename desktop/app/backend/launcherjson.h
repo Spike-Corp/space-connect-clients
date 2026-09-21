@@ -11,6 +11,9 @@ struct LauncherStatus
     int priority = 0;
     QString planSlug;
     QString machineName;
+    // Id da máquina da sessão ativa (quando há). Usado pra multi-máquina:
+    // conectar/encerrar miram a VM da sessão, não a selecionada na lista.
+    QString machineId;
     QString creationPhase;
     qint64 remainingMs = 0;
 };

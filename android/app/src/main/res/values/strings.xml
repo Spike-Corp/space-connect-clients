@@ -144,6 +144,17 @@
     <string name="latency_ok">Fair — playable, prefer 5GHz Wi-Fi or cable</string>
     <string name="latency_bad">Unstable — may stutter; get closer to the router or use cable/5GHz</string>
     <string name="launcher_latency_test">Network test</string>
+    <string name="bug_report_title">Report a bug</string>
+    <string name="bug_report_hint">Tell us what happened. The report goes straight to our team (admin panel → Bugs app).</string>
+    <string name="bug_report_meta">App version %1$s · device and OS info included automatically</string>
+    <string name="bug_report_email_hint">Your email</string>
+    <string name="bug_report_description_hint">Describe the problem: what you did, what happened, and when it started…</string>
+    <string name="bug_report_send">Send report</string>
+    <string name="bug_report_sent">Report sent. Thanks for letting us know!</string>
+    <string name="bug_report_failed">Couldn\'t send the report. Try again.</string>
+    <string name="bug_report_too_short">Describe the problem in at least 10 characters.</string>
+    <string name="bug_report_invalid_email">Enter a valid email address.</string>
+    <string name="bug_report_link">Found a bug? Report it</string>
     <string name="phase_queued">Allocating cloud resources</string>
     <string name="phase_checking_snapshot">Checking saved snapshots</string>
     <string name="phase_restoring_disk">Restoring VM disk</string>

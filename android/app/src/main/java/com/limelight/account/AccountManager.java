@@ -199,6 +199,51 @@ public final class AccountManager {
         executeAuthenticated(context, token -> API.uploadFile(token, fileName, input, length), callback);
     }
 
+    // Relato de bug pra página "Bugs app" do admin. Funciona COM e SEM sessão:
+    // logado, amarra à conta; na tela de login (onde o próprio login pode ser o
+    // bug), envia anônimo com o e-mail digitado.
+    public static void reportBug(
+            Context context,
+            String description,
+            String emailHint,
+            ResultCallback<SpaceConnectApiClient.SimpleResponse> callback) {
+        Context appContext = context.getApplicationContext();
+        EXECUTOR.execute(() -> {
+            try {
+                String token = null;
+                String email = emailHint;
+                SecureSessionStore.Session session = SESSION_STORE.load(appContext);
+                if (session != null) {
+                    try {
+                        token = validSession(appContext).accessToken;
+                    } catch (Exception ignored) {
+                        // Sessão expirada/inválida não impede o relato.
+                        token = null;
+                    }
+                    if (email == null || email.trim().isEmpty()) {
+                        email = session.email;
+                    }
+                }
+
+                SpaceConnectApiClient.DeviceInfo device = deviceInfo(appContext);
+                SpaceConnectApiClient.BugReportRequest input =
+                        new SpaceConnectApiClient.BugReportRequest();
+                input.description = description;
+                input.email = email;
+                input.app = "android";
+                input.appVersion = BuildConfig.VERSION_NAME;
+                input.osVersion = "Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")";
+                input.deviceModel = device.name;
+                input.deviceId = device.deviceId;
+
+                SpaceConnectApiClient.SimpleResponse result = API.reportBug(token, input);
+                post(() -> callback.onSuccess(result));
+            } catch (Exception e) {
+                post(() -> callback.onError(userMessage(e)));
+            }
+        });
+    }
+
     public static void submitPairPin(Context context, String pin) {
         Context appContext = context.getApplicationContext();
         EXECUTOR.execute(() -> {

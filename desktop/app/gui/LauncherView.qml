@@ -82,9 +82,17 @@ Item {
             addingComputer = true
             ComputerManager.addNewHostManually(address)
         }
-        function onLoggedInChanged() {
-            if (!LauncherApi.loggedIn)
-                stackView.replace("qrc:/gui/LoginView.qml")
+        // Navegação de login/logout é centralizada no main.qml
+        // (window.showLoginView/showLauncherView) — não duplicar aqui.
+        function onBugReportFinished(success, message) {
+            if (success) {
+                bugReportDialog.close()
+                bugResultDialog.isError = false
+            } else {
+                bugResultDialog.isError = true
+            }
+            bugResultDialog.text = message
+            bugResultDialog.open()
         }
     }
 
@@ -171,6 +179,48 @@ Item {
                     Layout.alignment: Qt.AlignHCenter
                 }
 
+                // Seletor de VM pra quem tem 2+ planos/máquinas. O app Android já
+                // tinha; o desktop não mandava machineId em nada e o backend
+                // abria "a" sessão ativa — usuário multi-plano não escolhia.
+                Label {
+                    visible: LauncherApi.machines.length > 1
+                    text: qsTr("Which PC do you want to open?")
+                    color: "#9793aa"
+                    Layout.fillWidth: true
+                }
+
+                SpaceComboBox {
+                    id: machineSelector
+                    visible: LauncherApi.machines.length > 1
+                    model: LauncherApi.machines
+                    textRole: "display"
+                    placeholderText: qsTr("Select a machine")
+                    Layout.fillWidth: true
+
+                    function syncSelection() {
+                        var idx = -1
+                        for (var i = 0; i < LauncherApi.machines.length; i++) {
+                            if (LauncherApi.machines[i].id === LauncherApi.selectedMachineId) {
+                                idx = i
+                                break
+                            }
+                        }
+                        currentIndex = idx
+                    }
+
+                    onActivated: function(index) {
+                        if (index >= 0 && index < LauncherApi.machines.length)
+                            LauncherApi.selectedMachineId = LauncherApi.machines[index].id
+                    }
+
+                    Component.onCompleted: syncSelection()
+
+                    Connections {
+                        target: LauncherApi
+                        function onMachinesChanged() { machineSelector.syncSelection() }
+                    }
+                }
+
                 Button {
                     text: primaryText()
                     highlighted: true
@@ -207,6 +257,13 @@ Item {
                     Layout.fillWidth: true
                     onClicked: navigateTo("qrc:/gui/LatencyTestView.qml", "LatencyTestView")
                 }
+
+                Button {
+                    text: qsTr("Report a problem")
+                    enabled: !LauncherApi.busy
+                    Layout.fillWidth: true
+                    onClicked: bugReportDialog.open()
+                }
             }
         }
 
@@ -227,7 +284,9 @@ Item {
         id: createMachineDialog
         title: qsTr("Create your VM")
         standardButtons: Dialog.Cancel
-        anchors.centerIn: parent
+        parent: Overlay.overlay
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
         modal: true
 
         ColumnLayout {
@@ -266,10 +325,64 @@ Item {
         id: errorDialog
         title: qsTr("Connection failed")
         standardButtons: Dialog.Ok
-        anchors.centerIn: parent
+        parent: Overlay.overlay
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
         Label {
             text: qsTr("The Moonlight host is not ready yet. Try again in a few seconds.")
             wrapMode: Text.WordWrap
+        }
+    }
+
+    Dialog {
+        id: bugReportDialog
+        title: qsTr("Report a bug")
+        modal: true
+        parent: Overlay.overlay
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        onOpened: bugReportText.forceActiveFocus()
+        onAccepted: {
+            LauncherApi.reportBug(bugReportText.text, LauncherApi.email)
+            bugReportText.text = ""
+        }
+
+        ColumnLayout {
+            width: 340
+            spacing: 10
+
+            Label {
+                text: qsTr("Tell us what happened. We include your app version and machine status automatically.")
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            TextArea {
+                id: bugReportText
+                placeholderText: qsTr("Describe the problem (what you did, what happened)...")
+                wrapMode: TextArea.Wrap
+                Layout.fillWidth: true
+                Layout.preferredHeight: 120
+            }
+        }
+    }
+
+    Dialog {
+        id: bugResultDialog
+        property bool isError: false
+        property alias text: launcherBugResultLabel.text
+        title: isError ? qsTr("Could not send") : qsTr("Report sent")
+        modal: true
+        parent: Overlay.overlay
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
+        standardButtons: Dialog.Ok
+
+        Label {
+            id: launcherBugResultLabel
+            wrapMode: Text.WordWrap
+            width: 300
         }
     }
 
@@ -284,7 +397,9 @@ Item {
         id: uploadSuccessDialog
         title: qsTr("File sent")
         standardButtons: Dialog.Ok
-        anchors.centerIn: parent
+        parent: Overlay.overlay
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
         property string fileName: ""
         Label {
             text: qsTr("%1 was sent to the Downloads folder on your PC.").arg(uploadSuccessDialog.fileName)

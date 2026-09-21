@@ -101,6 +101,9 @@ public class LauncherActivity extends Activity {
                 startActivity(new Intent(LauncherActivity.this, StreamSettings.class)));
         findViewById(R.id.launcherHelpButton).setOnClickListener(v ->
                 HelpLauncher.launchUrl(this, "https://spacecloud.gg/ajuda"));
+        // Relato de bug dentro do app → página "Bugs app" do painel admin.
+        findViewById(R.id.launcherBugButton).setOnClickListener(v ->
+                startActivity(new Intent(LauncherActivity.this, BugReportActivity.class)));
     }
 
     private static String formatDisplayName(String email) {
