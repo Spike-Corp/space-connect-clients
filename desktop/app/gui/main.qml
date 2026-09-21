@@ -10,6 +10,7 @@ import StreamingPreferences 1.0
 import SystemProperties 1.0
 import SdlGamepadKeyNavigation 1.0
 import LauncherApi 1.0
+import Qt.labs.settings 1.0
 
 ApplicationWindow {
     property bool pollingActive: false
@@ -22,6 +23,14 @@ ApplicationWindow {
     id: window
     width: 1280
     height: 600
+
+    // O app é todo desenhado dark (cards #110d17, gradiente escuro), mas o tema
+    // Material seguia o SISTEMA — no Windows em modo claro, textos padrão dos
+    // controles (campos, dialogs, combos) ficavam escuros sobre fundo escuro =
+    // invisíveis. Travamos o tema escuro + acento da marca pra todo mundo.
+    Material.theme: Material.Dark
+    Material.accent: "#a482fa"
+    Material.primary: "#4572fa"
 
     // "Space Connect" GTA VI-inspired sunset gradient window background - same original
     // indigo -> purple -> coral horizon palette used on the Android client's bg_app_gradient.
@@ -249,6 +258,100 @@ ApplicationWindow {
         function onTwoFactorRequired() {
             if (!twoFactorDialog.visible)
                 twoFactorDialog.open()
+        }
+    }
+
+    // ── Notificações de sessão ──────────────────────────────────────────────
+    // Vive no main.qml (não no LauncherView) pra disparar mesmo com o usuário
+    // em outra tela (Settings etc.) — o estado é observado globalmente aqui.
+    // Preferências persistidas via QSettings (mesma categoria lida no
+    // SettingsView, onde ficam os toggles).
+    Settings {
+        id: sessionNotifySettings
+        category: "sessionNotify"
+        property bool notifyOnReady: true
+        property bool soundOnReady: true
+        property bool notifyBeforeEnd: true
+        property bool soundBeforeEnd: true
+    }
+
+    QtObject {
+        id: notifyTracker
+        property string lastState: ""
+        property bool endWarned: false
+    }
+
+    function showSessionToast(text) {
+        sessionToastLabel.text = text
+        sessionToast.visible = true
+        sessionToastTimer.restart()
+    }
+
+    Connections {
+        target: LauncherApi
+        function onStatusChanged() {
+            var st = LauncherApi.state
+            if (st === "ready" && notifyTracker.lastState !== "ready" && notifyTracker.lastState !== "") {
+                // Transição pra "pronta" (fila/boot concluídos)
+                if (sessionNotifySettings.notifyOnReady) {
+                    window.showSessionToast(qsTr("Your machine is ready! Click Connect."))
+                    window.alert(5000)
+                }
+                if (sessionNotifySettings.soundOnReady)
+                    LauncherApi.playNotifySound()
+            }
+            if (st === "ready") {
+                var mins = LauncherApi.remainingMinutes
+                if (!notifyTracker.endWarned && mins > 0 && mins <= 5) {
+                    notifyTracker.endWarned = true
+                    if (sessionNotifySettings.notifyBeforeEnd) {
+                        window.showSessionToast(qsTr("Your machine shuts down in ~5 minutes. Save your progress!"))
+                        window.alert(5000)
+                    }
+                    if (sessionNotifySettings.soundBeforeEnd)
+                        LauncherApi.playNotifySound()
+                }
+            } else {
+                // Saiu do estado ready: rearma o aviso de desligamento da próxima sessão.
+                notifyTracker.endWarned = false
+            }
+            notifyTracker.lastState = st
+        }
+    }
+
+    // Toast/banner de sessão (some sozinho)
+    Rectangle {
+        id: sessionToast
+        visible: false
+        z: 1000
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: 78
+        width: sessionToastLabel.implicitWidth + 36
+        height: 44
+        radius: 22
+        color: "#110d17"
+        border.width: 1.5
+        border.color: "#a482fa"
+
+        Label {
+            id: sessionToastLabel
+            anchors.centerIn: parent
+            color: "#f8f5ff"
+            font.pointSize: 11
+        }
+
+        Timer {
+            id: sessionToastTimer
+            interval: 6000
+            onTriggered: sessionToast.visible = false
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: {
+                sessionToastTimer.stop()
+                sessionToast.visible = false
+            }
         }
     }
 

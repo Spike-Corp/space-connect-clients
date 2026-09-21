@@ -1478,6 +1478,66 @@ Flickable {
                 }
             }
         }
+
+        GroupBox {
+            id: sessionNotifyGroupBox
+            width: (parent.width - (parent.leftPadding + parent.rightPadding))
+            padding: 12
+            label: SectionHeader { iconSource: "qrc:/res/baseline-warning-24px.svg"; text: qsTr("Session Notifications"); accentColor: "#e8c85a" }
+            font.pointSize: 12
+
+            // Mesma categoria/chaves lidas no main.qml (motor de notificação).
+            Settings {
+                id: sessionNotifySettings
+                category: "sessionNotify"
+                property bool notifyOnReady: true
+                property bool soundOnReady: true
+                property bool notifyBeforeEnd: true
+                property bool soundBeforeEnd: true
+            }
+
+            Column {
+                anchors.fill: parent
+                spacing: 5
+
+                SpaceCheckBox {
+                    width: parent.width
+                    text: qsTr("Notify when the machine is ready")
+                    font.pointSize: 12
+                    checked: sessionNotifySettings.notifyOnReady
+                    onCheckedChanged: sessionNotifySettings.notifyOnReady = checked
+                }
+
+                SpaceCheckBox {
+                    width: parent.width
+                    text: qsTr("Play a sound when the machine is ready")
+                    font.pointSize: 12
+                    checked: sessionNotifySettings.soundOnReady
+                    onCheckedChanged: sessionNotifySettings.soundOnReady = checked
+                }
+
+                SpaceCheckBox {
+                    width: parent.width
+                    text: qsTr("Notify 5 minutes before the machine shuts down")
+                    font.pointSize: 12
+                    checked: sessionNotifySettings.notifyBeforeEnd
+                    onCheckedChanged: sessionNotifySettings.notifyBeforeEnd = checked
+
+                    ToolTip.delay: 1000
+                    ToolTip.timeout: 5000
+                    ToolTip.visible: hovered
+                    ToolTip.text: qsTr("Gives you time to save your game before the session ends.")
+                }
+
+                SpaceCheckBox {
+                    width: parent.width
+                    text: qsTr("Play a sound before the machine shuts down")
+                    font.pointSize: 12
+                    checked: sessionNotifySettings.soundBeforeEnd
+                    onCheckedChanged: sessionNotifySettings.soundBeforeEnd = checked
+                }
+            }
+        }
     }
 
     Column {

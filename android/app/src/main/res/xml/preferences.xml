@@ -122,6 +122,33 @@
             android:entryValues="@array/mic_device_default_values"
             android:defaultValue="" />
     </PreferenceCategory>
+    <PreferenceCategory android:title="@string/category_session_notify"
+        android:key="category_session_notify">
+        <SwitchPreference
+            android:key="checkbox_notify_ready"
+            android:icon="@drawable/ic_bell"
+            android:title="@string/title_checkbox_notify_ready"
+            android:summary="@string/summary_checkbox_notify_ready"
+            android:defaultValue="true" />
+        <SwitchPreference
+            android:key="checkbox_sound_ready"
+            android:icon="@drawable/ic_bell"
+            android:title="@string/title_checkbox_sound_ready"
+            android:summary="@string/summary_checkbox_sound_ready"
+            android:defaultValue="true" />
+        <SwitchPreference
+            android:key="checkbox_notify_ending"
+            android:icon="@drawable/ic_bell"
+            android:title="@string/title_checkbox_notify_ending"
+            android:summary="@string/summary_checkbox_notify_ending"
+            android:defaultValue="true" />
+        <SwitchPreference
+            android:key="checkbox_sound_ending"
+            android:icon="@drawable/ic_bell"
+            android:title="@string/title_checkbox_sound_ending"
+            android:summary="@string/summary_checkbox_sound_ending"
+            android:defaultValue="true" />
+    </PreferenceCategory>
     <PreferenceCategory android:title="@string/category_gamepad_settings"
         android:key="category_gamepad_settings">
         <com.limelight.preferences.SeekBarPreference

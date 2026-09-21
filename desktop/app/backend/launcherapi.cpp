@@ -13,6 +13,7 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QSettings>
+#include <QSoundEffect>
 #include <QSysInfo>
 #include <QUuid>
 #include <QUrl>
@@ -685,6 +686,19 @@ void LauncherApi::uploadFileToVm(const QString& localFilePath)
         }
         reply->deleteLater();
     });
+}
+
+void LauncherApi::playNotifySound()
+{
+    static QSoundEffect* effect = nullptr;
+    if (!effect) {
+        effect = new QSoundEffect(this);
+        effect->setSource(QUrl(QStringLiteral("qrc:/sounds/notify.wav")));
+        effect->setVolume(0.6f);
+    }
+    // play() num efeito já tocando reinicia — comportamento desejado pra
+    // notificações em sequência (pronta + aviso de desligamento).
+    effect->play();
 }
 
 void LauncherApi::reportBug(const QString& description, const QString& emailHint)

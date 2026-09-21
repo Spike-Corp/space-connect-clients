@@ -88,6 +88,9 @@ public:
     // Relato de bug de dentro do app (vai pra página "Bugs app" do admin).
     // Funciona mesmo deslogado (tela de login): nesse caso emailHint é usado.
     Q_INVOKABLE void reportBug(const QString& description, const QString& emailHint);
+    // Som curto de notificação (máquina pronta / desligando). Falha silenciosa
+    // em sistema sem áudio — nunca deve quebrar o fluxo da sessão.
+    Q_INVOKABLE void playNotifySound();
     Q_INVOKABLE void logout();
     // Bitrate ceiling (Kbps) cached from the last connection reported by the backend.
     // 0 when never received; callers should fall back to a local heuristic.

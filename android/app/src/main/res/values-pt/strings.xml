@@ -306,6 +306,17 @@
     <string name="launcher_join_queue">Abrir máquina</string>
     <string name="launcher_plan_unlimited">%1$s · horas ilimitadas</string>
     <string name="launcher_plan_unlimited_short">ilimitado</string>
+    <string name="category_session_notify">Notificações da sessão</string>
+    <string name="title_checkbox_notify_ready">Notificar quando a máquina ficar pronta</string>
+    <string name="summary_checkbox_notify_ready">Mostra um aviso quando a sua máquina terminar de ligar</string>
+    <string name="title_checkbox_sound_ready">Som ao ficar pronta</string>
+    <string name="summary_checkbox_sound_ready">Toca um som curto quando a máquina fica pronta</string>
+    <string name="title_checkbox_notify_ending">Avisar antes de desligar</string>
+    <string name="summary_checkbox_notify_ending">Mostra um aviso 5 minutos antes da máquina desligar</string>
+    <string name="title_checkbox_sound_ending">Som antes de desligar</string>
+    <string name="summary_checkbox_sound_ending">Toca um som 5 minutos antes da máquina desligar</string>
+    <string name="notify_machine_ready">A sua máquina está pronta! Toque em Conectar.</string>
+    <string name="notify_machine_ending">A sua máquina desliga em ~5 minutos. Salve o seu progresso!</string>
     <string name="launcher_plan_hours">%1$s · faltam %2$s</string>
     <string name="launcher_plan_hours_bonus"> + %1$s de bônus</string>
     <string name="launcher_leave_queue">Sair da fila</string>

@@ -284,6 +284,17 @@
     <string name="launcher_join_queue">Open machine</string>
     <string name="launcher_plan_unlimited">%1$s · unlimited hours</string>
     <string name="launcher_plan_unlimited_short">unlimited</string>
+    <string name="category_session_notify">Session notifications</string>
+    <string name="title_checkbox_notify_ready">Notify when the machine is ready</string>
+    <string name="summary_checkbox_notify_ready">Shows a message when your cloud PC finishes starting</string>
+    <string name="title_checkbox_sound_ready">Sound when ready</string>
+    <string name="summary_checkbox_sound_ready">Plays a short sound when the machine is ready</string>
+    <string name="title_checkbox_notify_ending">Warn before shutdown</string>
+    <string name="summary_checkbox_notify_ending">Shows a message 5 minutes before the machine turns off</string>
+    <string name="title_checkbox_sound_ending">Sound before shutdown</string>
+    <string name="summary_checkbox_sound_ending">Plays a sound 5 minutes before the machine turns off</string>
+    <string name="notify_machine_ready">Your machine is ready! Tap Connect.</string>
+    <string name="notify_machine_ending">Your machine shuts down in ~5 minutes. Save your progress!</string>
     <string name="launcher_plan_hours">%1$s · %2$s left</string>
     <string name="launcher_plan_hours_bonus"> + %1$s bonus</string>
     <string name="launcher_leave_queue">Leave queue</string>

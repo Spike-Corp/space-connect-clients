@@ -12,10 +12,13 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.Cursor;
+import android.media.Ringtone;
+import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.preference.PreferenceManager;
 import android.provider.OpenableColumns;
 import android.view.View;
 import android.widget.Button;
@@ -44,6 +47,9 @@ public class LauncherActivity extends Activity {
     private SpaceConnectApiClient.MachineListItem[] machines;
     private String selectedMachineId;
     private SpaceConnectApiClient.StatusResponse lastStatus;
+    // Controle das notificações de sessão (transição de estado + aviso único).
+    private String lastNotifiedState;
+    private boolean endWarned;
 
     private final Runnable pollStatus = new Runnable() {
         @Override
@@ -170,6 +176,7 @@ public class LauncherActivity extends Activity {
 
     private void render(SpaceConnectApiClient.StatusResponse status) {
         lastStatus = status;
+        maybeNotifySession(status);
         renderPlanHours();
         endSessionButton.setVisibility(View.GONE);
         primaryButton.setVisibility(View.VISIBLE);
@@ -229,6 +236,48 @@ public class LauncherActivity extends Activity {
         }
         if (hasMachine == null) {
             checkMachines();
+        }
+    }
+
+    // Notificações de sessão (toggles em Configurações → Notificações da sessão):
+    // aviso + som quando a máquina fica pronta e 5 min antes de desligar.
+    private void maybeNotifySession(SpaceConnectApiClient.StatusResponse status) {
+        if (status == null || status.state == null) return;
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        boolean nowReady = "ready".equals(status.state);
+        boolean firstSample = lastNotifiedState == null;
+
+        if (nowReady && !firstSample && !"ready".equals(lastNotifiedState)) {
+            if (prefs.getBoolean("checkbox_notify_ready", true)) {
+                Toast.makeText(this, R.string.notify_machine_ready, Toast.LENGTH_LONG).show();
+            }
+            if (prefs.getBoolean("checkbox_sound_ready", true)) {
+                playNotifySound();
+            }
+        }
+        if (nowReady && status.session != null) {
+            long mins = Math.max(0, status.session.remainingMs / 60000L);
+            if (!endWarned && mins > 0 && mins <= 5) {
+                endWarned = true;
+                if (prefs.getBoolean("checkbox_notify_ending", true)) {
+                    Toast.makeText(this, R.string.notify_machine_ending, Toast.LENGTH_LONG).show();
+                }
+                if (prefs.getBoolean("checkbox_sound_ending", true)) {
+                    playNotifySound();
+                }
+            }
+        }
+        if (!nowReady) endWarned = false;
+        lastNotifiedState = status.state;
+    }
+
+    private void playNotifySound() {
+        try {
+            Ringtone ringtone = RingtoneManager.getRingtone(this,
+                    RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION));
+            if (ringtone != null) ringtone.play();
+        } catch (Exception ignored) {
+            // Sem áudio/permissão: a notificação visual (Toast) já cobre.
         }
     }
 

@@ -1437,6 +1437,30 @@
         <translation>Evita que a proteção de tela seja iniciada ou que a tela entre em suspensão durante a transmissão.</translation>
     </message>
     <message>
+        <source>Session Notifications</source>
+        <translation>Notificações da sessão</translation>
+    </message>
+    <message>
+        <source>Notify when the machine is ready</source>
+        <translation>Notificar quando a máquina ficar pronta</translation>
+    </message>
+    <message>
+        <source>Play a sound when the machine is ready</source>
+        <translation>Tocar um som quando a máquina ficar pronta</translation>
+    </message>
+    <message>
+        <source>Notify 5 minutes before the machine shuts down</source>
+        <translation>Avisar 5 minutos antes da máquina desligar</translation>
+    </message>
+    <message>
+        <source>Gives you time to save your game before the session ends.</source>
+        <translation>Dá tempo de salvar seu jogo antes da sessão terminar.</translation>
+    </message>
+    <message>
+        <source>Play a sound before the machine shuts down</source>
+        <translation>Tocar um som antes da máquina desligar</translation>
+    </message>
+    <message>
         <location filename="../gui/SettingsView.qml" line="1499"/>
         <source>Capture system keyboard shortcuts</source>
         <translation>Capturar atalhos de teclado do sistema</translation>
@@ -1738,6 +1762,14 @@
     <message>
         <source>6-digit code</source>
         <translation>Código de 6 dígitos</translation>
+    </message>
+    <message>
+        <source>Your machine is ready! Click Connect.</source>
+        <translation>Sua máquina está pronta! Toque em Conectar.</translation>
+    </message>
+    <message>
+        <source>Your machine shuts down in ~5 minutes. Save your progress!</source>
+        <translation>Sua máquina desliga em ~5 minutos. Salve seu progresso!</translation>
     </message>
 </context>
 </TS>
