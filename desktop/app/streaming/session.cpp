@@ -1969,7 +1969,7 @@ void Session::execInternal()
     m_UnexpectedTermination = false;
 
     // Start rich presence to indicate we're in game
-    RichPresenceManager presence(*m_Preferences, m_App.name);
+    RichPresenceManager presence(*m_Preferences, m_App.name, m_Computer->name);
 
     // Toggle the stats overlay if requested by the user
     m_OverlayManager.setOverlayState(Overlay::OverlayDebug, m_Preferences->showPerformanceOverlay);

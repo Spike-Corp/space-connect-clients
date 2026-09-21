@@ -30,6 +30,7 @@ public class BugReportActivity extends Activity {
         UiHelper.applyPreferredTheme(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_bug_report);
+        UiHelper.applyStatusBarInset(findViewById(android.R.id.content));
 
         emailField = findViewById(R.id.bugReportEmail);
         descriptionField = findViewById(R.id.bugReportDescription);

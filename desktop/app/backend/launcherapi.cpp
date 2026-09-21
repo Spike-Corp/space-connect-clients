@@ -14,11 +14,11 @@
 #include <QNetworkRequest>
 #include <QSettings>
 #include <QDir>
+#include <QProcess>
 #if defined(Q_OS_WIN)
 #include <windows.h>
 #pragma comment(lib, "winmm.lib")
 #elif defined(Q_OS_LINUX)
-#include <QProcess>
 #include <QStandardPaths>
 #endif
 #include <QSysInfo>
@@ -47,6 +47,20 @@ LauncherApi::LauncherApi(QObject* parent)
     m_RememberMe = settings.value(QStringLiteral("auth/rememberMe"), true).toBool();
     m_SavedEmail = settings.value(QStringLiteral("auth/email")).toString();
     m_SelectedMachineId = settings.value(QStringLiteral("launcher/selectedMachineId")).toString();
+
+    // Discord Rich Presence: busca o app id no backend (rota pública /health) e
+    // cacheia no QSettings — o RichPresenceManager lê de lá quando o stream começa.
+    // Assim trocar o app id do Discord não exige rebuild do app.
+    request("GET", QStringLiteral("health"), QJsonObject(), false,
+            [](int status, const QJsonObject& root) {
+                if (status < 200 || status >= 300) return;
+                const QString appId = root.value(QStringLiteral("discordAppId")).toString();
+                QSettings s;
+                if (!appId.isEmpty())
+                    s.setValue(QStringLiteral("launcher/discordAppId"), appId);
+                else
+                    s.remove(QStringLiteral("launcher/discordAppId"));
+            });
     if (m_RememberMe && !m_SavedEmail.isEmpty()) {
         const qint64 savedAt = settings.value(QStringLiteral("auth/savedAt"), 0).toLongLong();
         const qint64 now = QDateTime::currentMSecsSinceEpoch();
@@ -259,6 +273,9 @@ void LauncherApi::fetchMachines()
                             entitlement.value(QStringLiteral("bonusHours")).toDouble();
                         entry.insert(QStringLiteral("planSlug"),
                                      entitlement.value(QStringLiteral("planSlug")).toString());
+                        // Nome de exibição vindo do cadastro do produto no banco.
+                        entry.insert(QStringLiteral("planName"),
+                                     entitlement.value(QStringLiteral("planName")).toString());
                         entry.insert(QStringLiteral("entitlementActive"), entActive);
                         entry.insert(QStringLiteral("unlimited"), entUnlimited);
                         entry.insert(QStringLiteral("hoursRemaining"), hoursRemaining);
@@ -479,7 +496,31 @@ void LauncherApi::submitPairPin(const QString& pin)
 {
     if (!m_LoggedIn || pin.size() != 4)
         return;
+    // Pareamento na VM de um AMIGO usa a rota friend-aware (valida permissão
+    // de acesso no backend). O flag é setado em connectFriendMachine().
+    if (!m_PendingFriendMachineId.isEmpty()) {
+        sendFriendPairAttempt(m_PendingFriendMachineId, pin, 0);
+        return;
+    }
     sendPairAttempt(pin, 0);
+}
+
+void LauncherApi::sendFriendPairAttempt(const QString& machineId, const QString& pin, int attempt)
+{
+    request("POST", QStringLiteral("friends/machines/") + machineId + QStringLiteral("/pair"),
+            QJsonObject{{QStringLiteral("pin"), pin}},
+            true,
+            [this, machineId, pin, attempt](int status, const QJsonObject& root) {
+                if (status >= 200 && status < 300
+                    && root.value(QStringLiteral("paired")).toBool()) {
+                    return;
+                }
+                if (attempt < 7) {
+                    QTimer::singleShot(500, this, [this, machineId, pin, attempt]() {
+                        sendFriendPairAttempt(machineId, pin, attempt + 1);
+                    });
+                }
+            });
 }
 
 void LauncherApi::sendPairAttempt(const QString& pin, int attempt)
@@ -628,6 +669,8 @@ void LauncherApi::request(
         reply = m_Network.get(request);
     else if (method == "DELETE")
         reply = m_Network.sendCustomRequest(request, "DELETE");
+    else if (method == "PUT")
+        reply = m_Network.sendCustomRequest(request, "PUT", QJsonDocument(body).toJson(QJsonDocument::Compact));
     else
         reply = m_Network.post(request, QJsonDocument(body).toJson(QJsonDocument::Compact));
 
@@ -724,6 +767,52 @@ bool LauncherApi::sessionNotifyEnabled(const QString& key) const
     return QSettings().value(QStringLiteral("sessionNotify/") + key, true).toBool();
 }
 
+void LauncherApi::startUsbPassthrough()
+{
+    if (!m_LoggedIn || m_Busy)
+        return;
+
+    setBusy(true);
+    setError(QString());
+    QJsonObject body;
+    if (!effectiveMachineId().isEmpty())
+        body.insert(QStringLiteral("machineId"), effectiveMachineId());
+    request("POST", QStringLiteral("usb/start"), body, true,
+            [this](int status, const QJsonObject& root) {
+                setBusy(false);
+                if (status < 200 || status >= 300) {
+                    setError(errorObject(root).value(QStringLiteral("message")).toString(
+                        QStringLiteral("Não foi possível abrir o USB passthrough")));
+                    return;
+                }
+
+                const QString host = root.value(QStringLiteral("host")).toString();
+                const int port = root.value(QStringLiteral("port")).toInt();
+                const QString token = root.value(QStringLiteral("token")).toString();
+                const QString machineName = root.value(QStringLiteral("machineName")).toString();
+
+                // Helper instalado? (estilo AppData — %LOCALAPPDATA%\SpaceUSB\SpaceUSB.exe)
+#if defined(Q_OS_WIN)
+                const QString helper =
+                    QDir(qEnvironmentVariable("LOCALAPPDATA")).filePath(QStringLiteral("SpaceUSB/SpaceUSB.exe"));
+#else
+                const QString helper =
+                    QDir::home().filePath(QStringLiteral(".local/share/SpaceUSB/SpaceUSB"));
+#endif
+                if (!QFile::exists(helper)) {
+                    emit usbHelperMissing();
+                    return;
+                }
+
+                QProcess::startDetached(helper, {
+                    QStringLiteral("--host"), host,
+                    QStringLiteral("--port"), QString::number(port),
+                    QStringLiteral("--token"), token,
+                });
+                emit usbSessionStarted(machineName);
+            });
+}
+
 void LauncherApi::playNotifySound()
 {
     // Sem Qt Multimedia de propósito: o build legado (Win7/8) usa Qt 5.15 sem o
@@ -787,6 +876,151 @@ void LauncherApi::reportBug(const QString& description, const QString& emailHint
                     emit bugReportFinished(false,
                         errorObject(root).value(QStringLiteral("message")).toString(
                             tr("Não foi possível enviar o relato. Tente novamente.")));
+                }
+            });
+}
+
+// ── Amigos (beta) ────────────────────────────────────────────────────────────
+
+void LauncherApi::refreshFriends()
+{
+    if (!m_LoggedIn)
+        return;
+    request("GET", QStringLiteral("friends"), QJsonObject(), true,
+            [this](int status, const QJsonObject& root) {
+                if (status < 200 || status >= 300) return;
+                m_Friends = root.value(QStringLiteral("friends")).toArray().toVariantList();
+                m_Incoming = root.value(QStringLiteral("incoming")).toArray().toVariantList();
+                m_Outgoing = root.value(QStringLiteral("outgoing")).toArray().toVariantList();
+                m_MyUsername = root.value(QStringLiteral("me")).toObject()
+                                   .value(QStringLiteral("username")).toString();
+                emit friendsChanged();
+            });
+    request("GET", QStringLiteral("friends/machines"), QJsonObject(), true,
+            [this](int status, const QJsonObject& root) {
+                if (status < 200 || status >= 300) return;
+                m_FriendMachines = root.value(QStringLiteral("machines")).toArray().toVariantList();
+                emit friendsChanged();
+            });
+}
+
+void LauncherApi::addFriend(const QString& username)
+{
+    if (!m_LoggedIn) return;
+    request("POST", QStringLiteral("friends/add"),
+            QJsonObject{{QStringLiteral("username"), username.trimmed()}},
+            true,
+            [this](int status, const QJsonObject& root) {
+                if (status >= 200 && status < 300) {
+                    const bool accepted = root.value(QStringLiteral("status")).toString() == QStringLiteral("accepted");
+                    emit friendActionResult(true, accepted
+                        ? tr("Vocês já são amigos! (pedido mútuo aceito)")
+                        : tr("Pedido de amizade enviado!"));
+                    refreshFriends();
+                } else {
+                    emit friendActionResult(false, errorObject(root).value(QStringLiteral("message")).toString(
+                        tr("Não foi possível adicionar")));
+                }
+            });
+}
+
+void LauncherApi::acceptFriendRequest(const QString& requestId)
+{
+    request("POST", QStringLiteral("friends/requests/") + requestId + QStringLiteral("/accept"),
+            QJsonObject(), true,
+            [this](int status, const QJsonObject&) {
+                if (status >= 200 && status < 300) refreshFriends();
+            });
+}
+
+void LauncherApi::declineFriendRequest(const QString& requestId)
+{
+    request("POST", QStringLiteral("friends/requests/") + requestId + QStringLiteral("/decline"),
+            QJsonObject(), true,
+            [this](int status, const QJsonObject&) {
+                if (status >= 200 && status < 300) refreshFriends();
+            });
+}
+
+void LauncherApi::removeFriend(const QString& friendId)
+{
+    request("DELETE", QStringLiteral("friends/") + friendId, QJsonObject(), true,
+            [this](int status, const QJsonObject&) {
+                if (status >= 200 && status < 300) refreshFriends();
+            });
+}
+
+void LauncherApi::setFriendPermissions(const QString& friendId, bool showMachine, bool allowConnect)
+{
+    request("PUT", QStringLiteral("friends/") + friendId + QStringLiteral("/permissions"),
+            QJsonObject{
+                {QStringLiteral("showMachine"), showMachine},
+                {QStringLiteral("allowConnect"), allowConnect},
+            },
+            true,
+            [this](int status, const QJsonObject& root) {
+                if (status >= 200 && status < 300) {
+                    refreshFriends();
+                } else {
+                    emit friendActionResult(false, errorObject(root).value(QStringLiteral("message")).toString(
+                        tr("Não foi possível salvar as permissões")));
+                }
+            });
+}
+
+void LauncherApi::connectFriendMachine(const QString& machineId)
+{
+    if (!m_LoggedIn || m_Busy) return;
+    setBusy(true);
+    request("GET", QStringLiteral("friends/machines/") + machineId + QStringLiteral("/connection"),
+            QJsonObject(), true,
+            [this, machineId](int status, const QJsonObject& root) {
+                setBusy(false);
+                if (status < 200 || status >= 300) {
+                    emit friendActionResult(false, errorObject(root).value(QStringLiteral("message")).toString(
+                        tr("Não foi possível conectar na máquina do seu amigo")));
+                    return;
+                }
+                try {
+                    const LauncherConnection connection =
+                        LauncherJson::parseConnection(QJsonDocument(root).toJson(QJsonDocument::Compact));
+                    if (connection.host.isEmpty() || connection.port <= 0)
+                        throw std::runtime_error("Connection unavailable");
+                    // O PIN do pareamento vai pra rota friend-aware enquanto esta
+                    // conexão estiver em curso.
+                    m_PendingFriendMachineId = machineId;
+                    emit connectionReady(connection.host + QStringLiteral(":")
+                                         + QString::number(connection.port));
+                }
+                catch (const std::exception&) {
+                    emit friendActionResult(false, tr("Conexão ainda não disponível na máquina do seu amigo"));
+                }
+            });
+}
+
+void LauncherApi::setUsername(const QString& username)
+{
+    request("PUT", QStringLiteral("friends/username"),
+            QJsonObject{{QStringLiteral("username"), username.trimmed().toLower()}},
+            true,
+            [this](int status, const QJsonObject& root) {
+                if (status >= 200 && status < 300) {
+                    emit friendActionResult(true, tr("Username salvo!"));
+                } else {
+                    emit friendActionResult(false, errorObject(root).value(QStringLiteral("message")).toString(
+                        tr("Não foi possível salvar o username")));
+                }
+            });
+}
+
+void LauncherApi::checkUsername(const QString& username)
+{
+    request("GET", QStringLiteral("friends/username/availability?u=") + QUrl::toPercentEncoding(username.trimmed().toLower()),
+            QJsonObject(), true,
+            [this](int status, const QJsonObject& root) {
+                if (status >= 200 && status < 300) {
+                    emit usernameCheckResult(root.value(QStringLiteral("available")).toBool(),
+                                             root.value(QStringLiteral("reason")).toString());
                 }
             });
 }

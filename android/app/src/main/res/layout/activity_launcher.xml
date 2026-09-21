@@ -19,7 +19,7 @@
 
         <ImageView
             android:id="@+id/launcherTopLogo"
-            android:layout_width="112dp"
+            android:layout_width="96dp"
             android:layout_height="40dp"
             android:contentDescription="@string/launcher_toolbar_title"
             android:scaleType="centerInside"
@@ -31,6 +31,8 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="10dp"
             android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
             android:text="@string/launcher_toolbar_title"
             android:textColor="?attr/appMutedForegroundColor"
             android:textSize="12sp" />
@@ -216,6 +218,19 @@
                 android:gravity="start|center_vertical"
                 android:paddingStart="16dp"
                 android:text="@string/launcher_upload_file"
+                android:textAllCaps="false"
+                android:textColor="?attr/appForegroundColor"
+                android:textSize="14sp" />
+
+            <Button
+                android:id="@+id/launcherFriendsButton"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_button_ghost"
+                android:gravity="start|center_vertical"
+                android:paddingStart="16dp"
+                android:text="@string/friends_title"
                 android:textAllCaps="false"
                 android:textColor="?attr/appForegroundColor"
                 android:textSize="14sp" />

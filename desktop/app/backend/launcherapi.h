@@ -32,6 +32,13 @@ class LauncherApi : public QObject
     // VM a partir da fila — só o /create-machine faz isso, igual ao site).
     Q_PROPERTY(bool hasMachine READ hasMachine NOTIFY machinesChanged)
     Q_PROPERTY(bool machinesLoaded READ machinesLoaded NOTIFY machinesChanged)
+    // Amigos (beta): listas pra UI + ações. friendMachines = máquinas que amigos
+    // compartilham comigo (com permissão deles).
+    Q_PROPERTY(QVariantList friends READ friends NOTIFY friendsChanged)
+    Q_PROPERTY(QVariantList incomingRequests READ incomingRequests NOTIFY friendsChanged)
+    Q_PROPERTY(QVariantList outgoingRequests READ outgoingRequests NOTIFY friendsChanged)
+    Q_PROPERTY(QVariantList friendMachines READ friendMachines NOTIFY friendsChanged)
+    Q_PROPERTY(QString myUsername READ myUsername NOTIFY friendsChanged)
     // Lista de VMs dedicadas do usuário (multi-plano) e a VM escolhida pra
     // abrir. Quando há 2+ máquinas, a UI mostra um seletor (o app Android já
     // tinha; o desktop não passava machineId em nada e o backend escolhia
@@ -70,6 +77,11 @@ public:
     QString selectedMachineId() const { return m_SelectedMachineId; }
     void setSelectedMachineId(const QString& id);
     QString statusMachineId() const { return m_StatusMachineId; }
+    QVariantList friends() const { return m_Friends; }
+    QVariantList incomingRequests() const { return m_Incoming; }
+    QVariantList outgoingRequests() const { return m_Outgoing; }
+    QVariantList friendMachines() const { return m_FriendMachines; }
+    QString myUsername() const { return m_MyUsername; }
 
     Q_INVOKABLE void login(const QString& email, const QString& password);
     Q_INVOKABLE void verifyTwoFactor(const QString& code);
@@ -95,6 +107,20 @@ public:
     // escrito pelo SettingsView). O Settings do Qt.labs.settings cacheia na
     // criação — ler aqui garante que mexer no toggle vale na hora, sem restart.
     Q_INVOKABLE bool sessionNotifyEnabled(const QString& key) const;
+    // SpaceUSB: pede uma sessão de túnel USB ao backend e abre o helper no PC.
+    // Se o helper não estiver instalado, emite usbHelperMissing() pra UI oferecer
+    // o download.
+    Q_INVOKABLE void startUsbPassthrough();
+    // Amigos
+    Q_INVOKABLE void refreshFriends();
+    Q_INVOKABLE void addFriend(const QString& username);
+    Q_INVOKABLE void acceptFriendRequest(const QString& requestId);
+    Q_INVOKABLE void declineFriendRequest(const QString& requestId);
+    Q_INVOKABLE void removeFriend(const QString& friendId);
+    Q_INVOKABLE void setFriendPermissions(const QString& friendId, bool showMachine, bool allowConnect);
+    Q_INVOKABLE void connectFriendMachine(const QString& machineId);
+    Q_INVOKABLE void setUsername(const QString& username);
+    Q_INVOKABLE void checkUsername(const QString& username);
     Q_INVOKABLE void logout();
     // Bitrate ceiling (Kbps) cached from the last connection reported by the backend.
     // 0 when never received; callers should fall back to a local heuristic.
@@ -115,6 +141,11 @@ signals:
     void connectionReady(QString address);
     void fileUploadSucceeded(QString fileName);
     void bugReportFinished(bool success, QString message);
+    void usbHelperMissing();
+    void usbSessionStarted(QString machineName);
+    void friendsChanged();
+    void friendActionResult(bool success, QString message);
+    void usernameCheckResult(bool available, QString reason);
 
 private:
     using ResponseHandler = std::function<void(int, const QJsonObject&)>;
@@ -133,6 +164,7 @@ private:
     void setBusy(bool busy);
     void setError(const QString& message);
     void sendPairAttempt(const QString& pin, int attempt);
+    void sendFriendPairAttempt(const QString& machineId, const QString& pin, int attempt);
     QString deviceId() const;
     // VM alvo das ações (fila/conexão/encerrar): a da sessão ativa, se houver;
     // senão a selecionada no seletor. Vazio = backend decide (comportamento antigo).
@@ -168,4 +200,12 @@ private:
     QString m_SelectedMachineId;
     // Máquina da sessão ativa reportada pelo /status (prioriza sobre a seleção).
     QString m_StatusMachineId;
+    // Amigos
+    QVariantList m_Friends;
+    QVariantList m_Incoming;
+    QVariantList m_Outgoing;
+    QVariantList m_FriendMachines;
+    // Máquina de amigo sendo conectada agora (o PIN vai pra rota friend-aware).
+    QString m_PendingFriendMachineId;
+    QString m_MyUsername;
 };

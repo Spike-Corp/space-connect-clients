@@ -65,6 +65,9 @@ jobs:
           copy /Y app\release\SpaceConnect.exe deploy\ || exit /b 1
           copy /Y libs\windows\lib\x64\*.dll deploy\ || exit /b 1
           copy /Y AntiHooking\release\AntiHooking.dll deploy\ || exit /b 1
+          rem Discord Rich Presence: sem a discord-rpc.dll no pacote, o Discord_Initialize
+          rem morre silenciosamente e o status nunca aparece (windeployqt nao cobre DLLs nao-Qt)
+          copy /Y libs\windows\lib\x64\discord-rpc.dll deploy\ || exit /b 1
           copy /Y app\SDL_GameControllerDB\gamecontrollerdb.txt deploy\ || exit /b 1
           windeployqt --release --qmldir app\gui --no-opengl-sw --no-sql --no-system-d3d-compiler --no-system-dxc-compiler --skip-plugin-types qmltooling,generic --no-ffmpeg --no-quickcontrols2fusion --no-quickcontrols2imagine --no-quickcontrols2universal deploy\SpaceConnect.exe || exit /b 1
 
@@ -183,6 +186,9 @@ jobs:
           copy /Y app\release\SpaceConnect.exe deploy\ || exit /b 1
           copy /Y libs\windows\lib\x64\*.dll deploy\ || exit /b 1
           copy /Y AntiHooking\release\AntiHooking.dll deploy\ || exit /b 1
+          rem Discord Rich Presence: sem a discord-rpc.dll no pacote, o Discord_Initialize
+          rem morre silenciosamente e o status nunca aparece (windeployqt nao cobre DLLs nao-Qt)
+          copy /Y libs\windows\lib\x64\discord-rpc.dll deploy\ || exit /b 1
           copy /Y app\SDL_GameControllerDB\gamecontrollerdb.txt deploy\ || exit /b 1
           windeployqt --release --qmldir app\gui --no-opengl-sw --no-sql deploy\SpaceConnect.exe || exit /b 1
 

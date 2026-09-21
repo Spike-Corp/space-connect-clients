@@ -9,6 +9,9 @@ import com.limelight.utils.UiHelper;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.Cursor;
@@ -63,6 +66,10 @@ public class LauncherActivity extends Activity {
         UiHelper.applyPreferredTheme(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_launcher);
+        // Botões do header ficavam sob a status bar em alguns aparelhos (paisagem/
+        // cutout) = inclicáveis. Empurra o toolbar pra baixo do inset do sistema.
+        UiHelper.applyStatusBarInset(findViewById(R.id.launcherToolbar));
+        setupNotifications();
 
         statusText = findViewById(R.id.launcherStatus);
         detailsText = findViewById(R.id.launcherDetails);
@@ -112,6 +119,9 @@ public class LauncherActivity extends Activity {
         // Relato de bug dentro do app → página "Bugs app" do painel admin.
         findViewById(R.id.launcherBugButton).setOnClickListener(v ->
                 startActivity(new Intent(LauncherActivity.this, BugReportActivity.class)));
+        // Amigos (beta): username, pedidos, permissões e VMs compartilhadas.
+        findViewById(R.id.launcherFriendsButton).setOnClickListener(v ->
+                startActivity(new Intent(LauncherActivity.this, FriendsActivity.class)));
     }
 
     private static String formatDisplayName(String email) {
@@ -239,6 +249,62 @@ public class LauncherActivity extends Activity {
         }
     }
 
+    private static final String NOTIF_CHANNEL_ID = "session_events";
+    private static final int NOTIF_PERMISSION_REQ = 4201;
+    private static final int NOTIF_ID_READY = 1001;
+    private static final int NOTIF_ID_ENDING = 1002;
+
+    private void setupNotifications() {
+        // Canal (API 26+) + pedido de permissão em runtime (API 33+) — sem a
+        // permissão o sistema engole a notificação silenciosamente.
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            NotificationManager nm = getSystemService(NotificationManager.class);
+            if (nm != null && nm.getNotificationChannel(NOTIF_CHANNEL_ID) == null) {
+                NotificationChannel channel = new NotificationChannel(
+                        NOTIF_CHANNEL_ID,
+                        getString(R.string.notif_channel_name),
+                        NotificationManager.IMPORTANCE_HIGH);
+                channel.setDescription(getString(R.string.notif_channel_desc));
+                // Som do canal desligado: o som é o toggle próprio (ringtone),
+                // senão tocava em dobro.
+                channel.setSound(null, null);
+                nm.createNotificationChannel(channel);
+            }
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+            boolean asked = prefs.getBoolean("notif_permission_asked", false);
+            if (!asked && checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                    != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                prefs.edit().putBoolean("notif_permission_asked", true).apply();
+                requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, NOTIF_PERMISSION_REQ);
+            }
+        }
+    }
+
+    private boolean canPostNotifications() {
+        if (android.os.Build.VERSION.SDK_INT < 33) return true;
+        return checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                == android.content.pm.PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void postSessionNotification(int id, String text) {
+        try {
+            NotificationManager nm = getSystemService(NotificationManager.class);
+            if (nm == null) return;
+            Notification.Builder b = android.os.Build.VERSION.SDK_INT >= 26
+                    ? new Notification.Builder(this, NOTIF_CHANNEL_ID)
+                    : new Notification.Builder(this);
+            // Silenciosa: o som fica por conta do toggle próprio (ringtone), sem dobrar.
+            Notification n = b.setContentTitle(getString(R.string.launcher_toolbar_title))
+                    .setContentText(text)
+                    .setSmallIcon(R.drawable.ic_bell)
+                    .setAutoCancel(true)
+                    .build();
+            nm.notify(id, n);
+        } catch (Exception ignored) {}
+    }
+
     // Notificações de sessão (toggles em Configurações → Notificações da sessão):
     // aviso + som quando a máquina fica pronta e 5 min antes de desligar.
     private void maybeNotifySession(SpaceConnectApiClient.StatusResponse status) {
@@ -249,7 +315,9 @@ public class LauncherActivity extends Activity {
 
         if (nowReady && !firstSample && !"ready".equals(lastNotifiedState)) {
             if (prefs.getBoolean("checkbox_notify_ready", true)) {
-                Toast.makeText(this, R.string.notify_machine_ready, Toast.LENGTH_LONG).show();
+                String text = getString(R.string.notify_machine_ready);
+                if (canPostNotifications()) postSessionNotification(NOTIF_ID_READY, text);
+                else Toast.makeText(this, text, Toast.LENGTH_LONG).show();
             }
             if (prefs.getBoolean("checkbox_sound_ready", true)) {
                 playNotifySound();
@@ -260,7 +328,9 @@ public class LauncherActivity extends Activity {
             if (!endWarned && mins > 0 && mins <= 5) {
                 endWarned = true;
                 if (prefs.getBoolean("checkbox_notify_ending", true)) {
-                    Toast.makeText(this, R.string.notify_machine_ending, Toast.LENGTH_LONG).show();
+                    String text = getString(R.string.notify_machine_ending);
+                    if (canPostNotifications()) postSessionNotification(NOTIF_ID_ENDING, text);
+                    else Toast.makeText(this, text, Toast.LENGTH_LONG).show();
                 }
                 if (prefs.getBoolean("checkbox_sound_ending", true)) {
                     playNotifySound();
@@ -473,7 +543,11 @@ public class LauncherActivity extends Activity {
             return;
         }
         SpaceConnectApiClient.Entitlement ent = machine.entitlement;
-        String planName = prettifyPlanSlug(ent.planSlug);
+        // Nome de exibição vem do cadastro do produto no banco; o slug maquiado
+        // é só fallback pra contas antigas sem produto vinculado.
+        String planName = ent.planName != null && !ent.planName.trim().isEmpty()
+                ? ent.planName.trim()
+                : prettifyPlanSlug(ent.planSlug);
         String text;
         if (ent.unlimited) {
             text = getString(R.string.launcher_plan_unlimited, planName);
@@ -524,6 +598,9 @@ public class LauncherActivity extends Activity {
 
     private void connect() {
         if (requestRunning) return;
+        // Conexão PRÓPRIA: limpa qualquer pendência de pareamento em VM de amigo.
+        getSharedPreferences("space_connect_launcher", MODE_PRIVATE)
+                .edit().remove("pending_friend_machine").apply();
         String machineId = lastStatus != null && lastStatus.session != null
                 && lastStatus.session.machine != null ? lastStatus.session.machine.id : selectedMachineId;
         if (machineId == null || machineId.trim().isEmpty()) {

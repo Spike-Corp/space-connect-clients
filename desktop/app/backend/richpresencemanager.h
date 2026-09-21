@@ -9,7 +9,7 @@
 class RichPresenceManager
 {
 public:
-    RichPresenceManager(StreamingPreferences& prefs, QString gameName);
+    RichPresenceManager(StreamingPreferences& prefs, QString gameName, QString machineName = QString());
     ~RichPresenceManager();
 
     void runCallbacks();

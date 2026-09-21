@@ -376,6 +376,34 @@
         <translation>Qual PC você quer abrir?</translation>
     </message>
     <message>
+        <source>USB Passthrough</source>
+        <translation>USB Passthrough</translation>
+    </message>
+    <message>
+        <source>USB Passthrough — SpaceUSB</source>
+        <translation>USB Passthrough — SpaceUSB</translation>
+    </message>
+    <message>
+        <source>To use a USB device from this PC (wheel, controller, dongle) inside your cloud machine, install the free SpaceUSB helper once.</source>
+        <translation>Para usar um dispositivo USB deste PC (volante, controle, dongle) dentro da sua máquina em nuvem, instale o helper gratuito SpaceUSB uma vez.</translation>
+    </message>
+    <message>
+        <source>It installs to AppData (no admin needed day to day). After installing, click USB Passthrough again with your machine running.</source>
+        <translation>Ele instala no AppData (sem admin no dia a dia). Depois de instalar, clique em USB Passthrough de novo com a máquina ligada.</translation>
+    </message>
+    <message>
+        <source>OK = download SpaceUSB now</source>
+        <translation>OK = baixar o SpaceUSB agora</translation>
+    </message>
+    <message>
+        <source>SpaceUSB is open — pick the device and connect. It will show up in %1 as if plugged in directly.</source>
+        <translation>SpaceUSB aberto — escolha o dispositivo e conecte. Ele aparece em %1 como se estivesse plugado nela.</translation>
+    </message>
+    <message>
+        <source>Friends</source>
+        <translation>Amigos</translation>
+    </message>
+    <message>
         <source>Select a machine</source>
         <translation>Selecione uma máquina</translation>
     </message>
@@ -1771,5 +1799,47 @@
         <source>Your machine shuts down in ~5 minutes. Save your progress!</source>
         <translation>Sua máquina desliga em ~5 minutos. Salve seu progresso!</translation>
     </message>
+</context>
+<context>
+    <name>FriendsView</name>
+    <message><source>Friends</source><translation>Amigos</translation></message>
+    <message><source>Refresh</source><translation>Atualizar</translation></message>
+    <message><source>Your username: @%1</source><translation>Seu username: @%1</translation></message>
+    <message><source>Create your username so friends can find you</source><translation>Crie seu username pra amigos te acharem</translation></message>
+    <message><source>your_username</source><translation>seu_username</translation></message>
+    <message><source>Check</source><translation>Verificar</translation></message>
+    <message><source>Update</source><translation>Atualizar</translation></message>
+    <message><source>Create</source><translation>Criar</translation></message>
+    <message><source>Available!</source><translation>Disponível!</translation></message>
+    <message><source>Already in use</source><translation>Já está em uso</translation></message>
+    <message><source>Invalid format</source><translation>Formato inválido</translation></message>
+    <message><source>Add a friend by username</source><translation>Adicionar amigo pelo username</translation></message>
+    <message><source>friend_username</source><translation>username_do_amigo</translation></message>
+    <message><source>Add</source><translation>Adicionar</translation></message>
+    <message><source>Friend requests</source><translation>Pedidos de amizade</translation></message>
+    <message><source>Accept</source><translation>Aceitar</translation></message>
+    <message><source>Decline</source><translation>Recusar</translation></message>
+    <message><source>Sent requests</source><translation>Pedidos enviados</translation></message>
+    <message><source>waiting</source><translation>aguardando</translation></message>
+    <message><source>Your friends</source><translation>Seus amigos</translation></message>
+    <message><source>No friends yet — add someone above!</source><translation>Ainda sem amigos — adicione alguém acima!</translation></message>
+    <message><source>No name</source><translation>Sem nome</translation></message>
+    <message><source>Remove</source><translation>Remover</translation></message>
+    <message><source>Show my machine: ON</source><translation>Mostrar minha máquina: ON</translation></message>
+    <message><source>Show my machine: OFF</source><translation>Mostrar minha máquina: OFF</translation></message>
+    <message><source>Can connect: ON</source><translation>Pode conectar: ON</translation></message>
+    <message><source>Can connect: OFF</source><translation>Pode conectar: OFF</translation></message>
+    <message><source>Machines shared with you</source><translation>Máquinas compartilhadas com você</translation></message>
+    <message><source>Machine</source><translation>Máquina</translation></message>
+    <message><source>from %1 · %2</source><translation>de %1 · %2</translation></message>
+    <message><source>on</source><translation>ligada</translation></message>
+    <message><source>off</source><translation>desligada</translation></message>
+    <message><source>Connect</source><translation>Conectar</translation></message>
+    <message><source>No access</source><translation>Sem acesso</translation></message>
+    <message><source>Friend machines need to be running for you to connect — ask your friend to open it first.</source><translation>A máquina do amigo precisa estar ligada pra você conectar — peça pra ele abrir primeiro.</translation></message>
+    <message><source>Action failed</source><translation>Ação falhou</translation></message>
+    <message><source>Done</source><translation>Feito</translation></message>
+    <message><source>Connection failed</source><translation>Falha na conexão</translation></message>
+    <message><source>The Moonlight host is not ready yet. Try again in a few seconds.</source><translation>O host do Moonlight ainda não está pronto. Tente novamente em alguns segundos.</translation></message>
 </context>
 </TS>

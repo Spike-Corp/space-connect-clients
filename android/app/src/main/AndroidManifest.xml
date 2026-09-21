@@ -10,6 +10,9 @@
     <uses-permission android:name="com.android.providers.tv.permission.READ_EPG_DATA"/>
     <uses-permission android:name="com.android.providers.tv.permission.WRITE_EPG_DATA"/>
 
+    <!-- Notificações de sessão (máquina pronta / desligando) — runtime request no launcher -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- We don't need a MulticastLock on API level 34+ because we use NsdManager for mDNS -->
     <uses-permission
         android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"
@@ -127,6 +130,12 @@
         </activity>
         <activity
             android:name=".account.BugReportActivity"
+            android:exported="false"
+            android:resizeableActivity="true"
+            android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection">
+        </activity>
+        <activity
+            android:name=".account.FriendsActivity"
             android:exported="false"
             android:resizeableActivity="true"
             android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection">

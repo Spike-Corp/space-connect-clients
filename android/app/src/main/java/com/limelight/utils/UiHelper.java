@@ -47,6 +47,23 @@ public class UiHelper {
     private static Typeface displayTypeface;
     private static Typeface bodyTypeface;
 
+    /**
+     * Empurra o conteúdo pra BAIXO da status bar quando o aparelho desenha o app
+     * por baixo dela (paisagem/cutout) — sem isso, os botões do topo ficam sob os
+     * ícones do sistema e NÃO dá pra clicar (reportado no launcher).
+     * Em aparelhos que já reservam a status bar, o inset vem 0 e nada muda.
+     */
+    public static void applyStatusBarInset(android.view.View view) {
+        if (view == null) return;
+        final int basePaddingTop = view.getPaddingTop();
+        view.setOnApplyWindowInsetsListener((v, insets) -> {
+            int top = insets.getSystemWindowInsetTop();
+            v.setPadding(v.getPaddingLeft(), basePaddingTop + top, v.getPaddingRight(), v.getPaddingBottom());
+            return insets;
+        });
+        view.requestApplyInsets();
+    }
+
     // Use Android's stable sans-serif family so the native client stays close to the web
     // design system without depending on a browser-only WOFF2 asset.
     public static Typeface getDisplayTypeface(Context context) {

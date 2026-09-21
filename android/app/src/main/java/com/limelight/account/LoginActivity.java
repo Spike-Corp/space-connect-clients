@@ -42,6 +42,7 @@ public class LoginActivity extends Activity {
         }
 
         setContentView(R.layout.activity_login);
+        UiHelper.applyStatusBarInset(findViewById(android.R.id.content));
 
         Typeface displayFont = UiHelper.getDisplayTypeface(this);
         Typeface bodyFont = UiHelper.getBodyTypeface(this);

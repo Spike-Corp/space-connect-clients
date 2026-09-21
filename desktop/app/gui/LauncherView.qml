@@ -100,7 +100,7 @@ Item {
         }
         if (!m && list.length === 1) m = list[0]
         if (!m || !m.entitlementActive) return ""
-        var name = prettifyPlan(m.planSlug)
+        var name = (m.planName && ("" + m.planName).trim().length > 0) ? m.planName : prettifyPlan(m.planSlug)
         if (m.unlimited) return qsTr("%1 · unlimited hours").arg(name)
         var h = Math.round((m.hoursRemaining || 0) * 10) / 10
         var hStr = (Math.floor(h) === h ? h.toFixed(0) : h.toFixed(1)) + "h"
@@ -125,7 +125,17 @@ Item {
             } else {
                 bugResultDialog.isError = true
             }
+            bugResultDialog.customTitle = ""
             bugResultDialog.text = message
+            bugResultDialog.open()
+        }
+        function onUsbHelperMissing() {
+            usbSetupDialog.open()
+        }
+        function onUsbSessionStarted(machineName) {
+            bugResultDialog.isError = false
+            bugResultDialog.customTitle = qsTr("USB Passthrough")
+            bugResultDialog.text = qsTr("SpaceUSB is open — pick the device and connect. It will show up in %1 as if plugged in directly.").arg(machineName)
             bugResultDialog.open()
         }
     }
@@ -304,11 +314,34 @@ Item {
                     onClicked: navigateTo("qrc:/gui/LatencyTestView.qml", "LatencyTestView")
                 }
 
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    Button {
+                        // Amigos (beta): username, pedidos, permissões e máquinas
+                        // compartilhadas — estilo Parsec.
+                        text: qsTr("Friends")
+                        Layout.fillWidth: true
+                        onClicked: navigateTo("qrc:/gui/FriendsView.qml", "FriendsView")
+                    }
+
+                    Button {
+                        text: qsTr("Report a problem")
+                        enabled: !LauncherApi.busy
+                        Layout.fillWidth: true
+                        onClicked: bugReportDialog.open()
+                    }
+                }
+
                 Button {
-                    text: qsTr("Report a problem")
+                    // SpaceUSB: usa um dispositivo USB deste PC dentro da VM
+                    // (volante, controle, dongle). Só faz sentido com a VM pronta.
+                    visible: LauncherApi.state === "ready"
+                    text: qsTr("USB Passthrough")
                     enabled: !LauncherApi.busy
                     Layout.fillWidth: true
-                    onClicked: bugReportDialog.open()
+                    onClicked: LauncherApi.startUsbPassthrough()
                 }
             }
         }
@@ -417,8 +450,9 @@ Item {
     Dialog {
         id: bugResultDialog
         property bool isError: false
+        property string customTitle: ""
         property alias text: launcherBugResultLabel.text
-        title: isError ? qsTr("Could not send") : qsTr("Report sent")
+        title: customTitle.length > 0 ? customTitle : (isError ? qsTr("Could not send") : qsTr("Report sent"))
         modal: true
         parent: Overlay.overlay
         x: Math.round((parent.width - width) / 2)
@@ -437,6 +471,40 @@ Item {
         title: qsTr("Choose a file to send")
         fileMode: Labs.FileDialog.OpenFile
         onAccepted: LauncherApi.uploadFileToVm(file.toString())
+    }
+
+    // Oferecido quando o usuário clica em "USB Passthrough" sem o helper instalado.
+    Dialog {
+        id: usbSetupDialog
+        title: qsTr("USB Passthrough — SpaceUSB")
+        modal: true
+        parent: Overlay.overlay
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        onAccepted: Qt.openUrlExternally("https://downloads.spacecloud.gg/SpaceUSB.exe")
+
+        ColumnLayout {
+            width: 360
+            spacing: 10
+
+            Label {
+                text: qsTr("To use a USB device from this PC (wheel, controller, dongle) inside your cloud machine, install the free SpaceUSB helper once.")
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+            Label {
+                text: qsTr("It installs to AppData (no admin needed day to day). After installing, click USB Passthrough again with your machine running.")
+                wrapMode: Text.WordWrap
+                color: "#9793aa"
+                Layout.fillWidth: true
+            }
+            Label {
+                text: qsTr("OK = download SpaceUSB now")
+                color: "#4572fa"
+                Layout.fillWidth: true
+            }
+        }
     }
 
     Dialog {

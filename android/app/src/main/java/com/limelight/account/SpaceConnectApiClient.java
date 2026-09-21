@@ -124,6 +124,62 @@ public final class SpaceConnectApiClient {
         return post("bug-report", input, accessToken, SimpleResponse.class);
     }
 
+    // ── Amigos (beta) — mesma API do site (social) ─────────────────────────
+
+    public FriendsResponse getFriends(String accessToken) throws IOException, ApiException {
+        return get("friends", accessToken, FriendsResponse.class);
+    }
+
+    public FriendMachinesResponse getFriendMachines(String accessToken) throws IOException, ApiException {
+        return get("friends/machines", accessToken, FriendMachinesResponse.class);
+    }
+
+    public FriendActionResponse addFriend(String accessToken, String username) throws IOException, ApiException {
+        UsernameRequest input = new UsernameRequest();
+        input.username = username;
+        return post("friends/add", input, accessToken, FriendActionResponse.class);
+    }
+
+    public FriendActionResponse acceptFriendRequest(String accessToken, String requestId) throws IOException, ApiException {
+        return post("friends/requests/" + requestId + "/accept", new EmptyRequest(), accessToken, FriendActionResponse.class);
+    }
+
+    public FriendActionResponse declineFriendRequest(String accessToken, String requestId) throws IOException, ApiException {
+        return post("friends/requests/" + requestId + "/decline", new EmptyRequest(), accessToken, FriendActionResponse.class);
+    }
+
+    public FriendActionResponse removeFriend(String accessToken, String friendId) throws IOException, ApiException {
+        return delete("friends/" + friendId, accessToken, FriendActionResponse.class);
+    }
+
+    public FriendActionResponse setFriendPermissions(String accessToken, String friendId, boolean showMachine, boolean allowConnect)
+            throws IOException, ApiException {
+        FriendPermissionsRequest input = new FriendPermissionsRequest();
+        input.showMachine = showMachine;
+        input.allowConnect = allowConnect;
+        return put("friends/" + friendId + "/permissions", input, accessToken, FriendActionResponse.class);
+    }
+
+    public UsernameAvailabilityResponse checkUsername(String accessToken, String username) throws IOException, ApiException {
+        return get("friends/username/availability?u=" + username, accessToken, UsernameAvailabilityResponse.class);
+    }
+
+    public FriendActionResponse setUsername(String accessToken, String username) throws IOException, ApiException {
+        UsernameRequest input = new UsernameRequest();
+        input.username = username;
+        return put("friends/username", input, accessToken, FriendActionResponse.class);
+    }
+
+    public ConnectionResponse getFriendConnection(String accessToken, String machineId) throws IOException, ApiException {
+        return get("friends/machines/" + safeMachineId(machineId) + "/connection", accessToken, ConnectionResponse.class);
+    }
+
+    public PairResponse pairFriend(String accessToken, String machineId, String pin) throws IOException, ApiException {
+        PairRequest input = new PairRequest();
+        input.pin = pin;
+        return post("friends/machines/" + safeMachineId(machineId) + "/pair", input, accessToken, PairResponse.class);
+    }
+
     public EndSessionResponse endSession(String accessToken) throws IOException, ApiException {
         return post("session/end", new EmptyRequest(), accessToken, EndSessionResponse.class);
     }
@@ -232,6 +288,31 @@ public final class SpaceConnectApiClient {
         Request.Builder request = new Request.Builder()
                 .url(baseUrl + path)
                 .get()
+                .header("Accept", "application/json")
+                .header("User-Agent", "SpaceConnect-Android");
+        if (accessToken != null && !accessToken.isEmpty()) {
+            request.header("Authorization", "Bearer " + accessToken);
+        }
+
+        try (Response response = httpClient.newCall(request.build()).execute()) {
+            ResponseBody responseBody = response.body();
+            String json = responseBody != null ? responseBody.string() : "";
+            if (!response.isSuccessful()) {
+                throw parseApiError(response.code(), json);
+            }
+            try {
+                return gson.fromJson(json, responseType);
+            } catch (JsonSyntaxException e) {
+                throw new IOException("Resposta inválida da SpaceCloud", e);
+            }
+        }
+    }
+
+    private <T> T put(String path, Object input, String accessToken, Class<T> responseType)
+            throws IOException, ApiException {
+        Request.Builder request = new Request.Builder()
+                .url(baseUrl + path)
+                .put(RequestBody.create(JSON, gson.toJson(input)))
                 .header("Accept", "application/json")
                 .header("User-Agent", "SpaceConnect-Android");
         if (accessToken != null && !accessToken.isEmpty()) {
@@ -369,6 +450,70 @@ public final class SpaceConnectApiClient {
         public boolean success;
     }
 
+    // ── Amigos (beta) ───────────────────────────────────────────────────────
+
+    public static class PublicProfile {
+        public String userId;
+        public String username;
+        public String name;
+        public String avatarUrl;
+    }
+
+    public static final class FriendEntry extends PublicProfile {
+        public boolean showMachine;
+        public boolean allowConnect;
+        public String since;
+    }
+
+    public static final class FriendRequestEntry extends PublicProfile {
+        public String requestId;
+        public String createdAt;
+    }
+
+    public static final class FriendsResponse {
+        public PublicProfile me;
+        public FriendEntry[] friends;
+        public FriendRequestEntry[] incoming;
+        public FriendRequestEntry[] outgoing;
+    }
+
+    public static final class FriendMachine {
+        public String machineId;
+        public String name;
+        public String provider;
+        public boolean running;
+        public boolean canConnect;
+        public PublicProfile owner;
+    }
+
+    public static final class FriendMachinesResponse {
+        public FriendMachine[] machines;
+        public String serverNow;
+    }
+
+    public static final class FriendActionResponse {
+        public String status;
+        public boolean changed;
+        public boolean removed;
+        public String username;
+        public PublicProfile friend;
+    }
+
+    public static final class UsernameAvailabilityResponse {
+        public String username;
+        public boolean available;
+        public String reason;
+    }
+
+    private static final class UsernameRequest {
+        String username;
+    }
+
+    private static final class FriendPermissionsRequest {
+        boolean showMachine;
+        boolean allowConnect;
+    }
+
     public static final class AuthResponse {
         public String accessToken;
         public String refreshToken;
@@ -463,6 +608,8 @@ public final class SpaceConnectApiClient {
 
     public static final class Entitlement {
         public String planSlug;
+        // Nome de exibição do plano vindo do cadastro no banco (ex.: "xTerminator NW").
+        public String planName;
         public String type;
         public boolean active;
         public boolean unlimited;

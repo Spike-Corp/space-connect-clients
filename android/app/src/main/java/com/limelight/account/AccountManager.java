@@ -246,12 +246,26 @@ public final class AccountManager {
 
     public static void submitPairPin(Context context, String pin) {
         Context appContext = context.getApplicationContext();
+        // Pareamento na VM de um AMIGO usa a rota friend-aware (o backend valida
+        // a permissão de acesso). O flag é setado pelo fluxo de conexão de amigo
+        // (FriendsActivity) e limpo no pareamento bem-sucedido / conexão própria.
+        SharedPreferences launcherPrefs = appContext.getSharedPreferences("space_connect_launcher", Context.MODE_PRIVATE);
+        String friendMachine = launcherPrefs.getString("pending_friend_machine", null);
         EXECUTOR.execute(() -> {
             for (int attempt = 0; attempt < 8; attempt++) {
                 try {
                     SecureSessionStore.Session session = validSession(appContext);
-                    API.pair(session.accessToken, pin);
-                    return;
+                    if (friendMachine != null) {
+                        SpaceConnectApiClient.PairResponse r =
+                                API.pairFriend(session.accessToken, friendMachine, pin);
+                        if (r != null && r.paired) {
+                            launcherPrefs.edit().remove("pending_friend_machine").apply();
+                            return;
+                        }
+                    } else {
+                        API.pair(session.accessToken, pin);
+                        return;
+                    }
                 } catch (Exception ignored) {
                     try {
                         Thread.sleep(500);
@@ -262,6 +276,48 @@ public final class AccountManager {
                 }
             }
         });
+    }
+
+    // ── Amigos (beta) ───────────────────────────────────────────────────────
+
+    public static void getFriends(Context context, ResultCallback<SpaceConnectApiClient.FriendsResponse> callback) {
+        executeAuthenticated(context, API::getFriends, callback);
+    }
+
+    public static void getFriendMachines(Context context, ResultCallback<SpaceConnectApiClient.FriendMachinesResponse> callback) {
+        executeAuthenticated(context, API::getFriendMachines, callback);
+    }
+
+    public static void addFriend(Context context, String username, ResultCallback<SpaceConnectApiClient.FriendActionResponse> callback) {
+        executeAuthenticated(context, token -> API.addFriend(token, username), callback);
+    }
+
+    public static void acceptFriendRequest(Context context, String requestId, ResultCallback<SpaceConnectApiClient.FriendActionResponse> callback) {
+        executeAuthenticated(context, token -> API.acceptFriendRequest(token, requestId), callback);
+    }
+
+    public static void declineFriendRequest(Context context, String requestId, ResultCallback<SpaceConnectApiClient.FriendActionResponse> callback) {
+        executeAuthenticated(context, token -> API.declineFriendRequest(token, requestId), callback);
+    }
+
+    public static void removeFriend(Context context, String friendId, ResultCallback<SpaceConnectApiClient.FriendActionResponse> callback) {
+        executeAuthenticated(context, token -> API.removeFriend(token, friendId), callback);
+    }
+
+    public static void setFriendPermissions(Context context, String friendId, boolean showMachine, boolean allowConnect, ResultCallback<SpaceConnectApiClient.FriendActionResponse> callback) {
+        executeAuthenticated(context, token -> API.setFriendPermissions(token, friendId, showMachine, allowConnect), callback);
+    }
+
+    public static void checkUsername(Context context, String username, ResultCallback<SpaceConnectApiClient.UsernameAvailabilityResponse> callback) {
+        executeAuthenticated(context, token -> API.checkUsername(token, username), callback);
+    }
+
+    public static void setUsername(Context context, String username, ResultCallback<SpaceConnectApiClient.FriendActionResponse> callback) {
+        executeAuthenticated(context, token -> API.setUsername(token, username), callback);
+    }
+
+    public static void getFriendConnection(Context context, String machineId, ResultCallback<SpaceConnectApiClient.ConnectionResponse> callback) {
+        executeAuthenticated(context, token -> API.getFriendConnection(token, machineId), callback);
     }
 
     public static void logout(Context context) {
