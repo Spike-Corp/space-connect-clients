@@ -91,6 +91,10 @@ public:
     // Som curto de notificação (máquina pronta / desligando). Falha silenciosa
     // em sistema sem áudio — nunca deve quebrar o fluxo da sessão.
     Q_INVOKABLE void playNotifySound();
+    // Lê um toggle de notificação DIRETO do QSettings (grupo sessionNotify,
+    // escrito pelo SettingsView). O Settings do Qt.labs.settings cacheia na
+    // criação — ler aqui garante que mexer no toggle vale na hora, sem restart.
+    Q_INVOKABLE bool sessionNotifyEnabled(const QString& key) const;
     Q_INVOKABLE void logout();
     // Bitrate ceiling (Kbps) cached from the last connection reported by the backend.
     // 0 when never received; callers should fall back to a local heuristic.

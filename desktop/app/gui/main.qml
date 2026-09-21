@@ -10,7 +10,6 @@ import StreamingPreferences 1.0
 import SystemProperties 1.0
 import SdlGamepadKeyNavigation 1.0
 import LauncherApi 1.0
-import Qt.labs.settings 1.0
 
 ApplicationWindow {
     property bool pollingActive: false
@@ -264,17 +263,8 @@ ApplicationWindow {
     // ── Notificações de sessão ──────────────────────────────────────────────
     // Vive no main.qml (não no LauncherView) pra disparar mesmo com o usuário
     // em outra tela (Settings etc.) — o estado é observado globalmente aqui.
-    // Preferências persistidas via QSettings (mesma categoria lida no
-    // SettingsView, onde ficam os toggles).
-    Settings {
-        id: sessionNotifySettings
-        category: "sessionNotify"
-        property bool notifyOnReady: true
-        property bool soundOnReady: true
-        property bool notifyBeforeEnd: true
-        property bool soundBeforeEnd: true
-    }
-
+    // Os toggles são lidos FRESCO do QSettings via LauncherApi.sessionNotifyEnabled
+    // (o Settings do QML cachearia; assim a mudança no SettingsView vale na hora).
     QtObject {
         id: notifyTracker
         property string lastState: ""
@@ -293,22 +283,22 @@ ApplicationWindow {
             var st = LauncherApi.state
             if (st === "ready" && notifyTracker.lastState !== "ready" && notifyTracker.lastState !== "") {
                 // Transição pra "pronta" (fila/boot concluídos)
-                if (sessionNotifySettings.notifyOnReady) {
+                if (LauncherApi.sessionNotifyEnabled("notifyOnReady")) {
                     window.showSessionToast(qsTr("Your machine is ready! Click Connect."))
                     window.alert(5000)
                 }
-                if (sessionNotifySettings.soundOnReady)
+                if (LauncherApi.sessionNotifyEnabled("soundOnReady"))
                     LauncherApi.playNotifySound()
             }
             if (st === "ready") {
                 var mins = LauncherApi.remainingMinutes
                 if (!notifyTracker.endWarned && mins > 0 && mins <= 5) {
                     notifyTracker.endWarned = true
-                    if (sessionNotifySettings.notifyBeforeEnd) {
+                    if (LauncherApi.sessionNotifyEnabled("notifyBeforeEnd")) {
                         window.showSessionToast(qsTr("Your machine shuts down in ~5 minutes. Save your progress!"))
                         window.alert(5000)
                     }
-                    if (sessionNotifySettings.soundBeforeEnd)
+                    if (LauncherApi.sessionNotifyEnabled("soundBeforeEnd"))
                         LauncherApi.playNotifySound()
                 }
             } else {

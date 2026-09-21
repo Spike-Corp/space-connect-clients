@@ -719,6 +719,11 @@ QString notifyWavPath()
 }
 #endif
 
+bool LauncherApi::sessionNotifyEnabled(const QString& key) const
+{
+    return QSettings().value(QStringLiteral("sessionNotify/") + key, true).toBool();
+}
+
 void LauncherApi::playNotifySound()
 {
     // Sem Qt Multimedia de propósito: o build legado (Win7/8) usa Qt 5.15 sem o
