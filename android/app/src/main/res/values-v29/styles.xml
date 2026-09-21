@@ -40,5 +40,15 @@
         <item name="android:textColorPrimary">@color/moonlight_foreground</item>
         <item name="android:textColorSecondary">@color/moonlight_muted_foreground</item>
         <item name="android:colorAccent">@color/moonlight_purple</item>
+        <!-- Botões do dialog com a cor de texto da marca — sem isso o botão herda o
+             estilo do sistema (fundo claro + texto claro em Samsung/Xiaomi) e some. -->
+        <item name="android:buttonBarButtonStyle">@style/SpaceDialogButton</item>
+        <item name="android:buttonBarPositiveButtonStyle">@style/SpaceDialogButton</item>
+        <item name="android:buttonBarNegativeButtonStyle">@style/SpaceDialogButton</item>
+        <item name="android:buttonBarNeutralButtonStyle">@style/SpaceDialogButton</item>
+    </style>
+
+    <style name="SpaceDialogButton" parent="android:Widget.Material.Button.Borderless.Colored">
+        <item name="android:textColor">@color/moonlight_foreground</item>
     </style>
 </resources>

@@ -42,6 +42,18 @@
         <item name="android:textColorPrimary">@color/moonlight_foreground</item>
         <item name="android:textColorSecondary">@color/moonlight_muted_foreground</item>
         <item name="android:colorAccent">@color/moonlight_purple</item>
+        <!-- Botões do dialog (OK/Cancelar/etc.) com a cor de destaque da marca — sem
+             isso o botão herda o estilo do SISTEMA (OneUI/Xiaomi desenha botão claro
+             com texto claro) e o texto do botão fica invisível no fundo escuro. Era
+             o "não renderiza os botões". -->
+        <item name="android:buttonBarButtonStyle">@style/SpaceDialogButton</item>
+        <item name="android:buttonBarPositiveButtonStyle">@style/SpaceDialogButton</item>
+        <item name="android:buttonBarNegativeButtonStyle">@style/SpaceDialogButton</item>
+        <item name="android:buttonBarNeutralButtonStyle">@style/SpaceDialogButton</item>
+    </style>
+
+    <style name="SpaceDialogButton" parent="android:Widget.Material.Button.Borderless.Colored">
+        <item name="android:textColor">@color/moonlight_foreground</item>
     </style>
 
 </resources>
