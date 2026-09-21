@@ -13,7 +13,14 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QSettings>
-#include <QSoundEffect>
+#include <QDir>
+#if defined(Q_OS_WIN)
+#include <windows.h>
+#pragma comment(lib, "winmm.lib")
+#elif defined(Q_OS_LINUX)
+#include <QProcess>
+#include <QStandardPaths>
+#endif
 #include <QSysInfo>
 #include <QUuid>
 #include <QUrl>
@@ -688,17 +695,50 @@ void LauncherApi::uploadFileToVm(const QString& localFilePath)
     });
 }
 
+#if defined(Q_OS_WIN) || defined(Q_OS_LINUX)
+namespace {
+// Extrai o wav embutido (qrc) pra um arquivo temporário, uma vez por processo.
+// PlaySound/paplay não tocam direto de recurso Qt.
+QString notifyWavPath()
+{
+    static QString cached;
+    if (!cached.isEmpty())
+        return cached;
+    QFile res(QStringLiteral(":/sounds/notify.wav"));
+    if (!res.open(QIODevice::ReadOnly))
+        return QString();
+    const QString tmp = QDir::temp().filePath(QStringLiteral("spaceconnect-notify.wav"));
+    QFile out(tmp);
+    if (!out.open(QIODevice::WriteOnly))
+        return QString();
+    out.write(res.readAll());
+    out.close();
+    cached = tmp;
+    return cached;
+}
+}
+#endif
+
 void LauncherApi::playNotifySound()
 {
-    static QSoundEffect* effect = nullptr;
-    if (!effect) {
-        effect = new QSoundEffect(this);
-        effect->setSource(QUrl(QStringLiteral("qrc:/sounds/notify.wav")));
-        effect->setVolume(0.6f);
+    // Sem Qt Multimedia de propósito: o build legado (Win7/8) usa Qt 5.15 sem o
+    // módulo, e adicionar "QT += multimedia" quebrava as 3 pernas do CI.
+    // PlaySound (winmm) existe em todo Windows; no Linux tenta paplay/aplay.
+    const QString wav = notifyWavPath();
+    if (wav.isEmpty())
+        return;
+#if defined(Q_OS_WIN)
+    PlaySoundW(reinterpret_cast<LPCWSTR>(wav.utf16()), nullptr, SND_FILENAME | SND_ASYNC);
+#elif defined(Q_OS_LINUX)
+    const QString paplay = QStandardPaths::findExecutable(QStringLiteral("paplay"));
+    if (!paplay.isEmpty()) {
+        QProcess::startDetached(paplay, {wav});
+        return;
     }
-    // play() num efeito já tocando reinicia — comportamento desejado pra
-    // notificações em sequência (pronta + aviso de desligamento).
-    effect->play();
+    const QString aplay = QStandardPaths::findExecutable(QStringLiteral("aplay"));
+    if (!aplay.isEmpty())
+        QProcess::startDetached(aplay, {wav});
+#endif
 }
 
 void LauncherApi::reportBug(const QString& description, const QString& emailHint)
