@@ -3,10 +3,10 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+    <!-- Barras de sinal preenchidas (fill) — o tint do layout cobre o fill; antes era
+         só strokeColor e o tint deixava tudo transparente = ícone invisível. -->
     <path
-        android:fillColor="@android:color/transparent"
-        android:pathData="M4,18h16M7,15v3M12,11v7M17,7v11"
-        android:strokeColor="@android:color/white"
-        android:strokeLineCap="round"
-        android:strokeWidth="1.8" />
+        android:fillColor="@android:color/white"
+        android:pathData="M4,18h3v3H4z M9.5,13h3v8h-3z M15,8h3v13h-3z M20.5,3h3v18h-3z"
+        android:strokeWidth="0" />
 </vector>
