@@ -34,6 +34,7 @@ public class LauncherActivity extends Activity {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private TextView statusText;
     private TextView detailsText;
+    private TextView planHoursText;
     private Button primaryButton;
     private Button endSessionButton;
     private ProgressBar progressBar;
@@ -59,6 +60,7 @@ public class LauncherActivity extends Activity {
 
         statusText = findViewById(R.id.launcherStatus);
         detailsText = findViewById(R.id.launcherDetails);
+        planHoursText = findViewById(R.id.launcherPlanHours);
         primaryButton = findViewById(R.id.launcherPrimaryButton);
         endSessionButton = findViewById(R.id.launcherEndSessionButton);
         progressBar = findViewById(R.id.launcherProgress);
@@ -168,6 +170,7 @@ public class LauncherActivity extends Activity {
 
     private void render(SpaceConnectApiClient.StatusResponse status) {
         lastStatus = status;
+        renderPlanHours();
         endSessionButton.setVisibility(View.GONE);
         primaryButton.setVisibility(View.VISIBLE);
         primaryButton.setEnabled(true);
@@ -264,6 +267,7 @@ public class LauncherActivity extends Activity {
                 } else if (!containsMachine(selectedMachineId)) {
                     selectedMachineId = null;
                 }
+                renderPlanHours();
                 render(lastStatus);
             }
 
@@ -330,7 +334,7 @@ public class LauncherActivity extends Activity {
             String name = machines[i].name == null || machines[i].name.trim().isEmpty()
                     ? machines[i].id
                     : machines[i].name;
-            labels[i] = name + " (" + machines[i].provider + ")";
+            labels[i] = name + " (" + machines[i].provider + ")" + planHoursSuffix(machines[i]);
         }
         int checked = 0;
         for (int i = 0; i < machines.length; i++) {
@@ -356,6 +360,82 @@ public class LauncherActivity extends Activity {
             if (machine != null && machineId.equals(machine.id)) return true;
         }
         return false;
+    }
+
+    // Máquina "em foco" pra exibir saldo: a da sessão ativa, senão a selecionada,
+    // senão a única da conta.
+    private SpaceConnectApiClient.MachineListItem effectiveMachine() {
+        if (machines == null || machines.length == 0) return null;
+        String sessionMachineId = lastStatus != null && lastStatus.session != null
+                && lastStatus.session.machine != null ? lastStatus.session.machine.id : null;
+        if (sessionMachineId != null) {
+            for (SpaceConnectApiClient.MachineListItem m : machines) {
+                if (m != null && sessionMachineId.equals(m.id)) return m;
+            }
+        }
+        if (selectedMachineId != null) {
+            for (SpaceConnectApiClient.MachineListItem m : machines) {
+                if (m != null && selectedMachineId.equals(m.id)) return m;
+            }
+        }
+        return machines.length == 1 ? machines[0] : null;
+    }
+
+    // "builder-lite" → "Builder Lite" (o backend só manda o slug do plano).
+    private static String prettifyPlanSlug(String slug) {
+        if (slug == null || slug.trim().isEmpty()) return "Plano";
+        String clean = slug.trim().replaceAll("-nw$", "");
+        StringBuilder out = new StringBuilder();
+        for (String word : clean.split("[-_]")) {
+            if (word.isEmpty()) continue;
+            if (out.length() > 0) out.append(' ');
+            out.append(Character.toUpperCase(word.charAt(0)));
+            if (word.length() > 1) out.append(word.substring(1));
+        }
+        return out.length() > 0 ? out.toString() : slug;
+    }
+
+    private static String formatHours(double hours) {
+        if (hours <= 0) return "0h";
+        if (Math.floor(hours) == hours) return String.format(java.util.Locale.US, "%.0fh", hours);
+        return String.format(java.util.Locale.US, "%.1fh", hours);
+    }
+
+    // Sufixo de saldo pra uma máquina: " · 87h" / " · ilimitado" / "" (sem plano ativo).
+    private String planHoursSuffix(SpaceConnectApiClient.MachineListItem machine) {
+        if (machine == null || machine.entitlement == null || !machine.entitlement.active) return "";
+        SpaceConnectApiClient.Entitlement ent = machine.entitlement;
+        if (ent.unlimited) return " · " + getString(R.string.launcher_plan_unlimited_short);
+        double total = ent.hoursRemaining;
+        String suffix = " · " + formatHours(total);
+        if (ent.bonusHours > 0) {
+            suffix += getString(R.string.launcher_plan_hours_bonus, formatHours(ent.bonusHours));
+        }
+        return suffix;
+    }
+
+    // Linha de saldo do plano no card de status (igual ao site: mostra quantas
+    // horas faltam no plano, ou se é ilimitado).
+    private void renderPlanHours() {
+        if (planHoursText == null) return;
+        SpaceConnectApiClient.MachineListItem machine = effectiveMachine();
+        if (machine == null || machine.entitlement == null || !machine.entitlement.active) {
+            planHoursText.setVisibility(View.GONE);
+            return;
+        }
+        SpaceConnectApiClient.Entitlement ent = machine.entitlement;
+        String planName = prettifyPlanSlug(ent.planSlug);
+        String text;
+        if (ent.unlimited) {
+            text = getString(R.string.launcher_plan_unlimited, planName);
+        } else {
+            text = getString(R.string.launcher_plan_hours, planName, formatHours(ent.hoursRemaining));
+            if (ent.bonusHours > 0) {
+                text += getString(R.string.launcher_plan_hours_bonus, formatHours(ent.bonusHours));
+            }
+        }
+        planHoursText.setText(text);
+        planHoursText.setVisibility(View.VISIBLE);
     }
 
     private void joinQueueForMachine(String machineId) {

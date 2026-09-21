@@ -161,6 +161,17 @@
                     android:text="@string/launcher_idle_details"
                     android:textColor="?attr/appMutedForegroundColor"
                     android:textSize="14sp" />
+
+                <TextView
+                    android:id="@+id/launcherPlanHours"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="20dp"
+                    android:layout_marginTop="6dp"
+                    android:textColor="@color/moonlight_gold"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
             </LinearLayout>
 
             <Button

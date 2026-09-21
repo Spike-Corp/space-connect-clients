@@ -17,6 +17,7 @@
 #include <QUuid>
 #include <QUrl>
 
+#include <cmath>
 #include <stdexcept>
 
 namespace {
@@ -236,10 +237,42 @@ void LauncherApi::fetchMachines()
                         entry.insert(QStringLiteral("name"), name);
                         entry.insert(QStringLiteral("provider"), provider);
                         entry.insert(QStringLiteral("state"), machine.value(QStringLiteral("state")).toString());
-                        // Rótulo pronto pro seletor (igual ao app Android: "nome (provider)").
-                        entry.insert(QStringLiteral("display"),
-                                     (name.isEmpty() ? id : name)
-                                         + (provider.isEmpty() ? QString() : QStringLiteral(" (%1)").arg(provider)));
+                        // Saldo do plano ligado à VM (o backend já manda o
+                        // entitlement por máquina — horas em HORAS, ex.: 87.5).
+                        const QJsonObject entitlement =
+                            machine.value(QStringLiteral("entitlement")).toObject();
+                        const bool entActive =
+                            entitlement.value(QStringLiteral("active")).toBool();
+                        const bool entUnlimited =
+                            entitlement.value(QStringLiteral("unlimited")).toBool();
+                        const double hoursRemaining =
+                            entitlement.value(QStringLiteral("hoursRemaining")).toDouble();
+                        const double bonusHours =
+                            entitlement.value(QStringLiteral("bonusHours")).toDouble();
+                        entry.insert(QStringLiteral("planSlug"),
+                                     entitlement.value(QStringLiteral("planSlug")).toString());
+                        entry.insert(QStringLiteral("entitlementActive"), entActive);
+                        entry.insert(QStringLiteral("unlimited"), entUnlimited);
+                        entry.insert(QStringLiteral("hoursRemaining"), hoursRemaining);
+                        entry.insert(QStringLiteral("bonusHours"), bonusHours);
+                        // Rótulo pronto pro seletor: "nome (provider) · 87h" —
+                        // ajuda a escolher a VM certa quando há 2+ planos.
+                        QString display =
+                            (name.isEmpty() ? id : name)
+                            + (provider.isEmpty() ? QString() : QStringLiteral(" (%1)").arg(provider));
+                        if (entActive) {
+                            if (entUnlimited) {
+                                display += QStringLiteral(" · ") + tr("ilimitado");
+                            }
+                            else {
+                                display += QStringLiteral(" · %1h").arg(
+                                    hoursRemaining, 0, 'f', hoursRemaining == std::floor(hoursRemaining) ? 0 : 1);
+                                if (bonusHours > 0)
+                                    display += tr(" + %1h bônus").arg(
+                                        bonusHours, 0, 'f', bonusHours == std::floor(bonusHours) ? 0 : 1);
+                            }
+                        }
+                        entry.insert(QStringLiteral("display"), display);
                         list.append(entry);
                     }
                     m_Machines = list;

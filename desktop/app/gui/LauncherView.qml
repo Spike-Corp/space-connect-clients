@@ -72,8 +72,42 @@ Item {
         if (needsMachine()) return qsTr("Create your VM")
         if (LauncherApi.state === "queued") return qsTr("Leave queue")
         if (LauncherApi.state === "ready") return qsTr("Connect")
-        if (LauncherApi.state === "idle") return qsTr("Join queue")
+        if (LauncherApi.state === "idle") return qsTr("Open machine")
         return qsTr("Please wait")
+    }
+
+    function prettifyPlan(slug) {
+        if (!slug) return qsTr("Plan")
+        var clean = ("" + slug).replace(/-nw$/, "")
+        var words = clean.split(/[-_]/)
+        var out = []
+        for (var i = 0; i < words.length; i++) {
+            var w = words[i]
+            if (w.length > 0) out.push(w.charAt(0).toUpperCase() + w.slice(1))
+        }
+        return out.length ? out.join(" ") : slug
+    }
+
+    // Linha de saldo do plano da VM em foco (sessão ativa > selecionada > única):
+    // "Builder Lite · faltam 87h" / "Builder Lite · horas ilimitadas" (como no site).
+    function planHoursText() {
+        var list = LauncherApi.machines
+        if (!list || list.length === 0) return ""
+        var id = LauncherApi.statusMachineId || LauncherApi.selectedMachineId
+        var m = null
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].id === id) { m = list[i]; break }
+        }
+        if (!m && list.length === 1) m = list[0]
+        if (!m || !m.entitlementActive) return ""
+        var name = prettifyPlan(m.planSlug)
+        if (m.unlimited) return qsTr("%1 · unlimited hours").arg(name)
+        var h = Math.round((m.hoursRemaining || 0) * 10) / 10
+        var hStr = (Math.floor(h) === h ? h.toFixed(0) : h.toFixed(1)) + "h"
+        var text = qsTr("%1 · %2 left").arg(name).arg(hStr)
+        var b = Math.round((m.bonusHours || 0) * 10) / 10
+        if (b > 0) text += qsTr(" + %1 bonus").arg((Math.floor(b) === b ? b.toFixed(0) : b.toFixed(1)) + "h")
+        return text
     }
 
     Connections {
@@ -169,6 +203,18 @@ Item {
                     visible: LauncherApi.errorMessage.length > 0
                     text: LauncherApi.errorMessage
                     color: "#F87171"
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+
+                // Saldo do plano (horas restantes / ilimitado) — paridade com o
+                // site e com o app Android. A binding reavalia sozinha porque lê
+                // propriedades com NOTIFY (machines/statusMachineId/selectedMachineId).
+                Label {
+                    visible: text.length > 0
+                    text: planHoursText()
+                    color: "#e8c85a"
+                    font.bold: true
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                 }

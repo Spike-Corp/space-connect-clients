@@ -303,7 +303,11 @@
     <string name="launcher_status_ending">Encerrando sessão</string>
     <string name="launcher_session_details">%1$s · %2$d minutos restantes</string>
     <string name="launcher_machine">PC SpaceCloud</string>
-    <string name="launcher_join_queue">Entrar na VM</string>
+    <string name="launcher_join_queue">Abrir máquina</string>
+    <string name="launcher_plan_unlimited">%1$s · horas ilimitadas</string>
+    <string name="launcher_plan_unlimited_short">ilimitado</string>
+    <string name="launcher_plan_hours">%1$s · faltam %2$s</string>
+    <string name="launcher_plan_hours_bonus"> + %1$s de bônus</string>
     <string name="launcher_leave_queue">Sair da fila</string>
     <string name="launcher_connect">Conectar</string>
     <string name="launcher_wait">Aguarde</string>

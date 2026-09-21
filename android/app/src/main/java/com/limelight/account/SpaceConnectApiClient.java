@@ -456,6 +456,19 @@ public final class SpaceConnectApiClient {
         public String name;
         public String provider;
         public String state;
+        // Plano/saldo ligado à máquina (null quando não há entitlement ativo).
+        // hoursRemaining/bonusHours vêm em HORAS (ex.: 87.5).
+        public Entitlement entitlement;
+    }
+
+    public static final class Entitlement {
+        public String planSlug;
+        public String type;
+        public boolean active;
+        public boolean unlimited;
+        public double hoursRemaining;
+        public double bonusHours;
+        public String expiresAt;
     }
 
     public static final class CreateMachineResponse {

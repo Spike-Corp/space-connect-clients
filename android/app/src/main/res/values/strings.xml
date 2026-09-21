@@ -281,7 +281,11 @@
     <string name="launcher_status_ending">Ending session</string>
     <string name="launcher_session_details">%1$s · %2$d minutes remaining</string>
     <string name="launcher_machine">SpaceCloud PC</string>
-    <string name="launcher_join_queue">Join queue</string>
+    <string name="launcher_join_queue">Open machine</string>
+    <string name="launcher_plan_unlimited">%1$s · unlimited hours</string>
+    <string name="launcher_plan_unlimited_short">unlimited</string>
+    <string name="launcher_plan_hours">%1$s · %2$s left</string>
+    <string name="launcher_plan_hours_bonus"> + %1$s bonus</string>
     <string name="launcher_leave_queue">Leave queue</string>
     <string name="launcher_connect">Connect</string>
     <string name="launcher_wait">Please wait</string>

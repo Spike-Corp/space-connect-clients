@@ -38,6 +38,9 @@ class LauncherApi : public QObject
     // "a" sessão ativa — usuário com 2 planos não conseguia escolher).
     Q_PROPERTY(QVariantList machines READ machines NOTIFY machinesChanged)
     Q_PROPERTY(QString selectedMachineId READ selectedMachineId WRITE setSelectedMachineId NOTIFY machinesChanged)
+    // Máquina da sessão ativa reportada pelo /status (vazio quando não há) — a UI
+    // usa pra exibir o saldo do plano da VM certa em contas multi-plano.
+    Q_PROPERTY(QString statusMachineId READ statusMachineId NOTIFY statusChanged)
 
 public:
     explicit LauncherApi(QObject* parent = nullptr);
@@ -66,6 +69,7 @@ public:
     QVariantList machines() const { return m_Machines; }
     QString selectedMachineId() const { return m_SelectedMachineId; }
     void setSelectedMachineId(const QString& id);
+    QString statusMachineId() const { return m_StatusMachineId; }
 
     Q_INVOKABLE void login(const QString& email, const QString& password);
     Q_INVOKABLE void verifyTwoFactor(const QString& code);

@@ -280,7 +280,27 @@
     <message>
         <location filename="../gui/LauncherView.qml" line="40"/>
         <source>Join queue</source>
-        <translation>Entrar na fila</translation>
+        <translation type="vanished">Entrar na fila</translation>
+    </message>
+    <message>
+        <source>Open machine</source>
+        <translation>Abrir máquina</translation>
+    </message>
+    <message>
+        <source>Plan</source>
+        <translation>Plano</translation>
+    </message>
+    <message>
+        <source>%1 · unlimited hours</source>
+        <translation>%1 · horas ilimitadas</translation>
+    </message>
+    <message>
+        <source>%1 · %2 left</source>
+        <translation>%1 · faltam %2</translation>
+    </message>
+    <message>
+        <source> + %1 bonus</source>
+        <translation> + %1 de bônus</translation>
     </message>
     <message>
         <location filename="../gui/LauncherView.qml" line="41"/>
