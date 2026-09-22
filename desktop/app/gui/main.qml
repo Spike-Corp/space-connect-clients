@@ -254,10 +254,7 @@ ApplicationWindow {
             else
                 window.showLoginView()
         }
-        function onTwoFactorRequired() {
-            if (!twoFactorDialog.visible)
-                twoFactorDialog.open()
-        }
+        // O sinal twoFactorRequired é tratado no LoginView (abre o modal lá).
     }
 
     // ── Notificações de sessão ──────────────────────────────────────────────
@@ -578,31 +575,11 @@ ApplicationWindow {
         onAccepted: Qt.quit()
     }
 
-    // Modal de 2FA ÚNICO da janela (antes cada LoginView tinha o seu, e views
-    // duplicadas abriam 2 modais sobrepostos em posições erradas). Centralização
-    // explícita via x/y: anchors não se aplicam de forma confiável a Popup.
-    Dialog {
-        id: twoFactorDialog
-        title: qsTr("Two-factor authentication")
-        modal: true
-        parent: Overlay.overlay
-        x: Math.round((parent.width - width) / 2)
-        y: Math.round((parent.height - height) / 2)
-        standardButtons: Dialog.Ok | Dialog.Cancel
-        onOpened: twoFactorField.forceActiveFocus()
-        onClosed: twoFactorField.text = ""
-        onAccepted: LauncherApi.verifyTwoFactor(twoFactorField.text)
-
-        TextField {
-            id: twoFactorField
-            implicitWidth: 260
-            placeholderText: qsTr("6-digit code")
-            inputMethodHints: Qt.ImhDigitsOnly
-            maximumLength: 6
-            Keys.onReturnPressed: twoFactorDialog.accept()
-            Keys.onEnterPressed: twoFactorDialog.accept()
-        }
-    }
+    // O modal de 2FA mora no LoginView (única tela onde login acontece). Como a
+    // navegação de auth é centralizada (showLoginView/showLauncherView com pop
+    // total + guarda de tipo), só EXISTE UMA LoginView por vez — então só existe
+    // UM modal de 2FA. Fica na view (não na janela) pra subir junto com ela e
+    // não vazar por cima de outras telas (Settings etc).
 
     // HACK: This belongs in StreamSegue but keeping a dialog around after the parent
     // dies can trigger bugs in Qt 5.12 that cause the app to crash. For now, we will

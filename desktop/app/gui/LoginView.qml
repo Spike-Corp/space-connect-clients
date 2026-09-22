@@ -42,6 +42,10 @@ Item {
         function onLoginSucceeded() {
             window.showLauncherView()
         }
+        function onTwoFactorRequired() {
+            twoFactorField.text = ""
+            twoFactorDialog.open()
+        }
         function onErrorMessageChanged() {
             if (LauncherApi.errorMessage) {
                 errorLabel.text = LauncherApi.errorMessage
@@ -235,6 +239,31 @@ Item {
                     }
                 }
             }
+        }
+    }
+
+    // Modal de 2FA — mora aqui porque login só acontece nesta tela. A navegação
+    // centralizada (main.qml showLoginView/showLauncherView, pop total + guarda)
+    // garante UMA LoginView por vez, então só existe UM destes.
+    Dialog {
+        id: twoFactorDialog
+        title: qsTr("Two-factor authentication")
+        modal: true
+        parent: Overlay.overlay
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        onOpened: twoFactorField.forceActiveFocus()
+        onAccepted: LauncherApi.verifyTwoFactor(twoFactorField.text)
+
+        TextField {
+            id: twoFactorField
+            implicitWidth: 260
+            placeholderText: qsTr("6-digit code")
+            inputMethodHints: Qt.ImhDigitsOnly
+            maximumLength: 6
+            Keys.onReturnPressed: twoFactorDialog.accept()
+            Keys.onEnterPressed: twoFactorDialog.accept()
         }
     }
 
