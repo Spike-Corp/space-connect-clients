@@ -1613,6 +1613,14 @@
         <translation>AV1 (Experimental)</translation>
     </message>
     <message>
+        <source>H.264 (compatibility)</source>
+        <translation>H.264 (compatibilidade)</translation>
+    </message>
+    <message>
+        <source>H.264 is the fallback codec — use it if the stream fails with 'Unknown format' (host without GPU).</source>
+        <translation>H.264 é o codec de reserva, use se o stream falhar com "Unknown format" (host sem GPU).</translation>
+    </message>
+    <message>
         <location filename="../gui/SettingsView.qml" line="1836"/>
         <source>Enable YUV 4:4:4 (Experimental)</source>
         <translation>Ativar YUV 4:4:4 (Experimental)</translation>

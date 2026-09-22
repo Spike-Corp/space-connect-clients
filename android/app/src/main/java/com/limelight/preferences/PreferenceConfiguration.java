@@ -16,6 +16,10 @@ public class PreferenceConfiguration {
         AUTO,
         FORCE_AV1,
         FORCE_HEVC,
+        // H.264 de volta como OPÇÃO: o Artemis removeu o AVC, mas ele é o único
+        // codec que o host cai quando a GPU morre (libx264 sem NVENC = só H.264).
+        // Quem toma o "Unknown format" (error -3) por conta disso ativa aqui.
+        FORCE_H264,
     };
 
     // Ported from Artemis
@@ -546,6 +550,9 @@ public class PreferenceConfiguration {
         }
         else if (str.equals("forceh265")) {
             return FormatOption.FORCE_HEVC;
+        }
+        else if (str.equals("forceh264")) {
+            return FormatOption.FORCE_H264;
         }
         else {
             // Should never get here

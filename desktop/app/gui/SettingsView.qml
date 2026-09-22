@@ -1879,6 +1879,13 @@ Flickable {
                             text: qsTr("AV1 (Experimental)")
                             val: StreamingPreferences.VCC_FORCE_AV1
                         }
+                        ListElement {
+                            // H.264 de volta: é o único codec que o host serve quando a
+                            // GPU morre (libx264 sem NVENC). Quem toma "Unknown format"
+                            // (error -3) por conta disso força aqui e volta a jogar.
+                            text: qsTr("H.264 (compatibility)")
+                            val: StreamingPreferences.VCC_FORCE_H264
+                        }
                     }
                     // ::onActivated must be used, as it only listens for when the index is changed by a human
                     onActivated : {
@@ -1892,6 +1899,8 @@ Flickable {
                     ToolTip.visible: hovered
                     ToolTip.text: currentIndex === 1 ?
                                       qsTr("AV1 needs a newer GPU (L4, RTX 3080 Ti, or A10) on the host.")
+                                    : currentIndex === 2 ?
+                                      qsTr("H.264 is the fallback codec — use it if the stream fails with 'Unknown format' (host without GPU).")
                                     :
                                       qsTr("HEVC works normally on our current T4 hosts.")
                 }

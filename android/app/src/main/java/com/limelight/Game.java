@@ -505,6 +505,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 supportedVideoFormats |= MoonBridge.VIDEO_FORMAT_AV1_MAIN10;
             }
         }
+        // H.264: entra na lista só quando o usuário forçou na preferência (fallback
+        // pra quando o host cai pra libx264/GPU morta e só serve H.264).
+        if (decoderRenderer.isH264Supported(prefConfig)) {
+            supportedVideoFormats |= MoonBridge.VIDEO_FORMAT_H264;
+        }
 
         int gamepadMask = ControllerHandler.getAttachedControllerMask(this);
         if (!prefConfig.multiController) {

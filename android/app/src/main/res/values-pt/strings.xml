@@ -96,6 +96,7 @@
     <string name="fps_30">30 FPS</string>
     <string name="fps_60">60 FPS</string>
     <string name="videoformat_hevcalways">Prefira HEVC</string>
+    <string name="videoformat_h264always">Forçar H.264 (compatibilidade)</string>
     <string name="videoformat_av1always">Preferir AV1 (Experimental)</string>
     <string name="videoformat_auto">Automático (recomendado)</string>
     <string name="fps_120">120 FPS</string>

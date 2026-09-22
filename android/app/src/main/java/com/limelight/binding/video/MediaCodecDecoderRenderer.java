@@ -43,6 +43,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
     private MediaCodecInfo hevcDecoder;
     private MediaCodecInfo av1Decoder;
+    // H.264 de volta (opção): o Artemis removeu o AVC, mas é o único codec que o
+    // host cai quando a GPU morre (libx264 sem NVENC = só H.264) → "Unknown format".
+    private MediaCodecInfo avcDecoder;
 
     private final ArrayList<byte[]> vpsBuffers = new ArrayList<>();
     private final ArrayList<byte[]> spsBuffers = new ArrayList<>();
@@ -269,6 +272,17 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             LimeLog.info("No AV1 decoder found");
         }
 
+        // H.264 (AVC): só procura quando o usuário forçou — é o fallback pra quando
+        // o host cai pra libx264 (GPU morta) e só serve H.264.
+        if (prefs.videoFormat == PreferenceConfiguration.FormatOption.FORCE_H264) {
+            avcDecoder = MediaCodecHelper.findProbableSafeDecoder("video/avc", -1);
+            if (avcDecoder != null) {
+                LimeLog.info("Selected H.264 decoder (forced): "+avcDecoder.getName());
+            } else {
+                LimeLog.warning("H.264 forced but no AVC decoder found");
+            }
+        }
+
         // Set attributes that are queried in getCapabilities(). This must be done here
         // because getCapabilities() may be called before setup() in current versions of the common
         // library. The limitation of this is that we don't know whether we're using HEVC or AVC.
@@ -322,6 +336,13 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
     public boolean isAv1Supported() {
         return av1Decoder != null;
+    }
+
+    // H.264 (AVC): suportado se o usuário forçou na preferência E o aparelho tem
+    // decoder AVC (todo Android tem). Só entra na lista de formatos quando forçado.
+    public boolean isH264Supported(PreferenceConfiguration prefs) {
+        return prefs.videoFormat == PreferenceConfiguration.FormatOption.FORCE_H264
+                && avcDecoder != null;
     }
 
     public boolean isAv1Main10Supported() {
@@ -530,6 +551,19 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             }
 
             refFrameInvalidationActive = refFrameInvalidationAv1;
+        }
+        else if ((videoFormat & MoonBridge.VIDEO_FORMAT_MASK_H264) != 0) {
+            // H.264: o host caiu pra libx264 (GPU morta). Só chega aqui quando o
+            // formato foi negociado como H.264 (o usuário forçou na preferência).
+            mimeType = "video/avc";
+            selectedDecoderInfo = avcDecoder;
+
+            if (avcDecoder == null) {
+                LimeLog.severe("No available H.264 decoder!");
+                return -2;
+            }
+
+            refFrameInvalidationActive = false;
         }
         else {
             // Unknown format
