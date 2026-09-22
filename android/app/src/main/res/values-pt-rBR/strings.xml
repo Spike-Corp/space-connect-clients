@@ -185,6 +185,9 @@
     <string name="latency_ok">Razoável — dá pra jogar; prefira Wi-Fi 5GHz ou cabo</string>
     <string name="latency_bad">Instável — pode engasgar; chegue perto do roteador ou use cabo/5GHz</string>
     <string name="launcher_latency_test">Teste de rede</string>
+    <string name="usb_passthrough">USB Passthrough</string>
+    <string name="usb_passthrough_info">Use um dispositivo USB do seu PC (volante, controle, dongle) dentro da sua máquina em nuvem. O helper é só pra Windows: baixe o SpaceUSB no seu PC, rode uma vez, depois clique em USB Passthrough no app de Windows com a máquina ligada. O dispositivo aparece na VM como se estivesse plugado nela.</string>
+    <string name="usb_download">Baixar SpaceUSB</string>
     <string name="bug_report_title">Reportar bug</string>
     <string name="bug_report_hint">Conte o que aconteceu. O relato vai direto pro nosso time (painel admin → Bugs app).</string>
     <string name="bug_report_meta">Versão do app %1$s · dispositivo e SO incluídos automaticamente</string>
@@ -369,7 +372,7 @@
     <string name="launcher_create_machine_message">Confirme sua senha pra criar seu PC dedicado na SpaceCloud. Isso pode levar alguns minutos.</string>
     <string name="launcher_create_machine_password_hint">Senha</string>
     <string name="launcher_create_machine_success">Seu PC está sendo criado. Isso pode levar alguns minutos.</string>
-    <string name="launcher_shortcut_controller">Controle</string>
+    <string name="launcher_shortcut_controller">Controle e entrada</string>
     <string name="launcher_shortcut_settings">Configurações</string>
     <string name="launcher_upload_file">Enviar arquivo pro PC</string>
     <string name="launcher_upload_pick_title">Escolha um arquivo pra enviar</string>

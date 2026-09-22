@@ -122,6 +122,19 @@ public class LauncherActivity extends Activity {
         // Amigos (beta): username, pedidos, permissões e VMs compartilhadas.
         findViewById(R.id.launcherFriendsButton).setOnClickListener(v ->
                 startActivity(new Intent(LauncherActivity.this, FriendsActivity.class)));
+        // USB passthrough: o helper é Windows-only (roda no PC do cliente). No
+        // Android o botão vira um how-to + link de download, visível com a VM pronta.
+        findViewById(R.id.launcherUsbButton).setOnClickListener(v -> showUsbPassthroughInfo());
+    }
+
+    private void showUsbPassthroughInfo() {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.usb_passthrough)
+                .setMessage(R.string.usb_passthrough_info)
+                .setNegativeButton(R.string.game_menu_cancel, null)
+                .setPositiveButton(R.string.usb_download, (d, w) ->
+                        HelpLauncher.launchUrl(this, "https://downloads.spacecloud.gg/SpaceUSB.exe"))
+                .show();
     }
 
     private static String formatDisplayName(String email) {
@@ -202,6 +215,10 @@ public class LauncherActivity extends Activity {
             primaryButton.setOnClickListener(v -> leaveQueue());
             return;
         }
+
+        // USB passthrough só faz sentido com a VM pronta (helper é no PC, não no celular).
+        findViewById(R.id.launcherUsbButton).setVisibility(
+                "ready".equals(status.state) ? View.VISIBLE : View.GONE);
 
         if (status.session != null) {
             String machineName = status.session.machine != null
@@ -775,7 +792,14 @@ public class LauncherActivity extends Activity {
             if (uri != null) {
                 uploadPickedFile(uri);
             }
+            return;
         }
+        // Voltou do pareamento/adição sem confirmar (ou a Activity morreu): destrava
+        // o requestRunning e retoma o poll — sem isso o launcher congelava num estado
+        // "saiu da fila" e o botão "Atualizar status" parava de responder.
+        requestRunning = false;
+        progressBar.setVisibility(View.GONE);
+        refreshStatus(false);
     }
 
     private interface StatusAction {
