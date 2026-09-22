@@ -722,6 +722,30 @@ void ComputerManager::addNewHostManually(QString address)
     }
 }
 
+int ComputerManager::findComputerIndexByAddress(QString address)
+{
+    QUrl url = QUrl::fromUserInput("moonlight://" + address);
+    if (!url.isValid() || url.host().isEmpty())
+        return -1;
+    const QString host = url.host();
+    const int port = url.port(DEFAULT_HTTP_PORT);
+    // Mesma lista ordenada que a ComputerModel usa (getComputers), pro índice
+    // bater com o que a UI mostra.
+    const QVector<NvComputer*> hosts = getComputers();
+    for (int i = 0; i < hosts.count(); i++) {
+        NvComputer* computer = hosts[i];
+        QReadLocker computerLock(&computer->lock);
+        // casa por qualquer endereço conhecido (remoto/local/manual)
+        if (computer->remoteAddress.address() == host && computer->remoteAddress.port() == port)
+            return i;
+        if (computer->localAddress.address() == host && computer->localAddress.port() == port)
+            return i;
+        if (computer->manualAddress.address() == host && computer->manualAddress.port() == port)
+            return i;
+    }
+    return -1;
+}
+
 class PendingAddTask : public QObject, public QRunnable
 {
     Q_OBJECT

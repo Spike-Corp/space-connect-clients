@@ -11,6 +11,7 @@ Item {
     id: friendsView
     objectName: qsTr("Friends")
     property bool addingComputer: false
+    property string friendConnectAddress: ""
 
     Component.onCompleted: LauncherApi.refreshFriends()
 
@@ -23,6 +24,7 @@ Item {
         }
         function onConnectionReady(address) {
             addingComputer = true
+            friendConnectAddress = address
             ComputerManager.addNewHostManually(address)
         }
         function onUsernameCheckResult(available, reason) {
@@ -40,8 +42,12 @@ Item {
             if (!addingComputer)
                 return
             addingComputer = false
-            if (success)
-                stackView.replace("qrc:/gui/PcView.qml")
+            if (success) {
+                // Abre DIRETO o PC do amigo (PcView abre o AppView pelo endereço,
+                // pareando se precisar) — antes caía na grade e o usuário clicava
+                // no PRÓPRIO PC por engano.
+                stackView.replace("qrc:/gui/PcView.qml", { "autoOpenAddress": friendConnectAddress })
+            }
             else
                 errorDialog.open()
         }

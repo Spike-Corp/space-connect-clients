@@ -228,6 +228,11 @@ public:
 
     Q_INVOKABLE void addNewHostManually(QString address);
 
+    // Índice na lista de um computador pelo endereço host:porta (pra abrir
+    // direto o AppView da máquina de um amigo, sem passar pela grade). -1 se
+    // não achar.
+    Q_INVOKABLE int findComputerIndexByAddress(QString address);
+
     // Returns the reported GPU model string (e.g. "Tesla T4", "NVIDIA L4") of the first
     // known computer, or an empty string if none are known yet or the info hasn't been
     // fetched via /serverinfo yet. Used by SettingsView to decide whether to unlock the

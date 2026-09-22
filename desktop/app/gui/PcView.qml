@@ -12,6 +12,11 @@ import LauncherApi 1.0
 
 CenteredGridView {
     property ComputerModel computerModel : createModel()
+    // Quando setado (conexão na VM de um amigo), abre DIRETO o PC desse endereço
+    // (pareia se precisar) em vez de deixar o usuário escolher na grade — antes
+    // ele caía na lista e clicava no próprio PC por engano.
+    property string autoOpenAddress: ""
+    property bool autoOpenDone: false
 
     id: pcGrid
     focus: true
@@ -44,6 +49,63 @@ CenteredGridView {
         if (currentIndex == -1 && SdlGamepadKeyNavigation.getConnectedGamepads() > 0) {
             currentIndex = 0
         }
+
+        // O modelo nasce com a lista atual; o auto-open (VM de amigo) pode mirar
+        // um host que ainda tá sendo adicionado — espera o modelo mudar.
+        autoOpenTimer.start()
+    }
+
+    Timer {
+        id: autoOpenTimer
+        interval: 400
+        repeat: true
+        running: false
+        onTriggered: {
+            if (autoOpenDone || !autoOpenAddress) {
+                stop()
+                return
+            }
+            tryAutoOpen()
+        }
+    }
+
+    // Conexão direta na VM de um amigo: acha o PC pelo endereço e abre o AppView
+    // (ou pareia primeiro), sem o usuário ter que clicar na grade.
+    function tryAutoOpen() {
+        if (!autoOpenAddress || autoOpenDone)
+            return
+        var idx = ComputerManager.findComputerIndexByAddress(autoOpenAddress)
+        if (idx < 0)
+            return  // ainda não adicionou — tenta de novo quando o modelo mudar
+        autoOpenDone = true
+        openComputerAt(idx)
+    }
+
+    function openComputerAt(idx) {
+        var m = computerModel
+        if (idx < 0 || idx >= m.rowCount())
+            return
+        var online = m.data(m.index(idx, 0), ComputerModel.OnlineRole)
+        var paired = m.data(m.index(idx, 0), ComputerModel.PairedRole)
+        if (!online)
+            return
+        if (paired) {
+            var component = Qt.createComponent("AppView.qml")
+            var appView = component.createObject(stackView, { "computerIndex": idx, "objectName": m.data(m.index(idx, 0), ComputerModel.NameRole) })
+            stackView.push(appView)
+        } else {
+            var pin = m.generatePinString()
+            LauncherApi.submitPairPin(pin)
+            m.pairComputer(idx, pin)
+            pairDialog.pin = pin
+            pairDialog.open()
+        }
+    }
+
+    Connections {
+        target: computerModel
+        function onModelReset() { tryAutoOpen() }
+        function onRowsInserted() { tryAutoOpen() }
     }
 
     StackView.onDeactivating: {
