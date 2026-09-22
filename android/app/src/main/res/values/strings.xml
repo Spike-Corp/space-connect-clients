@@ -318,6 +318,11 @@
     <string name="friends_shared_hint">Your friend\'s machine needs to be running for you to connect.</string>
     <string name="friends_machine_on">from %1$s · on</string>
     <string name="friends_machine_off">from %1$s · off</string>
+    <string name="friends_machine_off_short">off</string>
+    <string name="friends_show_on_short">Show: ON</string>
+    <string name="friends_show_off_short">Show: OFF</string>
+    <string name="friends_connect_on_short">Connect: ON</string>
+    <string name="friends_connect_off_short">Connect: OFF</string>
     <string name="friends_connect">Connect</string>
     <string name="friends_added_instant">You are friends now! (mutual request)</string>
     <string name="friends_added_sent">Friend request sent!</string>

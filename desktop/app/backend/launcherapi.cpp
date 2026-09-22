@@ -894,6 +894,7 @@ void LauncherApi::refreshFriends()
                 m_Outgoing = root.value(QStringLiteral("outgoing")).toArray().toVariantList();
                 m_MyUsername = root.value(QStringLiteral("me")).toObject()
                                    .value(QStringLiteral("username")).toString();
+                m_MyMachines = root.value(QStringLiteral("myMachines")).toArray().toVariantList();
                 emit friendsChanged();
             });
     request("GET", QStringLiteral("friends/machines"), QJsonObject(), true,
@@ -952,12 +953,19 @@ void LauncherApi::removeFriend(const QString& friendId)
 
 void LauncherApi::setFriendPermissions(const QString& friendId, bool showMachine, bool allowConnect)
 {
+    setFriendMachinePermission(friendId, QString(), showMachine, allowConnect);
+}
+
+void LauncherApi::setFriendMachinePermission(const QString& friendId, const QString& machineId, bool showMachine, bool allowConnect)
+{
+    QJsonObject body{
+        {QStringLiteral("showMachine"), showMachine},
+        {QStringLiteral("allowConnect"), allowConnect},
+    };
+    if (!machineId.isEmpty())
+        body.insert(QStringLiteral("machineId"), machineId);
     request("PUT", QStringLiteral("friends/") + friendId + QStringLiteral("/permissions"),
-            QJsonObject{
-                {QStringLiteral("showMachine"), showMachine},
-                {QStringLiteral("allowConnect"), allowConnect},
-            },
-            true,
+            body, true,
             [this](int status, const QJsonObject& root) {
                 if (status >= 200 && status < 300) {
                     refreshFriends();

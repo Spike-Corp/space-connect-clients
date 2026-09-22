@@ -340,6 +340,11 @@
     <string name="friends_shared_hint">A máquina do seu amigo precisa estar ligada pra você conectar.</string>
     <string name="friends_machine_on">de %1$s · ligada</string>
     <string name="friends_machine_off">de %1$s · desligada</string>
+    <string name="friends_machine_off_short">desligada</string>
+    <string name="friends_show_on_short">Mostrar: ON</string>
+    <string name="friends_show_off_short">Mostrar: OFF</string>
+    <string name="friends_connect_on_short">Conectar: ON</string>
+    <string name="friends_connect_off_short">Conectar: OFF</string>
     <string name="friends_connect">Conectar</string>
     <string name="friends_added_instant">Vocês já são amigos! (pedido mútuo)</string>
     <string name="friends_added_sent">Pedido de amizade enviado!</string>

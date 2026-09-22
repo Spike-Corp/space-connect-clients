@@ -4,10 +4,9 @@ import QtQuick.Layouts 1.3
 import LauncherApi 1.0
 import ComputerManager 1.0
 
-// Sistema de amigos (beta) — estilo Parsec: adicionar por username, aceitar
-// pedidos, conceder "mostrar minha VM" / "deixar conectar", e conectar nas
-// máquinas que amigos compartilham comigo. Mesma base do site (Social) —
-// tudo sincronizado pela mesma API.
+// Sistema de amigos (beta) — estilo Parsec: username, pedidos, permissões
+// (global ou por máquina) e conectar nas VMs que amigos compartilham comigo.
+// Mesma base do site (Social) — /launcher/v1/friends.
 Item {
     id: friendsView
     objectName: qsTr("Friends")
@@ -28,13 +27,10 @@ Item {
         }
         function onUsernameCheckResult(available, reason) {
             usernameCheckLabel.visible = true
-            if (available) {
-                usernameCheckLabel.color = "#4ade80"
-                usernameCheckLabel.text = qsTr("Available!")
-            } else {
-                usernameCheckLabel.color = "#F87171"
-                usernameCheckLabel.text = reason === "taken" ? qsTr("Already in use") : qsTr("Invalid format")
-            }
+            usernameCheckLabel.color = available ? "#4ade80" : "#F87171"
+            usernameCheckLabel.text = available
+                ? qsTr("Available!")
+                : (reason === "taken" ? qsTr("Already in use") : qsTr("Invalid format"))
         }
     }
 
@@ -55,6 +51,108 @@ Item {
         return entry.username ? "@" + entry.username : (entry.name || qsTr("No name"))
     }
 
+    // Card de UM amigo — escopo próprio (lê o modelData dele).
+    component FriendCard: Rectangle {
+        id: card
+        property var friend: modelData
+
+        Layout.fillWidth: true
+        implicitHeight: friendCol.implicitHeight + 24
+        radius: 10
+        color: "#1a1426"
+
+        ColumnLayout {
+            id: friendCol
+            anchors.fill: parent
+            anchors.margins: 12
+            spacing: 8
+
+            RowLayout {
+                Layout.fillWidth: true
+                Label {
+                    text: friendsView.friendLabel(card.friend)
+                    color: "#f8f5ff"
+                    font.bold: true
+                    Layout.fillWidth: true
+                }
+                Button {
+                    text: qsTr("Remove")
+                    onClicked: LauncherApi.removeFriend(card.friend.userId)
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                Button {
+                    text: card.friend.showMachine ? qsTr("Show my machine: ON") : qsTr("Show my machine: OFF")
+                    highlighted: card.friend.showMachine
+                    Layout.fillWidth: true
+                    onClicked: LauncherApi.setFriendPermissions(
+                        card.friend.userId, !card.friend.showMachine,
+                        !card.friend.showMachine ? card.friend.allowConnect : false)
+                }
+                Button {
+                    enabled: card.friend.showMachine
+                    text: card.friend.allowConnect ? qsTr("Can connect: ON") : qsTr("Can connect: OFF")
+                    highlighted: card.friend.allowConnect
+                    Layout.fillWidth: true
+                    onClicked: LauncherApi.setFriendPermissions(
+                        card.friend.userId, card.friend.showMachine, !card.friend.allowConnect)
+                }
+            }
+
+            // Por máquina (override vence o global) — só quando há 2+ VMs minhas.
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 4
+                visible: LauncherApi.myMachines.length > 1
+
+                Label {
+                    text: qsTr("Per machine:")
+                    color: "#9793aa"
+                    font.pixelSize: 11
+                }
+                Repeater {
+                    model: LauncherApi.myMachines
+                    delegate: RowLayout {
+                        id: machineRow
+                        property var machine: modelData
+                        property var per: (card.friend.perMachine && card.friend.perMachine[machine.machineId])
+                            ? card.friend.perMachine[machine.machineId] : null
+                        property bool showOn: per && per.showMachine !== undefined
+                            ? per.showMachine : card.friend.showMachine
+                        property bool connectOn: per && per.allowConnect !== undefined
+                            ? per.allowConnect : card.friend.allowConnect
+
+                        Layout.fillWidth: true
+                        spacing: 6
+                        Label {
+                            text: (machine.name || qsTr("Machine")) + (machine.running ? "" : " (" + qsTr("off") + ")")
+                            color: "#f8f5ff"
+                            font.pixelSize: 11
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
+                        }
+                        Button {
+                            text: machineRow.showOn ? qsTr("Show: ON") : qsTr("Show: OFF")
+                            font.pixelSize: 10
+                            onClicked: LauncherApi.setFriendMachinePermission(
+                                card.friend.userId, machine.machineId, !machineRow.showOn, false)
+                        }
+                        Button {
+                            enabled: machineRow.showOn
+                            text: machineRow.connectOn ? qsTr("Connect: ON") : qsTr("Connect: OFF")
+                            font.pixelSize: 10
+                            onClicked: LauncherApi.setFriendMachinePermission(
+                                card.friend.userId, machine.machineId, true, !machineRow.connectOn)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     Flickable {
         anchors.fill: parent
         contentWidth: width
@@ -70,40 +168,25 @@ Item {
 
             RowLayout {
                 Layout.fillWidth: true
-                Label {
-                    text: qsTr("FRIENDS")
-                    color: "#a482fa"
-                    font.pixelSize: 24
-                    font.bold: true
-                }
-                Label {
-                    text: "BETA"
-                    color: "#4572fa"
-                    font.pixelSize: 11
-                    font.bold: true
-                    Layout.alignment: Qt.AlignTop
-                }
+                Label { text: qsTr("FRIENDS"); color: "#a482fa"; font.pixelSize: 24; font.bold: true }
+                Label { text: "BETA"; color: "#4572fa"; font.pixelSize: 11; font.bold: true; Layout.alignment: Qt.AlignTop }
                 Item { Layout.fillWidth: true }
-                Button {
-                    text: qsTr("Refresh")
-                    onClicked: LauncherApi.refreshFriends()
-                }
+                Button { text: qsTr("Refresh"); onClicked: LauncherApi.refreshFriends() }
             }
 
+            // username
             Rectangle {
                 Layout.fillWidth: true
-                implicitHeight: usernameColumn.implicitHeight + 32
+                implicitHeight: userCol.implicitHeight + 32
                 radius: 12
                 color: "#110d17"
                 border.width: 1
                 border.color: "#e8e2ff"
-
                 ColumnLayout {
-                    id: usernameColumn
+                    id: userCol
                     anchors.fill: parent
                     anchors.margins: 16
                     spacing: 8
-
                     Label {
                         text: LauncherApi.myUsername
                               ? qsTr("Your username: @%1").arg(LauncherApi.myUsername)
@@ -139,34 +222,24 @@ Item {
                             onClicked: LauncherApi.setUsername(usernameField.text)
                         }
                     }
-                    Label {
-                        id: usernameCheckLabel
-                        visible: false
-                        font.pixelSize: 12
-                        Layout.fillWidth: true
-                    }
+                    Label { id: usernameCheckLabel; visible: false; font.pixelSize: 12; Layout.fillWidth: true }
                 }
             }
 
+            // adicionar
             Rectangle {
                 Layout.fillWidth: true
-                implicitHeight: addColumn.implicitHeight + 32
+                implicitHeight: addCol.implicitHeight + 32
                 radius: 12
                 color: "#110d17"
                 border.width: 1
                 border.color: "#e8e2ff"
-
                 ColumnLayout {
-                    id: addColumn
+                    id: addCol
                     anchors.fill: parent
                     anchors.margins: 16
                     spacing: 8
-
-                    Label {
-                        text: qsTr("Add a friend by username")
-                        color: "#f8f5ff"
-                        font.bold: true
-                    }
+                    Label { text: qsTr("Add a friend by username"); color: "#f8f5ff"; font.bold: true }
                     RowLayout {
                         Layout.fillWidth: true
                         TextField {
@@ -185,25 +258,18 @@ Item {
                             text: qsTr("Add")
                             highlighted: true
                             enabled: addFriendField.text.length >= 3 && !LauncherApi.busy
-                            onClicked: {
-                                LauncherApi.addFriend(addFriendField.text)
-                                addFriendField.text = ""
-                            }
+                            onClicked: { LauncherApi.addFriend(addFriendField.text); addFriendField.text = "" }
                         }
                     }
                 }
             }
 
+            // pedidos recebidos
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 8
                 visible: LauncherApi.incomingRequests.length > 0
-
-                Label {
-                    text: qsTr("Friend requests")
-                    color: "#f8f5ff"
-                    font.bold: true
-                }
+                Label { text: qsTr("Friend requests"); color: "#f8f5ff"; font.bold: true }
                 Repeater {
                     model: LauncherApi.incomingRequests
                     delegate: Rectangle {
@@ -219,29 +285,19 @@ Item {
                                 color: "#f8f5ff"
                                 Layout.fillWidth: true
                             }
-                            Button {
-                                text: qsTr("Accept")
-                                highlighted: true
-                                onClicked: LauncherApi.acceptFriendRequest(modelData.requestId)
-                            }
-                            Button {
-                                text: qsTr("Decline")
-                                onClicked: LauncherApi.declineFriendRequest(modelData.requestId)
-                            }
+                            Button { text: qsTr("Accept"); highlighted: true; onClicked: LauncherApi.acceptFriendRequest(modelData.requestId) }
+                            Button { text: qsTr("Decline"); onClicked: LauncherApi.declineFriendRequest(modelData.requestId) }
                         }
                     }
                 }
             }
 
+            // pedidos enviados
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 4
                 visible: LauncherApi.outgoingRequests.length > 0
-                Label {
-                    text: qsTr("Sent requests")
-                    color: "#f8f5ff"
-                    font.bold: true
-                }
+                Label { text: qsTr("Sent requests"); color: "#f8f5ff"; font.bold: true }
                 Repeater {
                     model: LauncherApi.outgoingRequests
                     delegate: Label {
@@ -252,84 +308,29 @@ Item {
                 }
             }
 
+            // amigos
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 8
-                Label {
-                    text: qsTr("Your friends")
-                    color: "#f8f5ff"
-                    font.bold: true
-                }
+                Label { text: qsTr("Your friends"); color: "#f8f5ff"; font.bold: true }
                 Label {
                     visible: LauncherApi.friends.length === 0
-                    text: qsTr("No friends yet — add someone above!")
+                    text: qsTr("No friends yet, add someone above!")
                     color: "#9793aa"
                     Layout.fillWidth: true
                 }
                 Repeater {
                     model: LauncherApi.friends
-                    delegate: Rectangle {
-                        Layout.fillWidth: true
-                        implicitHeight: friendColumn.implicitHeight + 24
-                        radius: 10
-                        color: "#1a1426"
-                        ColumnLayout {
-                            id: friendColumn
-                            anchors.fill: parent
-                            anchors.margins: 12
-                            spacing: 8
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Label {
-                                    text: friendsView.friendLabel(modelData)
-                                    color: "#f8f5ff"
-                                    font.bold: true
-                                    Layout.fillWidth: true
-                                }
-                                Button {
-                                    text: qsTr("Remove")
-                                    onClicked: LauncherApi.removeFriend(modelData.userId)
-                                }
-                            }
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: 8
-                                Button {
-                                    text: modelData.showMachine
-                                          ? qsTr("Show my machine: ON")
-                                          : qsTr("Show my machine: OFF")
-                                    highlighted: modelData.showMachine
-                                    Layout.fillWidth: true
-                                    onClicked: LauncherApi.setFriendPermissions(
-                                        modelData.userId, !modelData.showMachine,
-                                        !modelData.showMachine ? modelData.allowConnect : false)
-                                }
-                                Button {
-                                    enabled: modelData.showMachine
-                                    text: modelData.allowConnect
-                                          ? qsTr("Can connect: ON")
-                                          : qsTr("Can connect: OFF")
-                                    highlighted: modelData.allowConnect
-                                    Layout.fillWidth: true
-                                    onClicked: LauncherApi.setFriendPermissions(
-                                        modelData.userId, modelData.showMachine, !modelData.allowConnect)
-                                }
-                            }
-                        }
-                    }
+                    delegate: FriendCard {}
                 }
             }
 
+            // máquinas compartilhadas comigo
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 8
                 visible: LauncherApi.friendMachines.length > 0
-
-                Label {
-                    text: qsTr("Machines shared with you")
-                    color: "#f8f5ff"
-                    font.bold: true
-                }
+                Label { text: qsTr("Machines shared with you"); color: "#f8f5ff"; font.bold: true }
                 Repeater {
                     model: LauncherApi.friendMachines
                     delegate: Rectangle {
@@ -343,16 +344,10 @@ Item {
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 spacing: 2
-                                Label {
-                                    text: modelData.name || qsTr("Machine")
-                                    color: "#f8f5ff"
-                                    font.bold: true
-                                }
+                                Label { text: modelData.name || qsTr("Machine"); color: "#f8f5ff"; font.bold: true }
                                 Label {
                                     text: qsTr("from %1 · %2")
-                                        .arg(modelData.owner && modelData.owner.username
-                                             ? "@" + modelData.owner.username
-                                             : (modelData.owner ? modelData.owner.name : ""))
+                                        .arg(modelData.owner && modelData.owner.username ? "@" + modelData.owner.username : (modelData.owner ? modelData.owner.name : ""))
                                         .arg(modelData.running ? qsTr("on") : qsTr("off"))
                                     color: "#9793aa"
                                     font.pixelSize: 11
@@ -368,7 +363,7 @@ Item {
                     }
                 }
                 Label {
-                    text: qsTr("Friend machines need to be running for you to connect — ask your friend to open it first.")
+                    text: qsTr("Friend machines need to be running for you to connect, ask your friend to open it first.")
                     color: "#9793aa"
                     font.pixelSize: 11
                     wrapMode: Text.WordWrap
@@ -388,12 +383,7 @@ Item {
         x: Math.round((parent.width - width) / 2)
         y: Math.round((parent.height - height) / 2)
         standardButtons: Dialog.Ok
-
-        Label {
-            id: friendResultLabel
-            wrapMode: Text.WordWrap
-            width: 300
-        }
+        Label { id: friendResultLabel; wrapMode: Text.WordWrap; width: 300 }
     }
 
     Dialog {
@@ -404,10 +394,6 @@ Item {
         parent: Overlay.overlay
         x: Math.round((parent.width - width) / 2)
         y: Math.round((parent.height - height) / 2)
-        Label {
-            text: qsTr("The Moonlight host is not ready yet. Try again in a few seconds.")
-            wrapMode: Text.WordWrap
-            width: 300
-        }
+        Label { text: qsTr("The Moonlight host is not ready yet. Try again in a few seconds."); wrapMode: Text.WordWrap; width: 300 }
     }
 }

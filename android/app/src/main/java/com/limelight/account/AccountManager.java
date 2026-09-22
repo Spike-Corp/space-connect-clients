@@ -308,6 +308,10 @@ public final class AccountManager {
         executeAuthenticated(context, token -> API.setFriendPermissions(token, friendId, showMachine, allowConnect), callback);
     }
 
+    public static void setFriendMachinePermission(Context context, String friendId, String machineId, boolean showMachine, boolean allowConnect, ResultCallback<SpaceConnectApiClient.FriendActionResponse> callback) {
+        executeAuthenticated(context, token -> API.setFriendPermissions(token, friendId, machineId, showMachine, allowConnect), callback);
+    }
+
     public static void checkUsername(Context context, String username, ResultCallback<SpaceConnectApiClient.UsernameAvailabilityResponse> callback) {
         executeAuthenticated(context, token -> API.checkUsername(token, username), callback);
     }

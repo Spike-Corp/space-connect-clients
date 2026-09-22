@@ -154,9 +154,16 @@ public final class SpaceConnectApiClient {
 
     public FriendActionResponse setFriendPermissions(String accessToken, String friendId, boolean showMachine, boolean allowConnect)
             throws IOException, ApiException {
+        return setFriendPermissions(accessToken, friendId, null, showMachine, allowConnect);
+    }
+
+    // Override por máquina (machineId não-nulo) — vence o global.
+    public FriendActionResponse setFriendPermissions(String accessToken, String friendId, String machineId, boolean showMachine, boolean allowConnect)
+            throws IOException, ApiException {
         FriendPermissionsRequest input = new FriendPermissionsRequest();
         input.showMachine = showMachine;
         input.allowConnect = allowConnect;
+        if (machineId != null) input.machineId = machineId;
         return put("friends/" + friendId + "/permissions", input, accessToken, FriendActionResponse.class);
     }
 
@@ -462,7 +469,14 @@ public final class SpaceConnectApiClient {
     public static final class FriendEntry extends PublicProfile {
         public boolean showMachine;
         public boolean allowConnect;
+        // Overrides por máquina: machineId -> { showMachine?, allowConnect? }
+        public java.util.Map<String, PerMachine> perMachine;
         public String since;
+    }
+
+    public static final class PerMachine {
+        public Boolean showMachine;
+        public Boolean allowConnect;
     }
 
     public static final class FriendRequestEntry extends PublicProfile {
@@ -475,6 +489,14 @@ public final class SpaceConnectApiClient {
         public FriendEntry[] friends;
         public FriendRequestEntry[] incoming;
         public FriendRequestEntry[] outgoing;
+        // Minhas máquinas (pra permissão por máquina)
+        public MyMachine[] myMachines;
+    }
+
+    public static final class MyMachine {
+        public String machineId;
+        public String name;
+        public boolean running;
     }
 
     public static final class FriendMachine {
@@ -512,6 +534,7 @@ public final class SpaceConnectApiClient {
     private static final class FriendPermissionsRequest {
         boolean showMachine;
         boolean allowConnect;
+        String machineId;
     }
 
     public static final class AuthResponse {

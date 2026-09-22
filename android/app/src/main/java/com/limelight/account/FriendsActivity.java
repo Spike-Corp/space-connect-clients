@@ -153,6 +153,33 @@ public class FriendsActivity extends Activity {
                                         AccountManager.removeFriend(FriendsActivity.this, friend.userId, simpleCb(null))))
                                 .show());
 
+                // Por máquina (override vence o global) — só quando eu tenho 2+ VMs.
+                LinearLayout perMachineBox = row.findViewById(R.id.friendPerMachine);
+                if (data.myMachines != null && data.myMachines.length > 1 && perMachineBox != null) {
+                    perMachineBox.setVisibility(View.VISIBLE);
+                    perMachineBox.removeAllViews();
+                    for (final SpaceConnectApiClient.MyMachine mm : data.myMachines) {
+                        SpaceConnectApiClient.PerMachine per = friend.perMachine != null ? friend.perMachine.get(mm.machineId) : null;
+                        boolean showOn = per != null && per.showMachine != null ? per.showMachine : friend.showMachine;
+                        boolean connectOn = per != null && per.allowConnect != null ? per.allowConnect : friend.allowConnect;
+
+                        View mrow = inflater.inflate(R.layout.item_friend_machine_perm, perMachineBox, false);
+                        ((TextView) mrow.findViewById(R.id.permMachineName)).setText(
+                                (mm.name != null ? mm.name : "VM") + (mm.running ? "" : " (" + getString(R.string.friends_machine_off_short) + ")"));
+                        final Button mShow = mrow.findViewById(R.id.permShow);
+                        final Button mConnect = mrow.findViewById(R.id.permConnect);
+                        mShow.setText(showOn ? R.string.friends_show_on_short : R.string.friends_show_off_short);
+                        mConnect.setText(connectOn ? R.string.friends_connect_on_short : R.string.friends_connect_off_short);
+                        mConnect.setEnabled(showOn);
+                        mConnect.setAlpha(showOn ? 1.0f : 0.4f);
+                        mShow.setOnClickListener(v -> act(() -> AccountManager.setFriendMachinePermission(
+                                FriendsActivity.this, friend.userId, mm.machineId, !showOn, false, simpleCb(null))));
+                        mConnect.setOnClickListener(v -> act(() -> AccountManager.setFriendMachinePermission(
+                                FriendsActivity.this, friend.userId, mm.machineId, true, !connectOn, simpleCb(null))));
+                        perMachineBox.addView(mrow);
+                    }
+                }
+
                 friendsBox.addView(row);
             }
         }

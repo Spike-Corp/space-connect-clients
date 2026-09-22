@@ -48,6 +48,8 @@ class LauncherApi : public QObject
     // Máquina da sessão ativa reportada pelo /status (vazio quando não há) — a UI
     // usa pra exibir o saldo do plano da VM certa em contas multi-plano.
     Q_PROPERTY(QString statusMachineId READ statusMachineId NOTIFY statusChanged)
+    // Minhas máquinas (pra permissão por máquina no painel de amigos)
+    Q_PROPERTY(QVariantList myMachines READ myMachines NOTIFY friendsChanged)
 
 public:
     explicit LauncherApi(QObject* parent = nullptr);
@@ -82,6 +84,7 @@ public:
     QVariantList outgoingRequests() const { return m_Outgoing; }
     QVariantList friendMachines() const { return m_FriendMachines; }
     QString myUsername() const { return m_MyUsername; }
+    QVariantList myMachines() const { return m_MyMachines; }
 
     Q_INVOKABLE void login(const QString& email, const QString& password);
     Q_INVOKABLE void verifyTwoFactor(const QString& code);
@@ -118,6 +121,8 @@ public:
     Q_INVOKABLE void declineFriendRequest(const QString& requestId);
     Q_INVOKABLE void removeFriend(const QString& friendId);
     Q_INVOKABLE void setFriendPermissions(const QString& friendId, bool showMachine, bool allowConnect);
+    // Override por máquina (vence o global). machineId vazio = global.
+    Q_INVOKABLE void setFriendMachinePermission(const QString& friendId, const QString& machineId, bool showMachine, bool allowConnect);
     Q_INVOKABLE void connectFriendMachine(const QString& machineId);
     Q_INVOKABLE void setUsername(const QString& username);
     Q_INVOKABLE void checkUsername(const QString& username);
@@ -208,4 +213,5 @@ private:
     // Máquina de amigo sendo conectada agora (o PIN vai pra rota friend-aware).
     QString m_PendingFriendMachineId;
     QString m_MyUsername;
+    QVariantList m_MyMachines;
 };
