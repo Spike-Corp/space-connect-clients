@@ -64,11 +64,18 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
 public class PcView extends Activity implements AdapterFragmentCallbacks {
+    // Endereço "host:porta" de um PC que deve ser aberto direto, sem passar pela grade.
+    // Usado ao conectar na VM de um amigo: cair na grade fazia o usuário clicar no
+    // PRÓPRIO PC por engano (ou ver "Nenhum PC ainda" enquanto o host não aparecia).
+    public static final String AUTO_OPEN_ADDRESS_EXTRA = "autoOpenAddress";
+
     private RelativeLayout noPcFoundLayout;
     private PcGridAdapter pcGridAdapter;
     private ShortcutHelper shortcutHelper;
     private ComputerManagerService.ComputerManagerBinder managerBinder;
     private boolean freezeUpdates, runningPolling, inForeground, completeOnCreateCalled;
+    private String autoOpenAddress;
+    private boolean autoOpenDone;
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder binder) {
             final ComputerManagerService.ComputerManagerBinder localBinder =
@@ -217,6 +224,8 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
     protected void onCreate(Bundle savedInstanceState) {
         UiHelper.applyPreferredTheme(this);
         super.onCreate(savedInstanceState);
+
+        autoOpenAddress = getIntent().getStringExtra(AUTO_OPEN_ADDRESS_EXTRA);
 
         // Assume we're in the foreground when created to avoid a race
         // between binding to CMS and onResume()
@@ -785,6 +794,44 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
 
         // Notify the view that the data has changed
         pcGridAdapter.notifyDataSetChanged();
+
+        maybeAutoOpen(details);
+    }
+
+    // Abre direto o PC alvo (VM do amigo) assim que ele aparece online, pareando antes
+    // se ainda não estiver pareado. Roda uma vez só por abertura da tela.
+    private void maybeAutoOpen(ComputerDetails details) {
+        if (autoOpenDone || autoOpenAddress == null || autoOpenAddress.isEmpty()) {
+            return;
+        }
+        if (!matchesAddress(details, autoOpenAddress)) {
+            return;
+        }
+        if (details.state == ComputerDetails.State.OFFLINE
+                || details.state == ComputerDetails.State.UNKNOWN) {
+            // Ainda subindo/roteando — espera o próximo update do poller.
+            return;
+        }
+
+        autoOpenDone = true;
+        if (details.pairState != PairState.PAIRED) {
+            doPair(details);
+        }
+        else {
+            doAppList(details, false, false);
+        }
+    }
+
+    private static boolean matchesAddress(ComputerDetails details, String hostPort) {
+        return addressEquals(details.manualAddress, hostPort)
+                || addressEquals(details.activeAddress, hostPort)
+                || addressEquals(details.remoteAddress, hostPort)
+                || addressEquals(details.localAddress, hostPort)
+                || addressEquals(details.ipv6Address, hostPort);
+    }
+
+    private static boolean addressEquals(ComputerDetails.AddressTuple tuple, String hostPort) {
+        return tuple != null && tuple.toString().equalsIgnoreCase(hostPort);
     }
 
     @Override

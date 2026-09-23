@@ -177,7 +177,7 @@ public class LauncherActivity extends Activity {
         if (requestRunning) return;
         requestRunning = true;
         if (showProgress) progressBar.setVisibility(View.VISIBLE);
-        AccountManager.getStatus(this, new AccountManager.ResultCallback<SpaceConnectApiClient.StatusResponse>() {
+        AccountManager.getStatus(this, selectedMachineId, new AccountManager.ResultCallback<SpaceConnectApiClient.StatusResponse>() {
             @Override
             public void onSuccess(SpaceConnectApiClient.StatusResponse result) {
                 requestRunning = false;

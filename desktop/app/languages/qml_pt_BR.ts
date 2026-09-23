@@ -423,6 +423,76 @@
         <source>Report sent</source>
         <translation>Relato enviado</translation>
     </message>
+    <message>
+        <location filename="../gui/LauncherView.qml" line="42"/>
+        <source>Allocating cloud resources</source>
+        <translation>Alocando recursos na nuvem</translation>
+    </message>
+    <message>
+        <location filename="../gui/LauncherView.qml" line="43"/>
+        <source>Checking saved snapshots</source>
+        <translation>Verificando snapshots salvos</translation>
+    </message>
+    <message>
+        <location filename="../gui/LauncherView.qml" line="44"/>
+        <source>Restoring VM disk</source>
+        <translation>Restaurando disco da VM</translation>
+    </message>
+    <message>
+        <location filename="../gui/LauncherView.qml" line="45"/>
+        <source>Recreating cloud instance</source>
+        <translation>Recriando instância na nuvem</translation>
+    </message>
+    <message>
+        <location filename="../gui/LauncherView.qml" line="46"/>
+        <source>Creating VM from template</source>
+        <translation>Criando VM a partir do template</translation>
+    </message>
+    <message>
+        <location filename="../gui/LauncherView.qml" line="47"/>
+        <source>Attaching GPU</source>
+        <translation>Anexando GPU</translation>
+    </message>
+    <message>
+        <location filename="../gui/LauncherView.qml" line="48"/>
+        <source>Starting the operating system</source>
+        <translation>Iniciando o sistema operacional</translation>
+    </message>
+    <message>
+        <location filename="../gui/LauncherView.qml" line="49"/>
+        <source>Securing the environment</source>
+        <translation>Protegendo o ambiente</translation>
+    </message>
+    <message>
+        <location filename="../gui/LauncherView.qml" line="50"/>
+        <source>Setting your access password</source>
+        <translation>Definindo sua senha de acesso</translation>
+    </message>
+    <message>
+        <location filename="../gui/LauncherView.qml" line="51"/>
+        <source>Configuring the network</source>
+        <translation>Configurando a rede</translation>
+    </message>
+    <message>
+        <location filename="../gui/LauncherView.qml" line="52"/>
+        <source>Connecting monitoring agent</source>
+        <translation>Conectando o agente de monitoramento</translation>
+    </message>
+    <message>
+        <location filename="../gui/LauncherView.qml" line="53"/>
+        <source>Almost ready!</source>
+        <translation>Quase pronto!</translation>
+    </message>
+    <message>
+        <location filename="../gui/LauncherView.qml" line="55"/>
+        <source>Preparing your machine</source>
+        <translation>Preparando sua máquina</translation>
+    </message>
+    <message>
+        <location filename="../gui/LauncherView.qml" line="311"/>
+        <source>Test network / latency</source>
+        <translation>Testar rede / latência</translation>
+    </message>
 </context>
 <context>
     <name>LoginView</name>

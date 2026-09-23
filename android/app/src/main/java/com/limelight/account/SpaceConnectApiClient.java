@@ -58,6 +58,13 @@ public final class SpaceConnectApiClient {
         return get("status", accessToken, StatusResponse.class);
     }
 
+    public StatusResponse getStatus(String accessToken, String machineId) throws IOException, ApiException {
+        if (machineId == null || machineId.trim().isEmpty()) {
+            return getStatus(accessToken);
+        }
+        return get("status?machineId=" + safeMachineId(machineId), accessToken, StatusResponse.class);
+    }
+
     public StatusResponse joinQueue(
             String accessToken,
             double requestedHours,

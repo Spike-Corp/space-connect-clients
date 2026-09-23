@@ -127,6 +127,16 @@ public final class AccountManager {
         executeAuthenticated(context, API::getStatus, callback);
     }
 
+    // O poll de status precisa mandar o mesmo machineId usado pra entrar na fila,
+    // senão o backend antigo não achava a entrada e o app voltava pra "Abrir Máquina"
+    // como se o usuário tivesse saído da fila.
+    public static void getStatus(
+            Context context,
+            String machineId,
+            ResultCallback<SpaceConnectApiClient.StatusResponse> callback) {
+        executeAuthenticated(context, token -> API.getStatus(token, machineId), callback);
+    }
+
     public static void joinQueue(
             Context context,
             ResultCallback<SpaceConnectApiClient.StatusResponse> callback) {

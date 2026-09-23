@@ -204,7 +204,13 @@ void LauncherApi::refreshStatus()
         return;
 
     setBusy(true);
-    request("GET", QStringLiteral("status"), QJsonObject(), true,
+    // Precisa mandar o mesmo machineId usado pra entrar na fila: sem ele o backend
+    // não localizava a entrada e o app voltava pro estado "idle", como se o usuário
+    // tivesse saído da fila sozinho.
+    QString statusPath = QStringLiteral("status");
+    if (!effectiveMachineId().isEmpty())
+        statusPath += QStringLiteral("?machineId=") + effectiveMachineId();
+    request("GET", statusPath, QJsonObject(), true,
             [this](int status, const QJsonObject& root) {
                 setBusy(false);
                 if (status >= 200 && status < 300) {

@@ -28,11 +28,32 @@ import com.limelight.utils.UiHelper;
  */
 public class FriendsActivity extends Activity {
 
+    private static final int ADD_COMPUTER_REQUEST = 1;
+
     private LinearLayout incomingBox, friendsBox, machinesBox;
     private TextView myUsernameText, emptyText;
     private EditText addField;
     private ProgressBar progress;
     private boolean busy;
+    private String pendingFriendHost;
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != ADD_COMPUTER_REQUEST) {
+            return;
+        }
+        if (resultCode != RESULT_OK || pendingFriendHost == null) {
+            // Não conseguiu registrar o host (VM ainda subindo, porta bloqueada, etc.):
+            // não abre o PcView pra não cair na grade com o PC errado.
+            pendingFriendHost = null;
+            return;
+        }
+        Intent pcView = new Intent(FriendsActivity.this, PcView.class);
+        pcView.putExtra(PcView.AUTO_OPEN_ADDRESS_EXTRA, pendingFriendHost);
+        pendingFriendHost = null;
+        startActivity(pcView);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -260,7 +281,15 @@ public class FriendsActivity extends Activity {
                             .putInt("launcher_recommended_bitrate_kbps", connection.recommendedBitrateKbps)
                             .apply();
                 }
-                startActivity(new Intent(FriendsActivity.this, PcView.class));
+
+                // Antes isso abria o PcView direto, mas o PC do amigo nunca tinha sido
+                // registrado no ComputerManagerService: a tela mostrava "Nenhum PC ainda"
+                // (ou a grade com o PRÓPRIO PC do usuário). Mesmo fluxo já usado no
+                // desktop (FriendsView.qml): registra o host e só então abre, direto nele.
+                pendingFriendHost = host;
+                Intent addComputer = new Intent(FriendsActivity.this, AddComputerManually.class);
+                addComputer.putExtra(AddComputerManually.EXTRA_AUTO_HOST, host);
+                startActivityForResult(addComputer, ADD_COMPUTER_REQUEST);
             }
 
             @Override
