@@ -137,8 +137,9 @@ jobs:
         run: |
           $version = (Get-Content app/version.txt).Trim()
           $exeOut = "SpaceConnect-$version-windows-x64-setup.exe"
-          Copy-Item "MoonlightSetup.exe" $exeOut
-          if (-not (Test-Path $exeOut)) { throw "setup exe nao gerado (MoonlightSetup.exe ausente)" }
+          # O Publish roda na RAIZ do workspace — joga o exe pra la.
+          Copy-Item "MoonlightSetup.exe" "..\$exeOut"
+          if (-not (Test-Path "..\$exeOut")) { throw "setup exe nao gerado (MoonlightSetup.exe ausente)" }
 
       # Artifacts finais saem via GitHub Release (repo publico
       # space-connect-releases) — actions/upload-artifact fica indisponivel
@@ -280,8 +281,9 @@ jobs:
         run: |
           $version = (Get-Content app/version.txt).Trim()
           $exeOut = "SpaceConnect-$version-windows-legacy-x64-setup.exe"
-          Copy-Item "MoonlightSetupLegacy.exe" $exeOut
-          if (-not (Test-Path $exeOut)) { throw "setup exe legado nao gerado (MoonlightSetupLegacy.exe ausente)" }
+          # O Publish roda na RAIZ do workspace — joga o exe pra la.
+          Copy-Item "MoonlightSetupLegacy.exe" "..\$exeOut"
+          if (-not (Test-Path "..\$exeOut")) { throw "setup exe legado nao gerado (MoonlightSetupLegacy.exe ausente)" }
 
       - name: Publish to GitHub Releases
         shell: powershell
