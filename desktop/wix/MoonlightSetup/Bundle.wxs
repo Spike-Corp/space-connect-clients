@@ -48,7 +48,8 @@
                                               LogoFile="..\..\app\moonlight_wix.png"
                                               LaunchTarget="[InstallFolder]\SpaceConnect.exe"
                                               ThemeFile="RtfTheme.xml"
-                                              Theme="rtfLicense" />
+                                              Theme="rtfLicense"
+                                              SuppressOptionsUI="false" />
       <Payload Name="SpaceConnect.ico" SourceFile="..\..\app\moonlight.ico" Compressed="yes" />
     </BootstrapperApplication>
 
