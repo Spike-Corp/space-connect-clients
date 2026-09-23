@@ -1,14 +1,14 @@
 <Project Sdk="WixToolset.Sdk/5.0.1">
   <PropertyGroup>
     <OutputType>Bundle</OutputType>
-    <OutputName>MoonlightSetup</OutputName>
+    <OutputName>MoonlightSetupLegacy</OutputName>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DefineConstants>Debug</DefineConstants>
   </PropertyGroup>
   <PropertyGroup>
     <OutputPath>$(INSTALLER_FOLDER)\</OutputPath>
-    <IntermediateOutputPath>$(BUILD_FOLDER)\</IntermediateOutputPath>
+    <IntermediateOutputPath>$(BUILD_FOLDER)\legacy-bundle\</IntermediateOutputPath>
   </PropertyGroup>
   <PropertyGroup Condition="$(SIGN)!=''">
     <SignOutput>true</SignOutput>

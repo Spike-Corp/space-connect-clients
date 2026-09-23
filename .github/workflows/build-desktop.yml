@@ -113,6 +113,32 @@ jobs:
           Copy-Item "Moonlight.msi" "../$msiOut"
           echo "MSI_ARTIFACT_NAME=SpaceConnect-$version-windows-x64-msi" >> $env:GITHUB_ENV
 
+      # Setup .exe (bundle WiX Burn): bootstrapper visual que baixa o VCRedist
+      # e instala o MSI — e o instalador que o cliente baixa. O bundle espera o
+      # MSI em build\build-x64-release\ e referencia um pacote arm64 (que nao
+      # buildamos) — copiamos um stub x64 pra satisfazer o linker.
+      - name: Build setup .exe (Burn bundle)
+        shell: cmd
+        env:
+          BUILD_FOLDER: ${{ github.workspace }}\desktop
+          INSTALLER_FOLDER: ${{ github.workspace }}\desktop
+        run: |
+          set BUILD_ROOT=%CD%
+          set BUILD_CONFIG=release
+          mkdir build\build-x64-release 2>nul
+          copy /Y Moonlight.msi build\build-x64-release\Moonlight.msi || exit /b 1
+          mkdir build\build-arm64-release 2>nul
+          copy /Y Moonlight.msi build\build-arm64-release\Moonlight.msi || exit /b 1
+          msbuild -restore wix\MoonlightSetup\MoonlightSetup.wixproj /p:Configuration=release /p:Platform=x64 /p:MSBuildProjectExtensionsPath=%BUILD_FOLDER%\ || exit /b 1
+
+      - name: Package setup .exe
+        shell: powershell
+        run: |
+          $version = (Get-Content app/version.txt).Trim()
+          $exeOut = "SpaceConnect-$version-windows-x64-setup.exe"
+          Copy-Item "MoonlightSetup.exe" $exeOut
+          if (-not (Test-Path $exeOut)) { throw "setup exe nao gerado (MoonlightSetup.exe ausente)" }
+
       # Artifacts finais saem via GitHub Release (repo publico
       # space-connect-releases) — actions/upload-artifact fica indisponivel
       # quando a cota de storage de artifacts da org estoura.
@@ -133,7 +159,7 @@ jobs:
           if ($existing -contains $zipName) {
             Write-Host "asset ja existe, pulando publish"
           } else {
-            & ./ci/publish-release.ps1 -Tag "v$version" -Files @($zipName, "SpaceConnect-$version-windows-x64.msi")
+            & ./ci/publish-release.ps1 -Tag "v$version" -Files @($zipName, "SpaceConnect-$version-windows-x64.msi", "SpaceConnect-$version-windows-x64-setup.exe")
           }
 
   windows-legacy:
@@ -231,6 +257,28 @@ jobs:
           Copy-Item "Moonlight.msi" "../$msiOut"
           echo "MSI_ARTIFACT_NAME=SpaceConnect-$version-windows-legacy-x64-msi" >> $env:GITHUB_ENV
 
+      # Setup .exe legado (Win7/8/8.1): usa o bundle SEM a trava Win10 e SEM
+      # o pacote arm64 (MoonlightSetupLegacy), apontando pro mesmo MSI gerado acima.
+      - name: Build setup .exe legado (Burn bundle)
+        shell: cmd
+        env:
+          BUILD_FOLDER: ${{ github.workspace }}\desktop
+          INSTALLER_FOLDER: ${{ github.workspace }}\desktop
+        run: |
+          set BUILD_ROOT=%CD%
+          set BUILD_CONFIG=release
+          mkdir build\build-x64-release 2>nul
+          copy /Y Moonlight.msi build\build-x64-release\Moonlight.msi || exit /b 1
+          msbuild -restore wix\MoonlightSetupLegacy\MoonlightSetupLegacy.wixproj /p:Configuration=release /p:Platform=x64 /p:MSBuildProjectExtensionsPath=%BUILD_FOLDER%\ || exit /b 1
+
+      - name: Package setup .exe legado
+        shell: powershell
+        run: |
+          $version = (Get-Content app/version.txt).Trim()
+          $exeOut = "SpaceConnect-$version-windows-legacy-x64-setup.exe"
+          Copy-Item "MoonlightSetupLegacy.exe" $exeOut
+          if (-not (Test-Path $exeOut)) { throw "setup exe legado nao gerado (MoonlightSetupLegacy.exe ausente)" }
+
       - name: Publish to GitHub Releases
         shell: powershell
         working-directory: ${{ github.workspace }}
@@ -238,7 +286,7 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
         run: |
           $version = (Get-Content desktop/app/version.txt).Trim()
-          & ./ci/publish-release.ps1 -Tag "v$version" -Files @("SpaceConnect-$version-windows-legacy-x64.zip", "SpaceConnect-$version-windows-legacy-x64.msi")
+          & ./ci/publish-release.ps1 -Tag "v$version" -Files @("SpaceConnect-$version-windows-legacy-x64.zip", "SpaceConnect-$version-windows-legacy-x64.msi", "SpaceConnect-$version-windows-legacy-x64-setup.exe")
 
 
   macos:
