@@ -20,7 +20,10 @@
           HelpUrl="https://spacecloud.gg"
           UpdateUrl="https://spacecloud.gg"
           DisableModify="yes"
-          IconSourceFile="..\..\app\moonlight.ico">
+          IconSourceFile="..\..\app\moonlight.ico"
+          LogVariable="WixBundleLog"
+          LogPrefix="SpaceConnect_Setup"
+          LogPathExtension="log">
 
     <bal:Condition Message="This version of Space Connect requires a 64-bit version of Windows." Condition="NativeMachine &lt;&gt; 332" />
 
@@ -63,12 +66,15 @@
                   DetectCondition="VCREDIST_14_x64 &gt;= v$(var.VCREDIST_VER)"
                   InstallArguments="/install /quiet /norestart">
 
+        <!-- VCRedist EMBUTIDO (SourceFile), nao baixado em runtime. -->
         <ExePackagePayload Description="Microsoft Visual C++ 2015-2022 Redistributable - x64"
                            ProductName="Microsoft Visual C++ 2015-2022 Redistributable - x64"
                            Size="$(var.VCREDIST_X64_SIZE)"
                            Version="$(var.VCREDIST_VER)"
                            Hash="$(var.VCREDIST_X64_SHA512)"
                            Name="VC_redist.x64.exe"
+                           SourceFile="$(env.BUILD_ROOT)\vcredist\VC_redist.x64.exe"
+                           Compressed="yes"
                            DownloadUrl="$(var.VCREDIST_X64_URL)" />
 
         <!-- Newer version installed is fine -->

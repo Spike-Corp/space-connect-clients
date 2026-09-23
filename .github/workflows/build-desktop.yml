@@ -117,6 +117,15 @@ jobs:
       # e instala o MSI — e o instalador que o cliente baixa. O bundle espera o
       # MSI em build\build-x64-release\ e referencia um pacote arm64 (que nao
       # buildamos) — copiamos um stub x64 pra satisfazer o linker.
+      # Baixa o VC_redist.x64.exe pro bundle EMBUTIR (SourceFile) — sem isso o
+      # bundle baixava em runtime e "sumia" quando a rede/antivirus bloqueava.
+      - name: Download VCRedist for bundling
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path "vcredist" | Out-Null
+          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile "vcredist\VC_redist.x64.exe"
+          if (-not (Test-Path "vcredist\VC_redist.x64.exe")) { throw "falha ao baixar o VC_redist" }
+
       - name: Build setup .exe (Burn bundle)
         shell: cmd
         env:
@@ -264,6 +273,13 @@ jobs:
 
       # Setup .exe legado (Win7/8/8.1): usa o bundle SEM a trava Win10 e SEM
       # o pacote arm64 (MoonlightSetupLegacy), apontando pro mesmo MSI gerado acima.
+      - name: Download VCRedist for bundling (legacy)
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path "vcredist" | Out-Null
+          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile "vcredist\VC_redist.x64.exe"
+          if (-not (Test-Path "vcredist\VC_redist.x64.exe")) { throw "falha ao baixar o VC_redist" }
+
       - name: Build setup .exe legado (Burn bundle)
         shell: cmd
         env:
