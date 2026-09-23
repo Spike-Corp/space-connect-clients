@@ -130,8 +130,6 @@ jobs:
           set BUILD_CONFIG=release
           mkdir build-x64-release 2>nul
           copy /Y Moonlight.msi build-x64-release\Moonlight.msi || exit /b 1
-          mkdir build-arm64-release 2>nul
-          copy /Y Moonlight.msi build-arm64-release\Moonlight.msi || exit /b 1
           msbuild -restore wix\MoonlightSetup\MoonlightSetup.wixproj /p:Configuration=release /p:Platform=x64 /p:MSBuildProjectExtensionsPath=%BUILD_FOLDER%\ || exit /b 1
 
       - name: Package setup .exe
@@ -152,17 +150,20 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
         run: |
           $version = (Get-Content desktop/app/version.txt).Trim()
-          $zipName = "SpaceConnect-$version-windows-x64.zip"
-          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/vnd.github+json" }
+          $headers = @{ Authorization = "******"; Accept = "application/vnd.github+json" }
           $existing = @()
           try {
             $rel = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/Spike-Corp/space-connect-releases/releases/tags/v$version"
             $existing = @($rel.assets | ForEach-Object { $_.name })
           } catch { }
-          if ($existing -contains $zipName) {
-            Write-Host "asset ja existe, pulando publish"
+          # Publica so o que ainda nao existe (idempotente; re-rodar tudo dava 422).
+          $all = @("SpaceConnect-$version-windows-x64.zip", "SpaceConnect-$version-windows-x64.msi", "SpaceConnect-$version-windows-x64-setup.exe")
+          $toPublish = @($all | Where-Object { $existing -notcontains $_ })
+          if ($toPublish.Count -eq 0) {
+            Write-Host "todos os assets ja existem, pulando publish"
           } else {
-            & ./ci/publish-release.ps1 -Tag "v$version" -Files @($zipName, "SpaceConnect-$version-windows-x64.msi", "SpaceConnect-$version-windows-x64-setup.exe")
+            Write-Host "publicando: $($toPublish -join ', ')"
+            & ./ci/publish-release.ps1 -Tag "v$version" -Files $toPublish
           }
 
   windows-legacy:
@@ -289,7 +290,20 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
         run: |
           $version = (Get-Content desktop/app/version.txt).Trim()
-          & ./ci/publish-release.ps1 -Tag "v$version" -Files @("SpaceConnect-$version-windows-legacy-x64.zip", "SpaceConnect-$version-windows-legacy-x64.msi", "SpaceConnect-$version-windows-legacy-x64-setup.exe")
+          $headers = @{ Authorization = "******"; Accept = "application/vnd.github+json" }
+          $existing = @()
+          try {
+            $rel = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/Spike-Corp/space-connect-releases/releases/tags/v$version"
+            $existing = @($rel.assets | ForEach-Object { $_.name })
+          } catch { }
+          $all = @("SpaceConnect-$version-windows-legacy-x64.zip", "SpaceConnect-$version-windows-legacy-x64.msi", "SpaceConnect-$version-windows-legacy-x64-setup.exe")
+          $toPublish = @($all | Where-Object { $existing -notcontains $_ })
+          if ($toPublish.Count -eq 0) {
+            Write-Host "todos os assets legados ja existem, pulando publish"
+          } else {
+            Write-Host "publicando: $($toPublish -join ', ')"
+            & ./ci/publish-release.ps1 -Tag "v$version" -Files $toPublish
+          }
 
 
   macos:

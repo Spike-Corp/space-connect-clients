@@ -42,11 +42,6 @@
                         Result="version"
                         Variable="VCREDIST_14_x64" />
 
-    <util:ProductSearch Id="VCREDIST_14_ARM64"
-                        UpgradeCode="$(var.VCREDIST_ARM64_UPGRADE_CODE)"
-                        Result="version"
-                        Variable="VCREDIST_14_ARM64" />
-
     <BootstrapperApplication>
       <bal:WixStandardBootstrapperApplication ShowVersion="yes"
                                               LicenseFile="license.rtf"
@@ -78,39 +73,15 @@
         <ExitCode Value="1638" Behavior="success" />
       </ExePackage>
 
-      <ExePackage Cache="remove"
-                  PerMachine="yes"
-                  Permanent="yes"
-                  Vital="yes"
-                  InstallCondition="NativeMachine = 43620"
-                  DetectCondition="VCREDIST_14_ARM64 &gt;= v$(var.VCREDIST_VER)"
-                  InstallArguments="/install /quiet /norestart">
-
-        <ExePackagePayload Description="Microsoft Visual C++ 2015-2022 Redistributable - ARM64"
-                           ProductName="Microsoft Visual C++ 2015-2022 Redistributable - ARM64"
-                           Size="$(var.VCREDIST_ARM64_SIZE)"
-                           Version="$(var.VCREDIST_VER)"
-                           Hash="$(var.VCREDIST_ARM64_SHA512)"
-                           Name="VC_redist.arm64.exe"
-                           DownloadUrl="$(var.VCREDIST_ARM64_URL)" />
-
-        <!-- Newer version installed is fine -->
-        <ExitCode Value="1638" Behavior="success" />
-      </ExePackage>
-
+      <!--
+        Build e x64-only: o pacote ARM64 foi removido porque nao buildamos um
+        MSI arm64 (o workflow so produz x64). Com o stub x64 no lugar do arm64 o
+        WiX acusava CacheId duplicado. Se um dia buildarmos arm64, recriar aqui
+        o VCRedist ARM64 + o MsiPackage Moonlight_arm64.
+      -->
       <MsiPackage Id="Moonlight_x64"
                   SourceFile="$(env.BUILD_ROOT)\build-x64-$(env.BUILD_CONFIG)\Moonlight.msi"
                   Name="Moonlight_x64.msi"
-                  InstallCondition="(VersionNT64 AND NOT NativeMachine) OR (NativeMachine = 34404)"
-                  Vital="yes">
-        <MsiProperty Name="INSTALLFOLDER" Value="[InstallFolder]" />
-        <MsiProperty Name="ADDDESKTOPSHORTCUT" Value="[AddDesktopShortcutCheckbox]" />
-      </MsiPackage>
-
-      <MsiPackage Id="Moonlight_arm64"
-                  SourceFile="$(env.BUILD_ROOT)\build-arm64-$(env.BUILD_CONFIG)\Moonlight.msi"
-                  Name="Moonlight_arm64.msi"
-                  InstallCondition="NativeMachine = 43620"
                   Vital="yes">
         <MsiProperty Name="INSTALLFOLDER" Value="[InstallFolder]" />
         <MsiProperty Name="ADDDESKTOPSHORTCUT" Value="[AddDesktopShortcutCheckbox]" />
