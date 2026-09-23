@@ -123,12 +123,15 @@ jobs:
           BUILD_FOLDER: ${{ github.workspace }}\desktop
           INSTALLER_FOLDER: ${{ github.workspace }}\desktop
         run: |
+          rem O bundle le $(env.BUILD_ROOT)\build-x64-$(env.BUILD_CONFIG). O
+          %CD% aqui ja e ...\desktop, entao apontamos BUILD_ROOT pra ele e
+          criamos build-x64-release\ direto (sem o prefixo build\).
           set BUILD_ROOT=%CD%
           set BUILD_CONFIG=release
-          mkdir build\build-x64-release 2>nul
-          copy /Y Moonlight.msi build\build-x64-release\Moonlight.msi || exit /b 1
-          mkdir build\build-arm64-release 2>nul
-          copy /Y Moonlight.msi build\build-arm64-release\Moonlight.msi || exit /b 1
+          mkdir build-x64-release 2>nul
+          copy /Y Moonlight.msi build-x64-release\Moonlight.msi || exit /b 1
+          mkdir build-arm64-release 2>nul
+          copy /Y Moonlight.msi build-arm64-release\Moonlight.msi || exit /b 1
           msbuild -restore wix\MoonlightSetup\MoonlightSetup.wixproj /p:Configuration=release /p:Platform=x64 /p:MSBuildProjectExtensionsPath=%BUILD_FOLDER%\ || exit /b 1
 
       - name: Package setup .exe
@@ -267,8 +270,8 @@ jobs:
         run: |
           set BUILD_ROOT=%CD%
           set BUILD_CONFIG=release
-          mkdir build\build-x64-release 2>nul
-          copy /Y Moonlight.msi build\build-x64-release\Moonlight.msi || exit /b 1
+          mkdir build-x64-release 2>nul
+          copy /Y Moonlight.msi build-x64-release\Moonlight.msi || exit /b 1
           msbuild -restore wix\MoonlightSetupLegacy\MoonlightSetupLegacy.wixproj /p:Configuration=release /p:Platform=x64 /p:MSBuildProjectExtensionsPath=%BUILD_FOLDER%\ || exit /b 1
 
       - name: Package setup .exe legado
