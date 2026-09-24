@@ -604,6 +604,9 @@
 </context>
 <context>
     <name>PcView</name>
+    <message><source>Turn on my VM</source><translation>Ligar minha VM</translation></message>
+    <message><source>Turn off my VM</source><translation>Desligar minha VM</translation></message>
+    <message><source>Turn off your VM now? This will end your current session.</source><translation>Desligar sua VM agora? Isso vai encerrar a sua sessão atual.</translation></message>
     <message>
         <location filename="../gui/PcView.qml" line="22"/>
         <source>Computers</source>
@@ -1082,6 +1085,7 @@
 </context>
 <context>
     <name>SettingsView</name>
+    <message><source>Signed in</source><translation>Conectado</translation></message>
     <message>
         <location filename="../gui/SettingsView.qml" line="15"/>
         <source>Settings</source>
@@ -1522,7 +1526,7 @@
     <message>
         <location filename="../gui/SettingsView.qml" line="710"/>
         <source>Up to 25 Mbps on cloud hosts. Space Cloud&apos;s dedicated physical machines unlock up to 100 Mbps (50 Mbps recommended).</source>
-        <translation type="unfinished"></translation>
+        <translation>Até 25 Mbps em hosts de nuvem. As máquinas físicas dedicadas da Space Cloud liberam até 100 Mbps (50 Mbps recomendado).</translation>
     </message>
     <message>
         <location filename="../gui/SettingsView.qml" line="1438"/>
@@ -1880,6 +1884,14 @@
 </context>
 <context>
     <name>FriendsView</name>
+    <message><source>Per machine:</source><translation>Por máquina:</translation></message>
+    <message><source>Show: ON</source><translation>Exibir: LIGADO</translation></message>
+    <message><source>Show: OFF</source><translation>Exibir: DESLIGADO</translation></message>
+    <message><source>Connect: ON</source><translation>Conectar: LIGADO</translation></message>
+    <message><source>Connect: OFF</source><translation>Conectar: DESLIGADO</translation></message>
+    <message><source>FRIENDS</source><translation>AMIGOS</translation></message>
+    <message><source>No friends yet, add someone above!</source><translation>Nenhum amigo ainda, adicione alguém acima!</translation></message>
+    <message><source>Friend machines need to be running for you to connect, ask your friend to open it first.</source><translation>A máquina do seu amigo precisa estar ligada para você conectar, peça para ele abrir primeiro.</translation></message>
     <message><source>Friends</source><translation>Amigos</translation></message>
     <message><source>Refresh</source><translation>Atualizar</translation></message>
     <message><source>Your username: @%1</source><translation>Seu username: @%1</translation></message>
@@ -1903,10 +1915,10 @@
     <message><source>No friends yet — add someone above!</source><translation>Ainda sem amigos — adicione alguém acima!</translation></message>
     <message><source>No name</source><translation>Sem nome</translation></message>
     <message><source>Remove</source><translation>Remover</translation></message>
-    <message><source>Show my machine: ON</source><translation>Mostrar minha máquina: ON</translation></message>
-    <message><source>Show my machine: OFF</source><translation>Mostrar minha máquina: OFF</translation></message>
-    <message><source>Can connect: ON</source><translation>Pode conectar: ON</translation></message>
-    <message><source>Can connect: OFF</source><translation>Pode conectar: OFF</translation></message>
+    <message><source>Show my machine: ON</source><translation>Mostrar minha máquina: LIGADO</translation></message>
+    <message><source>Show my machine: OFF</source><translation>Mostrar minha máquina: DESLIGADO</translation></message>
+    <message><source>Can connect: ON</source><translation>Pode conectar: LIGADO</translation></message>
+    <message><source>Can connect: OFF</source><translation>Pode conectar: DESLIGADO</translation></message>
     <message><source>Machines shared with you</source><translation>Máquinas compartilhadas com você</translation></message>
     <message><source>Machine</source><translation>Máquina</translation></message>
     <message><source>from %1 · %2</source><translation>de %1 · %2</translation></message>
