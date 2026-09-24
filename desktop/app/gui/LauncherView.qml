@@ -250,7 +250,10 @@ Item {
                     visible: LauncherApi.machines.length > 1
                     model: LauncherApi.machines
                     textRole: "display"
-                    placeholderText: qsTr("Select a machine")
+                    // ComboBox não tem placeholderText (só TextField/TextArea). Atribuir a
+                    // propriedade inexistente fazia a LauncherView inteira falhar ao compilar,
+                    // o StackView.replace() abortava e o app ficava preso na tela de login.
+                    displayText: currentIndex < 0 ? qsTr("Select a machine") : currentText
                     Layout.fillWidth: true
 
                     function syncSelection() {
