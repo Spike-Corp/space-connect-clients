@@ -129,12 +129,23 @@ jobs:
 
       - name: Setup Inno Setup
         # Runner e self-hosted: instala uma vez e reaproveita nos builds seguintes.
+        # A URL "jrsoftware.org/download.php/is.exe" NAO serve o binario: ela
+        # redireciona pra pagina HTML isdl.php, entao o Invoke-WebRequest
+        # gravava 10KB de HTML e o Start-Process morria com "O arquivo ou pasta
+        # esta corrompido e ilegivel". Usar o release versionado do GitHub e
+        # validar a assinatura MZ antes de executar.
         shell: powershell
         run: |
           $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) {
-            $out = Join-Path $env:TEMP "innosetup-6.exe"
-            Invoke-WebRequest -Uri "https://jrsoftware.org/download.php/is.exe" -OutFile $out
+            $out = Join-Path $env:TEMP "innosetup-6.7.3.exe"
+            $url = "https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe"
+            $ProgressPreference = 'SilentlyContinue'
+            Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $out
+            $head = [System.IO.File]::ReadAllBytes($out)[0..1]
+            if ($head[0] -ne 0x4D -or $head[1] -ne 0x5A) {
+              throw "download do Inno Setup nao e um executavel (esperado MZ, veio $([char]$head[0])$([char]$head[1]))"
+            }
             Start-Process -FilePath $out -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' -Wait -NoNewWindow
             Remove-Item $out -Force -ErrorAction SilentlyContinue
           }
