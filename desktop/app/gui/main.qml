@@ -202,6 +202,12 @@ ApplicationWindow {
     //
     // Based on https://stackoverflow.com/questions/13923794/how-to-do-a-is-a-typeof-or-instanceof-in-qml
     function qmltypeof(obj, className) { // QtObject, string -> bool
+        // obj pode ser null (ex.: stackView.currentItem durante a troca de view).
+        // Sem esta guarda o toString() lançava TypeError e abortava a função que
+        // chamou — incluindo showLauncherView(), que então nunca chegava a fazer
+        // o replace() e deixava o usuário parado na tela de login.
+        if (!obj)
+            return false
         // className plus "(" is the class instance without modification
         // className plus "_QML" is the class instance with user-defined properties
         var str = obj.toString();
@@ -253,6 +259,13 @@ ApplicationWindow {
                 window.showLauncherView()
             else
                 window.showLoginView()
+        }
+        // Rede de segurança: loggedInChanged só dispara na MUDANÇA do valor. Se por
+        // qualquer caminho o app já estiver com loggedIn=true ao autenticar de novo,
+        // este sinal — emitido em TODO login/2FA bem-sucedido — garante a navegação.
+        // showLauncherView() é idempotente, então chamar duas vezes é inofensivo.
+        function onLoginSucceeded() {
+            window.showLauncherView()
         }
         // O sinal twoFactorRequired é tratado no LoginView (abre o modal lá).
     }

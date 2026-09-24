@@ -69,7 +69,13 @@ LauncherApi::LauncherApi(QObject* parent)
             m_RefreshToken = settings.value(QStringLiteral("auth/refreshToken")).toString();
             m_Email = m_SavedEmail;
             if (!m_RefreshToken.isEmpty()) {
-                m_LoggedIn = true;
+                // NÃO marcar m_LoggedIn aqui. A tela inicial é SEMPRE a LoginView e a
+                // navegação do main.qml só reage à MUDANÇA de loggedIn. Marcando true
+                // às cegas no construtor, um login manual posterior não mudava o valor,
+                // loggedInChanged nunca era emitido e o app ficava preso na tela de
+                // login mesmo já autenticado (relatos "digito a senha e não acontece
+                // nada", com loggedIn=true no report). Quem confirma a sessão salva é o
+                // refreshTokens(), que emite a transição false -> true e navega.
                 QTimer::singleShot(100, this, &LauncherApi::refreshTokens);
             }
         }

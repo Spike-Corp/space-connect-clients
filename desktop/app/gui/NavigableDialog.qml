@@ -1,5 +1,5 @@
 import QtQuick 2.0
-import QtQuick.Controls 2.2
+import QtQuick.Controls 2.3
 
 Dialog {
     // We should use Overlay.overlay here but that's not available in Qt 5.9 :(
