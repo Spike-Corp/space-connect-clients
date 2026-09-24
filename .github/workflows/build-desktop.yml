@@ -113,12 +113,13 @@ jobs:
           Copy-Item "Moonlight.msi" "../$msiOut"
           echo "MSI_ARTIFACT_NAME=SpaceConnect-$version-windows-x64-msi" >> $env:GITHUB_ENV
 
-      # Setup .exe (bundle WiX Burn): bootstrapper visual que baixa o VCRedist
-      # e instala o MSI — e o instalador que o cliente baixa. O bundle espera o
-      # MSI em build\build-x64-release\ e referencia um pacote arm64 (que nao
-      # buildamos) — copiamos um stub x64 pra satisfazer o linker.
-      # Baixa o VC_redist.x64.exe pro bundle EMBUTIR (SourceFile) — sem isso o
-      # bundle baixava em runtime e "sumia" quando a rede/antivirus bloqueava.
+      # Setup .exe (Inno Setup): e o instalador que o cliente baixa.
+      # Era um bundle WiX Burn, que extrai um segundo executavel (wixstdba.exe)
+      # pro %TEMP% e o executa. Como o binario nao e assinado, o
+      # SmartScreen/Defender matava esse processo filho sem mensagem nenhuma:
+      # o usuario clicava em "Executar assim mesmo" e o instalador sumia.
+      # O Inno desenha a UI no proprio processo ja autorizado e ainda pergunta
+      # a pasta de instalacao (o Burn nunca perguntava).
       - name: Download VCRedist for bundling
         shell: powershell
         run: |
@@ -126,29 +127,36 @@ jobs:
           Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile "vcredist\VC_redist.x64.exe"
           if (-not (Test-Path "vcredist\VC_redist.x64.exe")) { throw "falha ao baixar o VC_redist" }
 
-      - name: Build setup .exe (Burn bundle)
-        shell: cmd
-        env:
-          BUILD_FOLDER: ${{ github.workspace }}\desktop
-          INSTALLER_FOLDER: ${{ github.workspace }}\desktop
+      - name: Setup Inno Setup
+        # Runner e self-hosted: instala uma vez e reaproveita nos builds seguintes.
+        shell: powershell
         run: |
-          rem O bundle le $(env.BUILD_ROOT)\build-x64-$(env.BUILD_CONFIG). O
-          %CD% aqui ja e ...\desktop, entao apontamos BUILD_ROOT pra ele e
-          criamos build-x64-release\ direto (sem o prefixo build\).
-          set BUILD_ROOT=%CD%
-          set BUILD_CONFIG=release
-          mkdir build-x64-release 2>nul
-          copy /Y Moonlight.msi build-x64-release\Moonlight.msi || exit /b 1
-          msbuild -restore wix\MoonlightSetup\MoonlightSetup.wixproj /p:Configuration=release /p:Platform=x64 /p:MSBuildProjectExtensionsPath=%BUILD_FOLDER%\ || exit /b 1
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            $out = Join-Path $env:TEMP "innosetup-6.exe"
+            Invoke-WebRequest -Uri "https://jrsoftware.org/download.php/is.exe" -OutFile $out
+            Start-Process -FilePath $out -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' -Wait -NoNewWindow
+            Remove-Item $out -Force -ErrorAction SilentlyContinue
+          }
+          if (-not (Test-Path $iscc)) { throw "ISCC.exe nao encontrado apos instalar o Inno Setup" }
+          echo "ISCC=$iscc" >> $env:GITHUB_ENV
+
+      - name: Build setup .exe (Inno Setup)
+        shell: powershell
+        run: |
+          $version = (Get-Content app/version.txt).Trim()
+          & "$env:ISCC" "/DMyAppVersion=$version" "installer\SpaceConnect.iss"
+          if ($LASTEXITCODE -ne 0) { throw "ISCC falhou com codigo $LASTEXITCODE" }
 
       - name: Package setup .exe
         shell: powershell
         run: |
           $version = (Get-Content app/version.txt).Trim()
-          $exeOut = "SpaceConnect-$version-windows-x64-setup.exe"
-          # O Publish roda na RAIZ do workspace — joga o exe pra la.
-          Copy-Item "MoonlightSetup.exe" "..\$exeOut"
-          if (-not (Test-Path "..\$exeOut")) { throw "setup exe nao gerado (MoonlightSetup.exe ausente)" }
+          $exeOut = "SpaceConnect-Setup-$version-windows-x64.exe"
+          # ISCC grava em desktop\ (OutputDir=.. no .iss). O Publish roda na
+          # RAIZ do workspace — joga o exe pra la.
+          Copy-Item $exeOut "..\$exeOut" -Force
+          if (-not (Test-Path "..\$exeOut")) { throw "setup exe nao gerado ($exeOut ausente)" }
 
       # Artifacts finais saem via GitHub Release (repo publico
       # space-connect-releases) — actions/upload-artifact fica indisponivel
@@ -167,7 +175,7 @@ jobs:
             $existing = @($rel.assets | ForEach-Object { $_.name })
           } catch { }
           # Publica so o que ainda nao existe (idempotente; re-rodar tudo dava 422).
-          $all = @("SpaceConnect-$version-windows-x64.zip", "SpaceConnect-$version-windows-x64.msi", "SpaceConnect-$version-windows-x64-setup.exe")
+          $all = @("SpaceConnect-$version-windows-x64.zip", "SpaceConnect-$version-windows-x64.msi", "SpaceConnect-Setup-$version-windows-x64.exe")
           $toPublish = @($all | Where-Object { $existing -notcontains $_ })
           if ($toPublish.Count -eq 0) {
             Write-Host "todos os assets ja existem, pulando publish"
