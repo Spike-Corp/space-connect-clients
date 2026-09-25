@@ -746,6 +746,24 @@ int ComputerManager::findComputerIndexByAddress(QString address)
     return -1;
 }
 
+QString ComputerManager::findComputerAddressByIndex(int index)
+{
+    // Inverso do findComputerIndexByAddress — usado pelo PcView pra mapear o
+    // computador renomeado de volta pro machineId da conta (auto-rename).
+    const QVector<NvComputer*> hosts = getComputers();
+    if (index < 0 || index >= hosts.count())
+        return QString();
+    NvComputer* computer = hosts[index];
+    QReadLocker computerLock(&computer->lock);
+    const NvAddress& best = !computer->activeAddress.address().isEmpty() ? computer->activeAddress
+                          : !computer->remoteAddress.address().isEmpty() ? computer->remoteAddress
+                          : !computer->manualAddress.address().isEmpty() ? computer->manualAddress
+                          : computer->localAddress;
+    if (best.address().isEmpty())
+        return QString();
+    return best.address() + QStringLiteral(":") + QString::number(best.port());
+}
+
 class PendingAddTask : public QObject, public QRunnable
 {
     Q_OBJECT

@@ -2,6 +2,7 @@
 
 #include "recaptchafetcher.h"
 
+#include <QHash>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QObject>
@@ -124,6 +125,11 @@ public:
     // Override por máquina (vence o global). machineId vazio = global.
     Q_INVOKABLE void setFriendMachinePermission(const QString& friendId, const QString& machineId, bool showMachine, bool allowConnect);
     Q_INVOKABLE void connectFriendMachine(const QString& machineId);
+    // Renomeia a VM no backend (só funciona pra VM do próprio usuário — o
+    // backend rejeita VM de amigo; nesse caso o rename fica só local no app).
+    Q_INVOKABLE void renameMachine(const QString& machineId, const QString& name);
+    // machineId da última conexão aberta pra um endereço (auto-rename no PcView).
+    Q_INVOKABLE QString machineIdForAddress(const QString& address) const;
     Q_INVOKABLE void setUsername(const QString& username);
     Q_INVOKABLE void checkUsername(const QString& username);
     Q_INVOKABLE void logout();
@@ -143,7 +149,7 @@ signals:
     void machinesChanged();
     void loginSucceeded();
     void twoFactorRequired();
-    void connectionReady(QString address);
+    void connectionReady(QString address, QString machineId, QString name);
     void fileUploadSucceeded(QString fileName);
     void bugReportFinished(bool success, QString message);
     void usbHelperMissing();
@@ -212,6 +218,9 @@ private:
     QVariantList m_FriendMachines;
     // Máquina de amigo sendo conectada agora (o PIN vai pra rota friend-aware).
     QString m_PendingFriendMachineId;
+    // endereço ("host:port") → machineId das conexões abertas neste app —
+    // permite ao PcView aplicar/salvar o nome da conta no computador pareado.
+    QHash<QString, QString> m_MachineIdByAddress;
     QString m_MyUsername;
     QVariantList m_MyMachines;
 };

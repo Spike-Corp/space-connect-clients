@@ -604,9 +604,9 @@
 </context>
 <context>
     <name>PcView</name>
-    <message><source>Turn on my VM</source><translation>Ligar minha VM</translation></message>
-    <message><source>Turn off my VM</source><translation>Desligar minha VM</translation></message>
-    <message><source>Turn off your VM now? This will end your current session.</source><translation>Desligar sua VM agora? Isso vai encerrar a sua sessão atual.</translation></message>
+    <message><source>Turn on my VM</source><translation>Ligar meu PC</translation></message>
+    <message><source>Turn off my VM</source><translation>Desligar meu PC</translation></message>
+    <message><source>Turn off your VM now? This will end your current session.</source><translation>Desligar seu PC agora? Isso vai encerrar a sua sessão atual.</translation></message>
     <message>
         <location filename="../gui/PcView.qml" line="22"/>
         <source>Computers</source>

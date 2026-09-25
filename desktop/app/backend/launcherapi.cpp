@@ -440,10 +440,11 @@ void LauncherApi::requestConnection()
 
     setBusy(true);
     QString path = QStringLiteral("connection");
-    if (!effectiveMachineId().isEmpty())
-        path += QStringLiteral("?machineId=") + effectiveMachineId();
+    const QString targetMachineId = effectiveMachineId();
+    if (!targetMachineId.isEmpty())
+        path += QStringLiteral("?machineId=") + targetMachineId;
     request("GET", path, QJsonObject(), true,
-            [this](int status, const QJsonObject& root) {
+            [this, targetMachineId](int status, const QJsonObject& root) {
                 setBusy(false);
                 if (status < 200 || status >= 300) {
                     setError(errorObject(root).value(QStringLiteral("message")).toString());
@@ -461,8 +462,20 @@ void LauncherApi::requestConnection()
                         settings.setValue(QStringLiteral("launcherrecommendedbitratekbps"),
                                           connection.recommendedBitrateKbps);
                     }
-                    emit connectionReady(connection.host + QStringLiteral(":")
-                                         + QString::number(connection.port));
+                    const QString address = connection.host + QStringLiteral(":")
+                                            + QString::number(connection.port);
+                    // Nome da conta (o dono pode ter renomeado) — vai junto pro
+                    // PcView aplicar em cima do hostname do Apollo (SCG-VMF).
+                    QString name;
+                    for (const QVariant& item : m_Machines) {
+                        const QVariantMap map = item.toMap();
+                        if (map.value(QStringLiteral("id")).toString() == targetMachineId) {
+                            name = map.value(QStringLiteral("name")).toString();
+                            break;
+                        }
+                    }
+                    m_MachineIdByAddress.insert(address, targetMachineId);
+                    emit connectionReady(address, targetMachineId, name);
                 }
                 catch (const std::exception&) {
                     setError(QStringLiteral("Conexão Moonlight ainda não disponível"));
@@ -683,6 +696,8 @@ void LauncherApi::request(
         reply = m_Network.sendCustomRequest(request, "DELETE");
     else if (method == "PUT")
         reply = m_Network.sendCustomRequest(request, "PUT", QJsonDocument(body).toJson(QJsonDocument::Compact));
+    else if (method == "PATCH")
+        reply = m_Network.sendCustomRequest(request, "PATCH", QJsonDocument(body).toJson(QJsonDocument::Compact));
     else
         reply = m_Network.post(request, QJsonDocument(body).toJson(QJsonDocument::Compact));
 
@@ -1009,13 +1024,63 @@ void LauncherApi::connectFriendMachine(const QString& machineId)
                     // O PIN do pareamento vai pra rota friend-aware enquanto esta
                     // conexão estiver em curso.
                     m_PendingFriendMachineId = machineId;
-                    emit connectionReady(connection.host + QStringLiteral(":")
-                                         + QString::number(connection.port));
+                    const QString address = connection.host + QStringLiteral(":")
+                                            + QString::number(connection.port);
+                    // Nome que o DONO deu à VM (vem do /friends/machines) — o
+                    // PcView aplica em cima do hostname do Apollo (SCG-VMF).
+                    QString name;
+                    for (const QVariant& item : m_FriendMachines) {
+                        const QVariantMap map = item.toMap();
+                        if (map.value(QStringLiteral("machineId")).toString() == machineId) {
+                            name = map.value(QStringLiteral("name")).toString();
+                            break;
+                        }
+                    }
+                    m_MachineIdByAddress.insert(address, machineId);
+                    emit connectionReady(address, machineId, name);
                 }
                 catch (const std::exception&) {
                     emit friendActionResult(false, tr("Conexão ainda não disponível na máquina do seu amigo"));
                 }
             });
+}
+
+void LauncherApi::renameMachine(const QString& machineId, const QString& name)
+{
+    const QString trimmed = name.trimmed().left(60);
+    if (!m_LoggedIn || machineId.isEmpty() || trimmed.isEmpty()) return;
+    request("PATCH", QStringLiteral("machines/") + machineId + QStringLiteral("/name"),
+            QJsonObject{{QStringLiteral("name"), trimmed}}, true,
+            [this, machineId, trimmed](int status, const QJsonObject&) {
+                if (status < 200 || status >= 300) return; // VM de amigo etc. — fica só local
+                // Atualiza a lista em memória pra Launcher/seletor refletirem na hora.
+                for (int i = 0; i < m_Machines.size(); i++) {
+                    QVariantMap map = m_Machines[i].toMap();
+                    if (map.value(QStringLiteral("id")).toString() == machineId) {
+                        map.insert(QStringLiteral("name"), trimmed);
+                        m_Machines[i] = map;
+                        emit machinesChanged();
+                        break;
+                    }
+                }
+            });
+}
+
+QString LauncherApi::machineIdForAddress(const QString& address) const
+{
+    const QString exact = m_MachineIdByAddress.value(address);
+    if (!exact.isEmpty())
+        return exact;
+    // Fallback por host: o endereço salvo no computador pode divergir do
+    // "host:port" do /connection (activeAddress x remoteAddress, porta default).
+    const QString host = address.section(QLatin1Char(':'), 0, 0);
+    if (host.isEmpty())
+        return QString();
+    for (auto it = m_MachineIdByAddress.constBegin(); it != m_MachineIdByAddress.constEnd(); ++it) {
+        if (it.key().section(QLatin1Char(':'), 0, 0) == host)
+            return it.value();
+    }
+    return QString();
 }
 
 void LauncherApi::setUsername(const QString& username)

@@ -9,6 +9,10 @@ Item {
     id: launcherView
     objectName: qsTr("SpaceCloud")
     property bool addingComputer: false
+    // Endereço/nome da conexão em abertura — o nome da conta é aplicado no
+    // PcView por cima do hostname do Apollo (SCG-VMF).
+    property string pendingConnectAddress: ""
+    property string pendingConnectName: ""
 
     function needsMachine() {
         return LauncherApi.state === "idle" && LauncherApi.machinesLoaded && !LauncherApi.hasMachine
@@ -112,8 +116,10 @@ Item {
 
     Connections {
         target: LauncherApi
-        function onConnectionReady(address) {
+        function onConnectionReady(address, machineId, name) {
             addingComputer = true
+            pendingConnectAddress = address
+            pendingConnectName = name || ""
             ComputerManager.addNewHostManually(address)
         }
         // Navegação de login/logout é centralizada no main.qml
@@ -147,7 +153,12 @@ Item {
                 return
             addingComputer = false
             if (success)
-                stackView.replace("qrc:/gui/PcView.qml")
+                // push (e nao replace) pra manter o Launcher na pilha —
+                // assim o PcView mostra o botao de voltar pro inicio.
+                stackView.push("qrc:/gui/PcView.qml", {
+                    "autoAddress": pendingConnectAddress,
+                    "autoName": pendingConnectName
+                })
             else
                 errorDialog.open()
         }
@@ -156,7 +167,9 @@ Item {
     Timer {
         interval: 5000
         repeat: true
-        running: true
+        // Só faz polling enquanto o Launcher é a tela ativa — com o PcView
+        // agora empilhado por cima (push), isso evita refresh em dobro.
+        running: StackView.status === StackView.Active
         triggeredOnStart: true
         onTriggered: LauncherApi.refreshStatus()
     }

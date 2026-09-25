@@ -12,6 +12,8 @@ Item {
     objectName: qsTr("Friends")
     property bool addingComputer: false
     property string friendConnectAddress: ""
+    // Nome que o dono deu à VM — aplicado no PcView por cima do SCG-VMF.
+    property string friendConnectName: ""
 
     Component.onCompleted: LauncherApi.refreshFriends()
 
@@ -22,9 +24,10 @@ Item {
             friendResultDialog.text = message
             friendResultDialog.open()
         }
-        function onConnectionReady(address) {
+        function onConnectionReady(address, machineId, name) {
             addingComputer = true
             friendConnectAddress = address
+            friendConnectName = name || ""
             ComputerManager.addNewHostManually(address)
         }
         function onUsernameCheckResult(available, reason) {
@@ -46,7 +49,12 @@ Item {
                 // Abre DIRETO o PC do amigo (PcView abre o AppView pelo endereço,
                 // pareando se precisar) — antes caía na grade e o usuário clicava
                 // no PRÓPRIO PC por engano.
-                stackView.replace("qrc:/gui/PcView.qml", { "autoOpenAddress": friendConnectAddress })
+                // push (e nao replace) pra manter a pilha e o botao de voltar.
+                stackView.push("qrc:/gui/PcView.qml", {
+                    "autoOpenAddress": friendConnectAddress,
+                    "autoAddress": friendConnectAddress,
+                    "autoName": friendConnectName
+                })
             }
             else
                 errorDialog.open()

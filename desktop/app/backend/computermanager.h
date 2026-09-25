@@ -233,6 +233,8 @@ public:
     // não achar.
     Q_INVOKABLE int findComputerIndexByAddress(QString address);
 
+    Q_INVOKABLE QString findComputerAddressByIndex(int index);
+
     // Returns the reported GPU model string (e.g. "Tesla T4", "NVIDIA L4") of the first
     // known computer, or an empty string if none are known yet or the info hasn't been
     // fetched via /serverinfo yet. Used by SettingsView to decide whether to unlock the

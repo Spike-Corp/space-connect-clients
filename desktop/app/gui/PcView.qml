@@ -17,6 +17,12 @@ CenteredGridView {
     // ele caía na lista e clicava no próprio PC por engano.
     property string autoOpenAddress: ""
     property bool autoOpenDone: false
+    // Endereço + nome da conta da VM que acabou de ser conectada — o nome dado
+    // pelo dono (backend) é aplicado por cima do hostname do Apollo (SCG-VMF),
+    // então dono e amigos veem o MESMO nome.
+    property string autoAddress: ""
+    property string autoName: ""
+    property bool autoNameDone: false
 
     id: pcGrid
     focus: true
@@ -61,12 +67,27 @@ CenteredGridView {
         repeat: true
         running: false
         onTriggered: {
+            tryApplyAutoName()
             if (autoOpenDone || !autoOpenAddress) {
                 stop()
                 return
             }
             tryAutoOpen()
         }
+    }
+
+    // Aplica o nome da conta (ex.: "PC do Davi") no computador pareado — roda
+    // uma vez por abertura, assim que o host aparece no modelo.
+    function tryApplyAutoName() {
+        if (autoNameDone || !autoAddress || !autoName)
+            return
+        var idx = ComputerManager.findComputerIndexByAddress(autoAddress)
+        if (idx < 0)
+            return  // ainda não adicionou — tenta de novo no próximo tick
+        autoNameDone = true
+        var current = computerModel.data(computerModel.index(idx, 0), ComputerModel.NameRole)
+        if (current !== autoName)
+            computerModel.renameComputer(idx, autoName)
     }
 
     // Conexão direta na VM de um amigo: acha o PC pelo endereço e abre o AppView
@@ -104,8 +125,8 @@ CenteredGridView {
 
     Connections {
         target: computerModel
-        function onModelReset() { tryAutoOpen() }
-        function onRowsInserted() { tryAutoOpen() }
+        function onModelReset() { tryApplyAutoName(); tryAutoOpen() }
+        function onRowsInserted() { tryApplyAutoName(); tryAutoOpen() }
     }
 
     StackView.onDeactivating: {
@@ -466,6 +487,15 @@ CenteredGridView {
         onAccepted: {
             if (editText.text) {
                 computerModel.renameComputer(pcIndex, editText.text)
+                // Se essa VM é da conta do usuário, grava o nome no backend —
+                // assim amigos que conectam nela veem o MESMO nome (e não
+                // SCG-VMF). Pra VM de amigo o backend rejeita e fica só local.
+                var addr = ComputerManager.findComputerAddressByIndex(pcIndex)
+                if (addr) {
+                    var mid = LauncherApi.machineIdForAddress(addr)
+                    if (mid)
+                        LauncherApi.renameMachine(mid, editText.text)
+                }
             }
         }
 
