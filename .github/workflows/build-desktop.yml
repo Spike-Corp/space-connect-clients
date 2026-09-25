@@ -195,6 +195,126 @@ jobs:
             & ./ci/publish-release.ps1 -Tag "v$version" -Files $toPublish
           }
 
+  windows-xd:
+    name: XD Console (staff, Windows x64)
+    # App da EQUIPE: mesmo codigo, qmake CONFIG+=xdconsole (TARGET=XDConsole,
+    # DEFINES+=XD_CONSOLE) — login admin do site + console de VMs (/admin/xd).
+    runs-on: [self-hosted, Windows, x64]
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSVC (x64)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4.3.1
+        with:
+          version: '6.7.3'
+          host: windows
+          target: desktop
+          arch: win64_msvc2019_64
+          cache: true
+
+      - name: Build XD Console (Release, x64)
+        shell: cmd
+        run: |
+          qmake moonlight-qt.pro "CONFIG+=release xdconsole" || exit /b 1
+          scripts\jom.exe release || exit /b 1
+          if not exist app\release\XDConsole.exe exit /b 1
+
+      - name: Deploy
+        shell: cmd
+        run: |
+          mkdir deploy-xd || exit /b 1
+          copy /Y app\release\XDConsole.exe deploy-xd\ || exit /b 1
+          copy /Y libs\windows\lib\x64\*.dll deploy-xd\ || exit /b 1
+          copy /Y AntiHooking\release\AntiHooking.dll deploy-xd\ || exit /b 1
+          copy /Y libs\windows\lib\x64\discord-rpc.dll deploy-xd\ || exit /b 1
+          copy /Y app\SDL_GameControllerDB\gamecontrollerdb.txt deploy-xd\ || exit /b 1
+          windeployqt --release --qmldir app\gui --no-opengl-sw --no-sql --no-system-d3d-compiler --no-system-dxc-compiler --skip-plugin-types qmltooling,generic --no-ffmpeg --no-quickcontrols2fusion --no-quickcontrols2imagine --no-quickcontrols2universal deploy-xd\XDConsole.exe || exit /b 1
+
+      - name: Bundle VC++ CRT DLLs
+        shell: powershell
+        run: |
+          $crt = Get-ChildItem 'C:\Program Files (x86)\Microsoft Visual Studio\2022\*\VC\Redist\MSVC\*\x64\Microsoft.VC143.CRT' -Directory -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $crt) { throw 'Pasta Microsoft.VC143.CRT x64 nao encontrada no VS Build Tools' }
+          Copy-Item "$($crt.FullName)\*.dll" deploy-xd\ -Force
+
+      - name: Package portable zip
+        shell: powershell
+        run: |
+          $version = (Get-Content app/version.txt).Trim()
+          Compress-Archive -Path deploy-xd/* -DestinationPath "../XDConsole-$version-windows-x64.zip" -Force
+
+      - name: Download VCRedist for bundling
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path "vcredist" | Out-Null
+          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile "vcredist\VC_redist.x64.exe"
+          if (-not (Test-Path "vcredist\VC_redist.x64.exe")) { throw "falha ao baixar o VC_redist" }
+
+      - name: Setup Inno Setup
+        shell: powershell
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            $out = Join-Path $env:TEMP "innosetup-6.7.3.exe"
+            $url = "https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe"
+            $ProgressPreference = 'SilentlyContinue'
+            Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $out
+            $head = [System.IO.File]::ReadAllBytes($out)[0..1]
+            if ($head[0] -ne 0x4D -or $head[1] -ne 0x5A) {
+              throw "download do Inno Setup nao e um executavel"
+            }
+            Start-Process -FilePath $out -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' -Wait -NoNewWindow
+            Remove-Item $out -Force -ErrorAction SilentlyContinue
+          }
+          if (-not (Test-Path $iscc)) { throw "ISCC.exe nao encontrado apos instalar o Inno Setup" }
+          echo "ISCC=$iscc" >> $env:GITHUB_ENV
+
+      - name: Build setup .exe (Inno Setup)
+        shell: powershell
+        run: |
+          $version = (Get-Content app/version.txt).Trim()
+          & "$env:ISCC" "/DMyAppVersion=$version" "installer\XDConsole.iss"
+          if ($LASTEXITCODE -ne 0) { throw "ISCC falhou com codigo $LASTEXITCODE" }
+
+      - name: Package setup .exe
+        shell: powershell
+        run: |
+          $version = (Get-Content app/version.txt).Trim()
+          $exeOut = "XDConsole-Setup-$version-windows-x64.exe"
+          Copy-Item $exeOut "..\$exeOut" -Force
+          if (-not (Test-Path "..\$exeOut")) { throw "setup exe nao gerado ($exeOut ausente)" }
+
+      - name: Publish to GitHub Releases
+        shell: powershell
+        working-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          $version = (Get-Content desktop/app/version.txt).Trim()
+          $headers = @{ Authorization = "******"; Accept = "application/vnd.github+json" }
+          $existing = @()
+          try {
+            $rel = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/Spike-Corp/space-connect-releases/releases/tags/v$version"
+            $existing = @($rel.assets | ForEach-Object { $_.name })
+          } catch { }
+          $all = @("XDConsole-$version-windows-x64.zip", "XDConsole-Setup-$version-windows-x64.exe")
+          $toPublish = @($all | Where-Object { $existing -notcontains $_ })
+          if ($toPublish.Count -eq 0) {
+            Write-Host "todos os assets ja existem, pulando publish"
+          } else {
+            Write-Host "publicando: $($toPublish -join ', ')"
+            & ./ci/publish-release.ps1 -Tag "v$version" -Files $toPublish
+          }
+
   windows-legacy:
     name: Windows x64 (legacy, Win7/8/8.1)
     # Qt 6 dropped support for Windows 7/8/8.1 (requires Windows 10+), which is

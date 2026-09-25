@@ -26,6 +26,9 @@ public:
     Q_PROPERTY(QString unmappedGamepads MEMBER unmappedGamepads NOTIFY unmappedGamepadsChanged)
     Q_PROPERTY(QSize maximumResolution MEMBER maximumResolution CONSTANT)
     Q_PROPERTY(QString versionString MEMBER versionString CONSTANT)
+    // true no build xdconsole (CONFIG+=xdconsole) — a UI esconde os botões de
+    // cliente (catálogo, configurações de stream) e mostra só o console staff.
+    Q_PROPERTY(bool isXdConsole MEMBER isXdConsole CONSTANT)
     Q_PROPERTY(bool supportsHdr MEMBER supportsHdr CONSTANT)
     Q_PROPERTY(bool usesMaterial3Theme MEMBER usesMaterial3Theme CONSTANT)
 
@@ -62,6 +65,7 @@ private:
     QList<QRect> monitorSafeAreaResolutions;
     QList<int> monitorRefreshRates;
     QString versionString;
+    bool isXdConsole = false;
     bool supportsHdr;
     bool usesMaterial3Theme;
 };

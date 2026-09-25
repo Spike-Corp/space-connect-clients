@@ -46,6 +46,7 @@
 #include "backend/computermanager.h"
 #include "backend/systemproperties.h"
 #include "backend/launcherapi.h"
+#include "backend/xdapi.h"
 #include "backend/latencytester.h"
 #include "streaming/session.h"
 #include "settings/streamingpreferences.h"
@@ -305,7 +306,11 @@ int main(int argc, char *argv[])
     // it is critical that these be called before Path::initialize().
     QCoreApplication::setOrganizationName("Space Connect");
     QCoreApplication::setOrganizationDomain("spacecloud.gg");
+#ifdef XD_CONSOLE
+    QCoreApplication::setApplicationName("XD Console");
+#else
     QCoreApplication::setApplicationName("Space Connect");
+#endif
 
     if (QFile(QDir::currentPath() + "/portable.dat").exists()) {
         QSettings::setDefaultFormat(QSettings::IniFormat);
@@ -710,6 +715,11 @@ int main(int argc, char *argv[])
                                           [](QQmlEngine*, QJSEngine*) -> QObject* {
                                               return new LauncherApi();
                                           });
+    qmlRegisterSingletonType<XdApi>("XdApi", 1, 0,
+                                    "XdApi",
+                                    [](QQmlEngine*, QJSEngine*) -> QObject* {
+                                        return new XdApi();
+                                    });
     qmlRegisterSingletonType<LatencyTester>("LatencyTester", 1, 0,
                                             "LatencyTester",
                                             [](QQmlEngine*, QJSEngine*) -> QObject* {
@@ -769,7 +779,12 @@ int main(int argc, char *argv[])
 
     switch (commandLineParserResult) {
     case GlobalCommandLineParser::NormalStartRequested:
+#ifdef XD_CONSOLE
+        // Build XD Console: abre no login da staff, não no fluxo de cliente.
+        initialView = "qrc:/gui/XdLoginView.qml";
+#else
         initialView = "qrc:/gui/LoginView.qml";
+#endif
         break;
     case GlobalCommandLineParser::StreamRequested:
         {

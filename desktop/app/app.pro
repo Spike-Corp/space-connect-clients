@@ -1,7 +1,13 @@
 QT += core quick network quickcontrols2 svg
 CONFIG += c++11
 
-unix:!macx {
+# Build do XD CONSOLE (app da staff): qmake CONFIG+=xdconsole
+# Mesmo código, binário e identidade próprios (XDConsole.exe), tela inicial
+# de login admin e console de VMs em vez do fluxo de cliente.
+xdconsole {
+    TARGET = XDConsole
+    DEFINES += XD_CONSOLE
+} else: unix:!macx {
     TARGET = spaceconnect
 } else {
     # On macOS, this is the name displayed in the global menu bar
@@ -181,6 +187,7 @@ SOURCES += \
     backend/identitymanager.cpp \
     backend/micforwarder.cpp \
     backend/launcherapi.cpp \
+    backend/xdapi.cpp \
     backend/latencytester.cpp \
     backend/launcherjson.cpp \
     backend/recaptchafetcher.cpp \
@@ -228,6 +235,7 @@ HEADERS += \
     backend/identitymanager.h \
     backend/micforwarder.h \
     backend/launcherapi.h \
+    backend/xdapi.h \
     backend/latencytester.h \
     backend/launcherjson.h \
     backend/recaptchafetcher.h \

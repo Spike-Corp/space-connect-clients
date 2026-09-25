@@ -15,6 +15,9 @@
 SystemProperties::SystemProperties()
 {
     versionString = QString(VERSION_STR);
+#ifdef XD_CONSOLE
+    isXdConsole = true;
+#endif
     hasDesktopEnvironment = WMUtils::isRunningDesktopEnvironment();
     isRunningWayland = WMUtils::isRunningWayland();
     isRunningXWayland = isRunningWayland && QGuiApplication::platformName() == "xcb";

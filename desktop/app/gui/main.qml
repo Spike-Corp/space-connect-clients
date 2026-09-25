@@ -388,7 +388,9 @@ ApplicationWindow {
 
             NavigableToolButton {
                 // Only make the button visible if the user has navigated somewhere.
-                visible: stackView.depth > 1
+                // (No XD Console o "voltar" do console cairia no login — confunde;
+                //  a saída de lá é pelo botão Sair, que desloga.)
+                visible: stackView.depth > 1 && !SystemProperties.isXdConsole
 
                 iconSource: "qrc:/res/arrow_left.svg"
 
@@ -447,7 +449,7 @@ ApplicationWindow {
 
             NavigableToolButton {
                 id: gamesButton
-                visible: SystemProperties.hasBrowser
+                visible: SystemProperties.hasBrowser && !SystemProperties.isXdConsole
 
                 iconSource: "qrc:/res/ic_games.svg"
 
@@ -522,6 +524,8 @@ ApplicationWindow {
 
             NavigableToolButton {
                 id: settingsButton
+
+                visible: !SystemProperties.isXdConsole
 
                 iconSource:  "qrc:/res/settings.svg"
 
