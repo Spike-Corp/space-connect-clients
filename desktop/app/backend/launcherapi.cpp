@@ -464,13 +464,13 @@ void LauncherApi::requestConnection()
                     }
                     const QString address = connection.host + QStringLiteral(":")
                                             + QString::number(connection.port);
-                    // Nome da conta (o dono pode ter renomeado) — vai junto pro
-                    // PcView aplicar em cima do hostname do Apollo (SCG-VMF).
+                    // Apelido da conta (só preenchido se o dono renomeou) —
+                    // vai junto pro PcView aplicar por cima do SCG-VMF.
                     QString name;
                     for (const QVariant& item : m_Machines) {
                         const QVariantMap map = item.toMap();
                         if (map.value(QStringLiteral("id")).toString() == targetMachineId) {
-                            name = map.value(QStringLiteral("name")).toString();
+                            name = map.value(QStringLiteral("accountName")).toString();
                             break;
                         }
                     }
@@ -1026,13 +1026,14 @@ void LauncherApi::connectFriendMachine(const QString& machineId)
                     m_PendingFriendMachineId = machineId;
                     const QString address = connection.host + QStringLiteral(":")
                                             + QString::number(connection.port);
-                    // Nome que o DONO deu à VM (vem do /friends/machines) — o
-                    // PcView aplica em cima do hostname do Apollo (SCG-VMF).
+                    // Apelido que o DONO deu à VM (vem do /friends/machines,
+                    // null quando é o slug interno) — o PcView aplica por cima
+                    // do hostname do Apollo (SCG-VMF).
                     QString name;
                     for (const QVariant& item : m_FriendMachines) {
                         const QVariantMap map = item.toMap();
                         if (map.value(QStringLiteral("machineId")).toString() == machineId) {
-                            name = map.value(QStringLiteral("name")).toString();
+                            name = map.value(QStringLiteral("accountName")).toString();
                             break;
                         }
                     }
@@ -1058,6 +1059,7 @@ void LauncherApi::renameMachine(const QString& machineId, const QString& name)
                     QVariantMap map = m_Machines[i].toMap();
                     if (map.value(QStringLiteral("id")).toString() == machineId) {
                         map.insert(QStringLiteral("name"), trimmed);
+                        map.insert(QStringLiteral("accountName"), trimmed);
                         m_Machines[i] = map;
                         emit machinesChanged();
                         break;
