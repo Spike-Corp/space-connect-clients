@@ -46,6 +46,8 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.PictureInPictureParams;
 import android.app.Service;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -93,6 +95,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.security.cert.CertificateException;
@@ -135,6 +138,14 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private NvConnection conn;
     private SpinnerDialog spinner;
+
+    // Local clipboard -> host clipboard sync (see setUpClipboardSync()/checkAndPushClipboard()
+    // below). Uses a dedicated NvHTTP instance because NvConnection doesn't expose the
+    // GFE-style REST API used by /actions/clipboard on the Apollo/Sunshine host.
+    private NvHTTP clipboardHttp;
+    private ClipboardManager clipboardManager;
+    private ClipboardManager.OnPrimaryClipChangedListener clipboardListener;
+    private String lastPushedClipboardText;
     private boolean displayedFailureDialog = false;
     private boolean connecting = false;
     private boolean connected = false;
@@ -587,6 +598,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         InputManager inputManager = (InputManager) getSystemService(Context.INPUT_SERVICE);
         inputManager.registerInputDeviceListener(keyboardTranslator, null);
 
+        setUpClipboardSync(host, port, httpsPort, uniqueId, serverCert);
+
         // Initialize touch contexts
         for (int i = 0; i < touchContextMap.length; i++) {
             if (!prefConfig.touchscreenTrackpad) {
@@ -917,6 +930,75 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         return true;
     }
 
+    // Sets up local clipboard -> host clipboard sync: a Ctrl+C (or share/copy) on this
+    // device gets pushed to the host so a paste inside the remote session works like it
+    // would with a real RDP-style client. See checkAndPushClipboard() for when this fires.
+    private void setUpClipboardSync(String host, int port, int httpsPort, String uniqueId, X509Certificate serverCert) {
+        try {
+            clipboardHttp = new NvHTTP(new ComputerDetails.AddressTuple(host, port), httpsPort, uniqueId,
+                    serverCert, PlatformBinding.getCryptoProvider(this));
+        } catch (IOException e) {
+            // Non-fatal - clipboard sync just won't work for this session.
+            e.printStackTrace();
+            return;
+        }
+
+        clipboardManager = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        if (clipboardManager == null) {
+            return;
+        }
+
+        // Best-effort: fires immediately when something is copied while we're in the
+        // foreground. On Android 10+, clipboard access from apps without focus is
+        // restricted, so this is backed up by the onWindowFocusChanged() check below,
+        // which is guaranteed to run right when the user comes back after copying
+        // something in another app.
+        clipboardListener = () -> checkAndPushClipboard();
+        clipboardManager.addPrimaryClipChangedListener(clipboardListener);
+    }
+
+    // Reads the local clipboard and, if its text changed since the last push, sends it to
+    // the host. Safe to call at any time - clipboard access failing silently while we don't
+    // have focus (Android 10+ restriction) just results in a no-op.
+    private void checkAndPushClipboard() {
+        if (clipboardHttp == null || clipboardManager == null) {
+            return;
+        }
+
+        String text = null;
+        try {
+            if (clipboardManager.hasPrimaryClip()) {
+                ClipData clip = clipboardManager.getPrimaryClip();
+                if (clip != null && clip.getItemCount() > 0) {
+                    CharSequence item = clip.getItemAt(0).coerceToText(this);
+                    if (item != null) {
+                        text = item.toString();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // Clipboard access can be silently restricted while we're not focused.
+            return;
+        }
+
+        if (text == null || text.equals(lastPushedClipboardText)) {
+            return;
+        }
+
+        final String textToPush = text;
+        lastPushedClipboardText = textToPush;
+
+        new Thread() {
+            public void run() {
+                try {
+                    clipboardHttp.setClipboardText(textToPush);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }.start();
+    }
+
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
@@ -928,6 +1010,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         // With Android native pointer capture, capture is lost when focus is lost,
         // so it must be requested again when focus is regained.
         inputCaptureProvider.onWindowFocusChanged(hasFocus);
+
+        // This is the one guaranteed moment we're back in the foreground after
+        // potentially copying something in another app, so re-check the clipboard here
+        // in addition to the best-effort OnPrimaryClipChangedListener above.
+        if (hasFocus) {
+            checkAndPushClipboard();
+        }
     }
 
     private boolean isRefreshRateEqualMatch(float refreshRate) {
@@ -1247,6 +1336,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (keyboardTranslator != null) {
             InputManager inputManager = (InputManager) getSystemService(Context.INPUT_SERVICE);
             inputManager.unregisterInputDeviceListener(keyboardTranslator);
+        }
+
+        if (clipboardManager != null && clipboardListener != null) {
+            clipboardManager.removePrimaryClipChangedListener(clipboardListener);
         }
 
         if (lowLatencyWifiLock != null) {

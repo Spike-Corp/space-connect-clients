@@ -60,6 +60,11 @@ public class ComputerDetails {
     // Persistent attributes
     public String uuid;
     public String name;
+    // Quando true, "name" foi definido pelo usuário (rename local ou apelido
+    // vindo da conta SpaceCloud) — impede que o polling sobrescreva de volta
+    // com o hostname cru do Apollo (ex.: "SCG-VMF"). Mesmo mecanismo do desktop
+    // (NvComputer::hasCustomName).
+    public boolean hasCustomName;
     public AddressTuple localAddress;
     public AddressTuple remoteAddress;
     public AddressTuple manualAddress;
@@ -114,7 +119,12 @@ public class ComputerDetails {
 
     public void update(ComputerDetails details) {
         this.state = details.state;
-        this.name = details.name;
+        // Só aceita o nome vindo do servidor (hostname do Apollo) se o usuário
+        // não tiver definido um apelido custom — senão o polling reverteria o
+        // rename local a cada atualização.
+        if (!this.hasCustomName) {
+            this.name = details.name;
+        }
         this.uuid = details.uuid;
         if (details.activeAddress != null) {
             this.activeAddress = details.activeAddress;

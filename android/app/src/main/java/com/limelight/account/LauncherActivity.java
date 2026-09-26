@@ -498,6 +498,16 @@ public class LauncherActivity extends Activity {
         return false;
     }
 
+    // Apelido custom (accountName) da VM indicada, se já tivermos a lista
+    // carregada — null quando o dono nunca renomeou (usa o hostname do Apollo).
+    private String accountNameFor(String machineId) {
+        if (machineId == null || machines == null) return null;
+        for (SpaceConnectApiClient.MachineListItem machine : machines) {
+            if (machine != null && machineId.equals(machine.id)) return machine.accountName;
+        }
+        return null;
+    }
+
     // Máquina "em foco" pra exibir saldo: a da sessão ativa, senão a selecionada,
     // senão a única da conta.
     private SpaceConnectApiClient.MachineListItem effectiveMachine() {
@@ -648,6 +658,10 @@ public class LauncherActivity extends Activity {
                     address = "[" + address + "]";
                 }
                 pendingHost = address + ":" + connection.port;
+                // Guarda o vínculo host -> (machineId, apelido) pra sessão atual — o
+                // PcView usa isso pra aplicar o apelido salvo na conta (accountName)
+                // e pra saber em qual VM chamar o backend quando o usuário renomear.
+                AccountManager.rememberMachineLink(pendingHost, machineId, accountNameFor(machineId));
                 // Cache the plan-based bitrate ceiling from the backend so StreamSettings can
                 // raise/lower the bitrate slider max to match this machine's provider (proxmox
                 // physical = up to 100 Mbps, cloud = 25 Mbps) without needing an app update.

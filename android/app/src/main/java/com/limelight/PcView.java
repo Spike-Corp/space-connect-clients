@@ -30,6 +30,7 @@ import com.limelight.utils.UiHelper;
 
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.AlertDialog;
 import android.app.Service;
 import android.animation.ObjectAnimator;
 import android.animation.AnimatorSet;
@@ -53,6 +54,7 @@ import android.view.View.OnClickListener;
 import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
+import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
@@ -130,6 +132,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
     private final static int FULL_APP_LIST_ID = 9;
     private final static int TEST_NETWORK_ID = 10;
     private final static int POWER_OFF_ID = 11;
+    private final static int RENAME_ID = 12;
 
     private void initializeViews() {
         setContentView(R.layout.activity_pc_view);
@@ -416,8 +419,9 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         }
 
         menu.add(Menu.NONE, TEST_NETWORK_ID, 5, getResources().getString(R.string.pcview_menu_test_network));
-        menu.add(Menu.NONE, DELETE_ID, 6, getResources().getString(R.string.pcview_menu_delete_pc));
-        menu.add(Menu.NONE, VIEW_DETAILS_ID, 7,  getResources().getString(R.string.pcview_menu_details));
+        menu.add(Menu.NONE, RENAME_ID, 6, getResources().getString(R.string.pcview_menu_rename));
+        menu.add(Menu.NONE, DELETE_ID, 7, getResources().getString(R.string.pcview_menu_delete_pc));
+        menu.add(Menu.NONE, VIEW_DETAILS_ID, 8,  getResources().getString(R.string.pcview_menu_details));
     }
 
     @Override
@@ -708,6 +712,10 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                 }, null);
                 return true;
 
+            case RENAME_ID:
+                promptRename(computer.details);
+                return true;
+
             case VIEW_DETAILS_ID:
                 Dialog.displayDialog(PcView.this, getResources().getString(R.string.title_details), computer.details.toString(), false);
                 return true;
@@ -796,6 +804,94 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         pcGridAdapter.notifyDataSetChanged();
 
         maybeAutoOpen(details);
+        maybeApplyAccountName(details);
+    }
+
+    // Aplica o apelido definido na conta SpaceCloud (accountName) assim que a
+    // VM aparece na lista — mesmo mecanismo do desktop (connectionReady ->
+    // autoName -> computerModel.renameComputer). Só roda até o primeiro rename
+    // bem-sucedido: depois disso hasCustomName trava o nome contra o polling.
+    private void maybeApplyAccountName(ComputerDetails details) {
+        if (details.hasCustomName || managerBinder == null) {
+            return;
+        }
+        String accountName = accountNameForComputer(details);
+        if (accountName == null || accountName.trim().isEmpty() || accountName.trim().equals(details.name)) {
+            return;
+        }
+        managerBinder.renameComputer(details, accountName.trim());
+        pcGridAdapter.notifyDataSetChanged();
+    }
+
+    // Tenta achar o apelido/machineId vinculados a essa VM testando todos os
+    // endereços conhecidos (o poller pode preencher endpoints diferentes do
+    // que foi usado no /connection original).
+    private static String accountNameForComputer(ComputerDetails details) {
+        String v;
+        if (details.manualAddress != null && (v = AccountManager.getAccountNameForHost(details.manualAddress.toString())) != null) return v;
+        if (details.activeAddress != null && (v = AccountManager.getAccountNameForHost(details.activeAddress.toString())) != null) return v;
+        if (details.remoteAddress != null && (v = AccountManager.getAccountNameForHost(details.remoteAddress.toString())) != null) return v;
+        if (details.localAddress != null && (v = AccountManager.getAccountNameForHost(details.localAddress.toString())) != null) return v;
+        if (details.ipv6Address != null && (v = AccountManager.getAccountNameForHost(details.ipv6Address.toString())) != null) return v;
+        return null;
+    }
+
+    private static String machineIdForComputer(ComputerDetails details) {
+        String v;
+        if (details.manualAddress != null && (v = AccountManager.getMachineIdForHost(details.manualAddress.toString())) != null) return v;
+        if (details.activeAddress != null && (v = AccountManager.getMachineIdForHost(details.activeAddress.toString())) != null) return v;
+        if (details.remoteAddress != null && (v = AccountManager.getMachineIdForHost(details.remoteAddress.toString())) != null) return v;
+        if (details.localAddress != null && (v = AccountManager.getMachineIdForHost(details.localAddress.toString())) != null) return v;
+        if (details.ipv6Address != null && (v = AccountManager.getMachineIdForHost(details.ipv6Address.toString())) != null) return v;
+        return null;
+    }
+
+    // Renomeia local (persiste + trava contra o polling) e, se a VM for da
+    // própria conta, sincroniza no backend pra amigos verem o mesmo nome. Pra
+    // VM de amigo o backend rejeita (404/403) e fica só local — fire-and-forget,
+    // sem popup de erro, igual ao desktop.
+    private void promptRename(final ComputerDetails details) {
+        final EditText nameField = new EditText(this);
+        nameField.setText(details.name);
+        nameField.setSelection(nameField.getText().length());
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.pcview_menu_rename)
+                .setView(nameField)
+                .setNegativeButton(R.string.game_menu_cancel, null)
+                .setPositiveButton(R.string.launcher_confirm, (dialog, which) -> {
+                    if (managerBinder == null) {
+                        Toast.makeText(PcView.this, getResources().getString(R.string.error_manager_not_running), Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    String newName = nameField.getText().toString().trim();
+                    if (newName.isEmpty()) {
+                        return;
+                    }
+                    if (newName.length() > 60) {
+                        newName = newName.substring(0, 60);
+                    }
+                    managerBinder.renameComputer(details, newName);
+                    pcGridAdapter.notifyDataSetChanged();
+
+                    String machineId = machineIdForComputer(details);
+                    if (machineId != null) {
+                        AccountManager.renameMachine(PcView.this, machineId, newName,
+                                new AccountManager.ResultCallback<SpaceConnectApiClient.RenameMachineResponse>() {
+                            @Override
+                            public void onSuccess(SpaceConnectApiClient.RenameMachineResponse result) {
+                                // Já aplicado localmente acima — nada a fazer.
+                            }
+
+                            @Override
+                            public void onError(String message) {
+                                // VM de amigo (dono não é o usuário) ou erro de rede:
+                                // fica só local, sem popup de erro pro usuário.
+                            }
+                        });
+                    }
+                })
+                .show();
     }
 
     // Abre direto o PC alvo (VM do amigo) assim que ele aparece online, pareando antes

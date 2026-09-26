@@ -8,6 +8,9 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -22,7 +25,57 @@ public final class AccountManager {
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
 
+    // Liga host -> (machineId, apelido de conta) pra sessão atual do processo —
+    // preenchido a cada connect/connectFriend bem-sucedido, consultado pelo
+    // PcView pra saber em qual VM da conta aplicar o "Renomear" e o auto-apply
+    // do apelido (accountName). Mesmo esquema do desktop (LauncherApi::
+    // m_MachineIdByAddress): só em memória, dura a sessão do processo — se o
+    // app reabrir sem reconectar, o rename simplesmente fica só local, igual lá.
+    private static final Map<String, String> machineIdByHost = new HashMap<>();
+    private static final Map<String, String> accountNameByHost = new HashMap<>();
+
     private AccountManager() {
+    }
+
+    // Guarda o vínculo host -> (machineId, accountName) da VM que acabou de ser
+    // conectada (própria ou de amigo). hostPort pode vir com porta (ex.:
+    // "1.2.3.4:47989") — só o host é usado como chave, pra casar mesmo se a
+    // porta do /connection divergir do endereço salvo no ComputerDetails.
+    public static void rememberMachineLink(String hostPort, String machineId, String accountName) {
+        String key = hostKey(hostPort);
+        if (key.isEmpty()) return;
+        if (machineId != null && !machineId.trim().isEmpty()) {
+            machineIdByHost.put(key, machineId.trim());
+        }
+        if (accountName != null && !accountName.trim().isEmpty()) {
+            accountNameByHost.put(key, accountName.trim());
+        }
+        else {
+            // null/vazio = sem apelido custom (nunca renomeado) — remove
+            // qualquer valor velho pra não reaplicar um nome desatualizado.
+            accountNameByHost.remove(key);
+        }
+    }
+
+    public static String getMachineIdForHost(String hostPort) {
+        return machineIdByHost.get(hostKey(hostPort));
+    }
+
+    public static String getAccountNameForHost(String hostPort) {
+        return accountNameByHost.get(hostKey(hostPort));
+    }
+
+    private static String hostKey(String hostPort) {
+        if (hostPort == null) return "";
+        String h = hostPort.trim();
+        if (h.isEmpty()) return "";
+        if (h.startsWith("[")) {
+            // IPv6 com colchetes: "[::1]:47989" -> "::1"
+            int end = h.indexOf(']');
+            return (end >= 0 ? h.substring(1, end) : h).toLowerCase(Locale.ROOT);
+        }
+        int colon = h.indexOf(':');
+        return (colon >= 0 ? h.substring(0, colon) : h).toLowerCase(Locale.ROOT);
     }
 
     public interface LoginCallback {
@@ -160,6 +213,17 @@ public final class AccountManager {
             Context context,
             ResultCallback<SpaceConnectApiClient.MachinesResponse> callback) {
         executeAuthenticated(context, API::getMachines, callback);
+    }
+
+    // Só chama o backend se a VM for do usuário (dono renomeando); pra VM de
+    // amigo o próprio backend rejeita (404) e o rename fica só local no app —
+    // por isso é fire-and-forget, sem exibir erro pro usuário.
+    public static void renameMachine(
+            Context context,
+            String machineId,
+            String name,
+            ResultCallback<SpaceConnectApiClient.RenameMachineResponse> callback) {
+        executeAuthenticated(context, token -> API.renameMachine(token, machineId, name), callback);
     }
 
     // Provisiona a VM dedicada do usuário (self-service), igual ao botão "Criar

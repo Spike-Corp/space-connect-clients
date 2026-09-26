@@ -233,7 +233,9 @@ public class FriendsActivity extends Activity {
         LayoutInflater inflater = getLayoutInflater();
         for (final SpaceConnectApiClient.FriendMachine m : machines) {
             View row = inflater.inflate(R.layout.item_friend_machine, machinesBox, false);
-            ((TextView) row.findViewById(R.id.friendMachineName)).setText(m.name != null ? m.name : "VM");
+            String displayName = (m.accountName != null && !m.accountName.trim().isEmpty())
+                    ? m.accountName : (m.name != null ? m.name : "VM");
+            ((TextView) row.findViewById(R.id.friendMachineName)).setText(displayName);
             ((TextView) row.findViewById(R.id.friendMachineMeta)).setText(getString(
                     m.running ? R.string.friends_machine_on : R.string.friends_machine_off,
                     profileLabel(m.owner)));
@@ -273,6 +275,10 @@ public class FriendsActivity extends Activity {
                         .putString("pending_friend_machine", m.machineId)
                         .putString("last_host", host)
                         .apply();
+                // Guarda o vínculo host -> (machineId, apelido) igual ao fluxo da
+                // própria VM — o PcView usa isso pra mostrar o mesmo nome que o
+                // dono definiu em vez do hostname genérico do Apollo.
+                AccountManager.rememberMachineLink(host, m.machineId, m.accountName);
 
                 if (connection.maxBitrateKbps > 0) {
                     android.preference.PreferenceManager.getDefaultSharedPreferences(FriendsActivity.this)

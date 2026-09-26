@@ -107,6 +107,17 @@ public final class SpaceConnectApiClient {
         return get("machines", accessToken, MachinesResponse.class);
     }
 
+    // Renomeia a VM (apelido de conta) — mesmo endpoint do desktop
+    // (PATCH machines/:id/name). Se a VM não for do usuário (ex.: VM de
+    // amigo), o backend responde 404/403 e quem chamou deve tratar como
+    // "fica só local" (fire-and-forget), sem exibir erro.
+    public RenameMachineResponse renameMachine(String accessToken, String machineId, String name)
+            throws IOException, ApiException {
+        RenameMachineRequest input = new RenameMachineRequest();
+        input.name = name;
+        return patch("machines/" + safeMachineId(machineId) + "/name", input, accessToken, RenameMachineResponse.class);
+    }
+
     // Provisiona a VM dedicada do usuário (self-service), igual ao botão "Criar
     // VM" do site. Necessário antes de entrar na fila — a fila nunca cria VM
     // sozinha, ela só serve quem já tem uma máquina dedicada.
@@ -347,6 +358,31 @@ public final class SpaceConnectApiClient {
         }
     }
 
+    private <T> T patch(String path, Object input, String accessToken, Class<T> responseType)
+            throws IOException, ApiException {
+        Request.Builder request = new Request.Builder()
+                .url(baseUrl + path)
+                .patch(RequestBody.create(JSON, gson.toJson(input)))
+                .header("Accept", "application/json")
+                .header("User-Agent", "SpaceConnect-Android");
+        if (accessToken != null && !accessToken.isEmpty()) {
+            request.header("Authorization", "Bearer " + accessToken);
+        }
+
+        try (Response response = httpClient.newCall(request.build()).execute()) {
+            ResponseBody responseBody = response.body();
+            String json = responseBody != null ? responseBody.string() : "";
+            if (!response.isSuccessful()) {
+                throw parseApiError(response.code(), json);
+            }
+            try {
+                return gson.fromJson(json, responseType);
+            } catch (JsonSyntaxException e) {
+                throw new IOException("Resposta inválida da SpaceCloud", e);
+            }
+        }
+    }
+
     private <T> T delete(String path, String accessToken, Class<T> responseType)
             throws IOException, ApiException {
         Request.Builder request = new Request.Builder()
@@ -419,6 +455,10 @@ public final class SpaceConnectApiClient {
 
     private static final class CreateMachineRequest {
         String password;
+    }
+
+    private static final class RenameMachineRequest {
+        String name;
     }
 
     private static final class EmptyRequest {
@@ -509,6 +549,8 @@ public final class SpaceConnectApiClient {
     public static final class FriendMachine {
         public String machineId;
         public String name;
+        // Apelido definido pelo dono (null = usa o hostname cru do Apollo).
+        public String accountName;
         public String provider;
         public boolean running;
         public boolean canConnect;
@@ -629,6 +671,9 @@ public final class SpaceConnectApiClient {
     public static final class MachineListItem {
         public String id;
         public String name;
+        // Apelido definido pelo dono (null = nunca renomeado, usa o hostname
+        // cru do Apollo/Sunshine) — mesmo campo computado que o desktop usa.
+        public String accountName;
         public String provider;
         public String state;
         // Plano/saldo ligado à máquina (null quando não há entitlement ativo).
@@ -655,6 +700,11 @@ public final class SpaceConnectApiClient {
         public boolean preExisting;
         public boolean restored;
         public String error;
+    }
+
+    public static final class RenameMachineResponse {
+        public String machineId;
+        public String name;
     }
 
     public static final class UploadResponse {

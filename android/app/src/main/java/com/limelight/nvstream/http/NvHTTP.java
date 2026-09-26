@@ -54,8 +54,10 @@ import com.limelight.nvstream.jni.MoonBridge;
 
 import okhttp3.ConnectionPool;
 import okhttp3.HttpUrl;
+import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.RequestBody;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 
@@ -422,7 +424,11 @@ public class NvHTTP {
 
     private HttpUrl getCompleteUrl(HttpUrl baseUrl, String path, String query) {
         return baseUrl.newBuilder()
-                .addPathSegment(path)
+                // addPathSegments (not addPathSegment) so a multi-part path like
+                // "actions/clipboard" produces /actions/clipboard instead of a single
+                // percent-encoded segment "actions%2Fclipboard". For every existing
+                // single-segment path (no "/") this behaves identically.
+                .addPathSegments(path)
                 .query(query)
                 .addQueryParameter("uniqueid", uniqueId)
                 .addQueryParameter("uuid", UUID.randomUUID().toString())
@@ -458,6 +464,29 @@ public class NvHTTP {
         }
         else {
             throw new HostHttpResponseException(response.code(), response.message());
+        }
+    }
+
+    // POST twin of openHttpConnection() above. Used by the clipboard endpoint, which
+    // (unlike the rest of the GFE-style API) takes its payload as a raw request body
+    // instead of query parameters.
+    private void openHttpPostConnection(OkHttpClient client, HttpUrl baseUrl, String path, String query, RequestBody body) throws IOException {
+        HttpUrl completeUrl = getCompleteUrl(baseUrl, path, query);
+        Request request = new Request.Builder().url(completeUrl).post(body).build();
+        Response response = performAndroidTlsHack(client).newCall(request).execute();
+
+        ResponseBody respBody = response.body();
+        if (respBody != null) {
+            respBody.close();
+        }
+
+        if (!response.isSuccessful()) {
+            if (response.code() == 404) {
+                throw new FileNotFoundException(completeUrl.toString());
+            }
+            else {
+                throw new HostHttpResponseException(response.code(), response.message());
+            }
         }
     }
 
@@ -715,6 +744,15 @@ public class NvHTTP {
 
     public void unpair() throws IOException {
         openHttpConnectionToString(httpClientLongConnectTimeout, baseUrlHttp, "unpair");
+    }
+
+    // Pushes the local clipboard text to the host's clipboard so a Ctrl+V (or long-press
+    // paste) inside the remote session pastes what was just copied on this device.
+    // Requires the client to currently be streaming from this host (the Apollo/Sunshine
+    // host rejects the request otherwise).
+    public void setClipboardText(String text) throws IOException {
+        RequestBody body = RequestBody.create(MediaType.parse("text/plain; charset=utf-8"), text);
+        openHttpPostConnection(httpClientLongConnectTimeout, getHttpsUrl(true), "actions/clipboard", "type=text", body);
     }
     
     public InputStream getBoxArt(NvApp app) throws IOException {

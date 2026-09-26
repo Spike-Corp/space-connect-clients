@@ -268,6 +268,10 @@ public class ComputerManagerService extends Service {
             ComputerManagerService.this.removeComputer(computer);
         }
 
+        public void renameComputer(ComputerDetails computer, String name) {
+            ComputerManagerService.this.renameComputer(computer, name);
+        }
+
         public void stopPolling() {
             // Just call the unbind handler to cleanup
             ComputerManagerService.this.onUnbind(null);
@@ -525,6 +529,33 @@ public class ComputerManagerService extends Service {
                         tuple.thread = null;
                     }
                     pollingTuples.remove(tuple);
+                    break;
+                }
+            }
+        }
+
+        releaseLocalDatabaseReference();
+    }
+
+    // Renomeia localmente (persiste no DB + marca hasCustomName pra sobreviver
+    // ao próximo poll) — usado tanto pelo "Renomear" manual do usuário quanto
+    // pelo apelido puxado da conta SpaceCloud ao conectar (accountName).
+    public void renameComputer(ComputerDetails computer, String name) {
+        if (!getLocalDatabaseReference()) {
+            return;
+        }
+
+        computer.name = name;
+        computer.hasCustomName = true;
+        dbManager.updateComputer(computer);
+
+        // Mantém a instância de longa duração do polling sincronizada, senão o
+        // próximo ciclo notifica a UI com o nome antigo antes de reverter de volta.
+        synchronized (pollingTuples) {
+            for (PollingTuple tuple : pollingTuples) {
+                if (tuple.computer.uuid.equals(computer.uuid) && tuple.computer != computer) {
+                    tuple.computer.name = name;
+                    tuple.computer.hasCustomName = true;
                     break;
                 }
             }

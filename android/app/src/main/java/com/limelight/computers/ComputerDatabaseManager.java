@@ -40,6 +40,11 @@ public class ComputerDatabaseManager {
 
     private static final String MAC_ADDRESS_COLUMN_NAME = "MacAddress";
     private static final String SERVER_CERT_COLUMN_NAME = "ServerCert";
+    // Adicionada depois das colunas originais — em bancos existentes é
+    // aplicada via ALTER TABLE (initializeDb), sempre no fim da linha, então o
+    // índice em getComputerFromCursor() é estável nos dois casos (DB novo ou
+    // migrado).
+    private static final String HAS_CUSTOM_NAME_COLUMN_NAME = "HasCustomName";
 
     private SQLiteDatabase computerDb;
 
@@ -62,9 +67,20 @@ public class ComputerDatabaseManager {
     private void initializeDb(Context c) {
         // Create tables if they aren't already there
         computerDb.execSQL(String.format((Locale)null,
-                "CREATE TABLE IF NOT EXISTS %s(%s TEXT PRIMARY KEY, %s TEXT NOT NULL, %s TEXT NOT NULL, %s TEXT, %s TEXT)",
+                "CREATE TABLE IF NOT EXISTS %s(%s TEXT PRIMARY KEY, %s TEXT NOT NULL, %s TEXT NOT NULL, %s TEXT, %s TEXT, %s INTEGER)",
                 COMPUTER_TABLE_NAME, COMPUTER_UUID_COLUMN_NAME, COMPUTER_NAME_COLUMN_NAME,
-                ADDRESSES_COLUMN_NAME, MAC_ADDRESS_COLUMN_NAME, SERVER_CERT_COLUMN_NAME));
+                ADDRESSES_COLUMN_NAME, MAC_ADDRESS_COLUMN_NAME, SERVER_CERT_COLUMN_NAME,
+                HAS_CUSTOM_NAME_COLUMN_NAME));
+
+        // Bancos criados por versões antigas do app não têm essa coluna ainda —
+        // adiciona por cima (fica no fim; linhas antigas leem NULL == 0/false).
+        try {
+            computerDb.execSQL(String.format((Locale)null,
+                    "ALTER TABLE %s ADD COLUMN %s INTEGER",
+                    COMPUTER_TABLE_NAME, HAS_CUSTOM_NAME_COLUMN_NAME));
+        } catch (SQLiteException e) {
+            // Coluna já existe (banco criado por uma versão já com esse campo) — ignora.
+        }
 
         // Move all computers from the old DB (if any) to the new one
         List<ComputerDetails> oldComputers = LegacyDatabaseReader.migrateAllComputers(c);
@@ -111,6 +127,7 @@ public class ComputerDatabaseManager {
         ContentValues values = new ContentValues();
         values.put(COMPUTER_UUID_COLUMN_NAME, details.uuid);
         values.put(COMPUTER_NAME_COLUMN_NAME, details.name);
+        values.put(HAS_CUSTOM_NAME_COLUMN_NAME, details.hasCustomName ? 1 : 0);
 
         try {
             JSONObject addresses = new JSONObject();
@@ -176,6 +193,12 @@ public class ComputerDatabaseManager {
 
         // This signifies we don't have dynamic state (like pair state)
         details.state = ComputerDetails.State.UNKNOWN;
+
+        // Lookup por nome (não por índice) porque em bancos migrados via ALTER
+        // TABLE essa coluna pode estar ausente/NULL em linhas antigas — nesse
+        // caso getColumnIndex retorna -1 e o padrão fica false, como esperado.
+        int hasCustomNameIdx = c.getColumnIndex(HAS_CUSTOM_NAME_COLUMN_NAME);
+        details.hasCustomName = hasCustomNameIdx >= 0 && !c.isNull(hasCustomNameIdx) && c.getInt(hasCustomNameIdx) != 0;
 
         return details;
     }

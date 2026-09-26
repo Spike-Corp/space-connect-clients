@@ -116,6 +116,7 @@
     <string name="pcview_menu_unpair_pc">Desparear</string>
     <string name="pcview_menu_delete_pc">Deletar PC</string>
     <string name="pcview_menu_test_network">Testar Conexão com a Internet</string>
+    <string name="pcview_menu_rename">Renomear</string>
     <string name="pcview_menu_details">Ver Detalhes</string>
     <string name="nettest_title_waiting">Testando a Conexão com a Internet</string>
     <string name="nettest_title_done">Teste de Internet Completo</string>
