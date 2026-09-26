@@ -414,6 +414,14 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
             case SDL_SCANCODE_NONUSBACKSLASH:
                 keyCode = 0xE2;
                 break;
+            case SDL_SCANCODE_INTERNATIONAL1:
+                // The "/ ?" key found on Brazilian ABNT2 keyboards. Without this mapping,
+                // the key press was silently dropped in the default case below, so "?"
+                // (and "/") never reached the VM at all for ABNT2 users. Windows has a
+                // dedicated virtual key for it (VK_ABNT_C1) which the host already maps to
+                // the correct scancode (0x73), see keylayout.h on the Apollo/Sunshine host.
+                keyCode = 0xC1;
+                break;
             default:
                 SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
                             "Unhandled button event: %d",

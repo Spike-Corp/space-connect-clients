@@ -161,6 +161,13 @@ public:
     void
     quitApp();
 
+    // Pushes the local clipboard text to the host's clipboard so a Ctrl+V
+    // inside the remote session pastes what was just copied on this PC.
+    // Requires the client to currently be streaming from this host (the
+    // Apollo/Sunshine host rejects the request otherwise).
+    void
+    setClipboardText(QString text);
+
     void
     startApp(QString verb,
              bool isGfe,

@@ -2,6 +2,7 @@
 #include "settings/streamingpreferences.h"
 #include "streaming/streamutils.h"
 #include "backend/richpresencemanager.h"
+#include "backend/nvhttp.h"
 
 #include <Limelight.h>
 #include <SDL.h>
@@ -1255,6 +1256,32 @@ private:
     Session* m_Session;
 };
 
+// Pushes a local clipboard snapshot to the host's clipboard so a Ctrl+V inside
+// the remote session pastes what was just copied on this PC. We capture the
+// connection details by value (rather than a Session/NvComputer pointer) so
+// this task stays safe to run even if the session has since ended.
+class ClipboardPushTask : public QRunnable
+{
+public:
+    ClipboardPushTask(NvAddress address, uint16_t httpsPort, QSslCertificate serverCert, QString text) :
+        m_Address(address),
+        m_HttpsPort(httpsPort),
+        m_ServerCert(serverCert),
+        m_Text(text) {}
+
+    void run() override
+    {
+        NvHTTP http(m_Address, m_HttpsPort, m_ServerCert);
+        http.setClipboardText(m_Text);
+    }
+
+private:
+    NvAddress m_Address;
+    uint16_t m_HttpsPort;
+    QSslCertificate m_ServerCert;
+    QString m_Text;
+};
+
 void Session::getWindowDimensions(int& x, int& y,
                                   int& width, int& height)
 {
@@ -1977,7 +2004,42 @@ void Session::execInternal()
     // Hijack this thread to be the SDL main thread. We have to do this
     // because we want to suspend all Qt processing until the stream is over.
     SDL_Event event;
+
+    // Local clipboard -> host clipboard sync state. These live here (rather
+    // than as Session members) so they're naturally reset for every new
+    // streaming session. We poll SDL_GetClipboardText() instead of hooking
+    // QClipboard::dataChanged() because Qt event processing is suspended for
+    // the entire loop below.
+    QString lastClipboardText;
+    Uint32 lastClipboardCheckTicks = 0;
+
     for (;;) {
+        // Check at most every 500 ms, regardless of whether we took the
+        // event or idle/timeout path below, so it keeps working even while
+        // the user is actively moving the mouse inside the session.
+        Uint32 nowTicks = SDL_GetTicks();
+        if (nowTicks - lastClipboardCheckTicks >= 500) {
+            lastClipboardCheckTicks = nowTicks;
+
+            if (SDL_HasClipboardText()) {
+                char* clipboardText = SDL_GetClipboardText();
+                if (clipboardText != nullptr) {
+                    QString currentClipboardText = QString::fromUtf8(clipboardText);
+                    SDL_free((void*)clipboardText);
+
+                    if (currentClipboardText != lastClipboardText) {
+                        lastClipboardText = currentClipboardText;
+
+                        QThreadPool::globalInstance()->start(
+                            new ClipboardPushTask(m_Computer->activeAddress,
+                                                  m_Computer->activeHttpsPort,
+                                                  m_Computer->serverCert,
+                                                  currentClipboardText));
+                    }
+                }
+            }
+        }
+
 #if SDL_VERSION_ATLEAST(2, 0, 18) && !defined(STEAM_LINK)
         // SDL 2.0.18 has a proper wait event implementation that uses platform
         // support to block on events rather than polling on Windows, macOS, X11,

@@ -258,6 +258,55 @@ NvHTTP::quitApp()
     }
 }
 
+void
+NvHTTP::setClipboardText(QString text)
+{
+    // The clipboard endpoint is served on the same HTTPS port and requires
+    // the same client certificate as everything else, but unlike the other
+    // endpoints it takes the raw payload as the POST body instead of query
+    // parameters, so we can't reuse the generic openConnection() GET helper.
+    QUrl url(m_BaseUrlHttps);
+    url.setPath("/actions/clipboard");
+    url.setQuery("type=text");
+
+    QNetworkRequest request(url);
+
+    // Add our client certificate
+    request.setSslConfiguration(IdentityManager::get()->getSslConfig());
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    // Disable HTTP/2 (GFE 3.22 doesn't like it) and Qt 6 enables it by default
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+#endif
+
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain; charset=utf-8");
+
+    QNetworkReply* reply = m_Nam.post(request, text.toUtf8());
+
+    // Run the request with a timeout, same as openConnection()
+    QEventLoop loop;
+    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit, &loop, &QEventLoop::quit);
+    QTimer::singleShot(REQUEST_TIMEOUT_MS, &loop, &QEventLoop::quit);
+    loop.exec(QEventLoop::ExcludeUserInputEvents);
+
+    if (!reply->isFinished()) {
+        qWarning() << "Aborting timed out clipboard push request";
+        reply->abort();
+    }
+
+    m_Nam.clearAccessCache();
+
+    if (reply->error() != QNetworkReply::NoError) {
+        // Not fatal - the host may just not be streaming to us at this
+        // moment (e.g. between sessions), so just log it and move on.
+        qWarning() << "Failed to push clipboard to host:" << reply->error();
+    }
+
+    delete reply;
+}
+
+
 QVector<NvDisplayMode>
 NvHTTP::getDisplayModeList(QString serverInfo)
 {
