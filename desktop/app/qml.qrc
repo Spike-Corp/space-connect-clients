@@ -23,6 +23,7 @@
         <file>gui/XdLoginView.qml</file>
         <file>gui/XdView.qml</file>
         <file>gui/FriendsView.qml</file>
+        <file>gui/EmulatorsView.qml</file>
         <file>gui/LatencyTestView.qml</file>
         <file>gui/SectionHeader.qml</file>
         <file>gui/SpaceCheckBox.qml</file>

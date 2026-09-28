@@ -352,6 +352,28 @@ public final class AccountManager {
         });
     }
 
+    // ── Emuladores ──────────────────────────────────────────────────────────
+
+    public static void getEmulators(Context context, ResultCallback<SpaceConnectApiClient.EmulatorsResponse> callback) {
+        executeAuthenticated(context, API::getEmulators, callback);
+    }
+
+    public static void getEmulatorStatus(Context context, ResultCallback<SpaceConnectApiClient.EmulatorStatusResponse> callback) {
+        executeAuthenticated(context, API::getEmulatorStatus, callback);
+    }
+
+    public static void installEmulator(Context context, String emulatorId, ResultCallback<SpaceConnectApiClient.EmulatorActionResponse> callback) {
+        executeAuthenticated(context, token -> API.installEmulator(token, emulatorId), callback);
+    }
+
+    public static void getEmulatorInstallStatus(Context context, String emulatorId, ResultCallback<SpaceConnectApiClient.EmulatorInstallStatusResponse> callback) {
+        executeAuthenticated(context, token -> API.getEmulatorInstallStatus(token, emulatorId), callback);
+    }
+
+    public static void launchEmulator(Context context, String emulatorId, ResultCallback<SpaceConnectApiClient.EmulatorActionResponse> callback) {
+        executeAuthenticated(context, token -> API.launchEmulator(token, emulatorId), callback);
+    }
+
     // ── Amigos (beta) ───────────────────────────────────────────────────────
 
     public static void getFriends(Context context, ResultCallback<SpaceConnectApiClient.FriendsResponse> callback) {

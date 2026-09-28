@@ -122,6 +122,9 @@ public class LauncherActivity extends Activity {
         // Amigos (beta): username, pedidos, permissões e VMs compartilhadas.
         findViewById(R.id.launcherFriendsButton).setOnClickListener(v ->
                 startActivity(new Intent(LauncherActivity.this, FriendsActivity.class)));
+        // Emuladores: catálogo oficial (RetroArch e cia), instala/abre na VM.
+        findViewById(R.id.launcherEmulatorsButton).setOnClickListener(v ->
+                startActivity(new Intent(LauncherActivity.this, EmulatorsActivity.class)));
         // USB passthrough: o helper é Windows-only (roda no PC do cliente). No
         // Android o botão vira um how-to + link de download, visível com a VM pronta.
         findViewById(R.id.launcherUsbButton).setOnClickListener(v -> showUsbPassthroughInfo());

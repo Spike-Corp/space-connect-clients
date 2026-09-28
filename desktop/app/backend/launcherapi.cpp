@@ -10,6 +10,7 @@
 #include <QHttpPart>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QMap>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QSettings>
@@ -975,6 +976,109 @@ void LauncherApi::removeFriend(const QString& friendId)
     request("DELETE", QStringLiteral("friends/") + friendId, QJsonObject(), true,
             [this](int status, const QJsonObject&) {
                 if (status >= 200 && status < 300) refreshFriends();
+            });
+}
+
+// ── Emuladores ──────────────────────────────────────────────────────────────
+// Catalogo vem do backend (o que está habilitado no admin aparece aqui) e o
+// status (instalado ou não) vem da VM do usuário via guest agent — sem versao
+// nova do agent Windows. Instalar baixa o bundle oficial do CDN e extrai em
+// C:\SpaceCloud\Emulators\<id> (backend faz tudo via qemu guest agent).
+
+void LauncherApi::refreshEmulators()
+{
+    if (!m_LoggedIn)
+        return;
+    request("GET", QStringLiteral("emulators"), QJsonObject(), true,
+            [this](int status, const QJsonObject& root) {
+                if (status < 200 || status >= 300) return;
+                const QVariantList catalog = root.value(QStringLiteral("emulators")).toArray().toVariantList();
+                // Tenta enriquecer com o status (instalado?) — se falhar (VM off)
+                // mostra o catálogo mesmo assim com installed=false.
+                request("GET", QStringLiteral("emulators/status"), QJsonObject(), true,
+                        [this, catalog](int stStatus, const QJsonObject& stRoot) {
+                            QMap<QString, bool> installed;
+                            if (stStatus >= 200 && stStatus < 300) {
+                                for (const auto& v : stRoot.value(QStringLiteral("status")).toArray()) {
+                                    const auto o = v.toObject();
+                                    installed[o.value(QStringLiteral("id")).toString()] = o.value(QStringLiteral("installed")).toBool();
+                                }
+                            }
+                            QVariantList out;
+                            for (const auto& v : catalog) {
+                                auto m = v.toMap();
+                                m[QStringLiteral("installed")] = installed.value(m.value(QStringLiteral("id")).toString(), false);
+                                out.append(m);
+                            }
+                            m_Emulators = out;
+                            emit emulatorsChanged();
+                        });
+            });
+}
+
+void LauncherApi::installEmulator(const QString& emulatorId)
+{
+    if (!m_LoggedIn) return;
+    setBusy(true);
+    request("POST", QStringLiteral("emulators/") + emulatorId + QStringLiteral("/install"),
+            QJsonObject(), true,
+            [this, emulatorId](int status, const QJsonObject& root) {
+                if (status >= 200 && status < 300) {
+                    // O install é assíncrono no backend (download grande — o
+                    // Cloudflare mataria a request em ~100s). Faz polling até
+                    // done/failed (máx ~8min).
+                    pollEmulatorInstall(emulatorId, 0);
+                } else {
+                    setBusy(false);
+                    emit emulatorActionResult(false, errorObject(root).value(QStringLiteral("message")).toString(
+                        tr("Não consegui instalar (a VM precisa estar ligada).")));
+                }
+            });
+}
+
+void LauncherApi::pollEmulatorInstall(const QString& emulatorId, int attempt)
+{
+    if (attempt > 240) { // 240 x 2s = ~8min
+        setBusy(false);
+        emit emulatorActionResult(false, tr("Instalação demorou demais — verifique se abriu na VM e tente de novo."));
+        return;
+    }
+    request("GET", QStringLiteral("emulators/install-status?emulator=") + emulatorId,
+            QJsonObject(), true,
+            [this, emulatorId, attempt](int status, const QJsonObject& root) {
+                const QString state = root.value(QStringLiteral("state")).toString();
+                if (state == QStringLiteral("done")) {
+                    setBusy(false);
+                    emit emulatorActionResult(true, tr("Emulador instalado! Pode abrir."));
+                    refreshEmulators();
+                    return;
+                }
+                if (state == QStringLiteral("failed")) {
+                    setBusy(false);
+                    emit emulatorActionResult(false, root.value(QStringLiteral("message")).toString(tr("Falha ao instalar.")));
+                    return;
+                }
+                // running / none → continua polling
+                QTimer::singleShot(2000, this, [this, emulatorId, attempt]() {
+                    pollEmulatorInstall(emulatorId, attempt + 1);
+                });
+            });
+}
+
+void LauncherApi::launchEmulator(const QString& emulatorId)
+{
+    if (!m_LoggedIn) return;
+    setBusy(true);
+    request("POST", QStringLiteral("emulators/") + emulatorId + QStringLiteral("/launch"),
+            QJsonObject(), true,
+            [this](int status, const QJsonObject& root) {
+                setBusy(false);
+                if (status >= 200 && status < 300) {
+                    emit emulatorActionResult(true, root.value(QStringLiteral("message")).toString(tr("Emulador aberto na sua máquina!")));
+                } else {
+                    emit emulatorActionResult(false, errorObject(root).value(QStringLiteral("message")).toString(
+                        tr("Não consegui abrir o emulador.")));
+                }
             });
 }
 

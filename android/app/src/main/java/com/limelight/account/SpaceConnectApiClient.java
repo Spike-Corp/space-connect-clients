@@ -142,6 +142,28 @@ public final class SpaceConnectApiClient {
         return post("bug-report", input, accessToken, SimpleResponse.class);
     }
 
+    // ── Emuladores (catálogo + instalar/lançar na VM) ───────────────────────
+
+    public EmulatorsResponse getEmulators(String accessToken) throws IOException, ApiException {
+        return get("emulators", accessToken, EmulatorsResponse.class);
+    }
+
+    public EmulatorStatusResponse getEmulatorStatus(String accessToken) throws IOException, ApiException {
+        return get("emulators/status", accessToken, EmulatorStatusResponse.class);
+    }
+
+    public EmulatorActionResponse installEmulator(String accessToken, String emulatorId) throws IOException, ApiException {
+        return post("emulators/" + emulatorId + "/install", new Object(), accessToken, EmulatorActionResponse.class);
+    }
+
+    public EmulatorInstallStatusResponse getEmulatorInstallStatus(String accessToken, String emulatorId) throws IOException, ApiException {
+        return get("emulators/install-status?emulator=" + emulatorId, accessToken, EmulatorInstallStatusResponse.class);
+    }
+
+    public EmulatorActionResponse launchEmulator(String accessToken, String emulatorId) throws IOException, ApiException {
+        return post("emulators/" + emulatorId + "/launch", new Object(), accessToken, EmulatorActionResponse.class);
+    }
+
     // ── Amigos (beta) — mesma API do site (social) ─────────────────────────
 
     public FriendsResponse getFriends(String accessToken) throws IOException, ApiException {
@@ -502,6 +524,46 @@ public final class SpaceConnectApiClient {
 
     public static final class SimpleResponse {
         public boolean success;
+    }
+
+    // ── Emuladores ──────────────────────────────────────────────────────────
+
+    public static final class EmulatorEntry {
+        public String id;
+        public String name;
+        public String tagline;
+        public String[] systems;
+        public long sizeBytes;
+        public String version;
+        public String icon;
+        // Só vem preenchido no merge do app (catalogo + status), não no backend.
+        public transient boolean installed;
+    }
+
+    public static final class EmulatorsResponse {
+        public EmulatorEntry[] emulators;
+    }
+
+    public static final class EmulatorStatusEntry {
+        public String id;
+        public boolean installed;
+    }
+
+    public static final class EmulatorStatusResponse {
+        public EmulatorStatusEntry[] status;
+    }
+
+    public static final class EmulatorActionResponse {
+        public boolean ok;
+        public String message;
+        public String id;
+        public String path;
+        public String job;
+    }
+
+    public static final class EmulatorInstallStatusResponse {
+        public String state;   // none | running | done | failed
+        public String message;
     }
 
     // ── Amigos (beta) ───────────────────────────────────────────────────────

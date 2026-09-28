@@ -343,6 +343,13 @@ Item {
                     }
 
                     Button {
+                        // Emuladores: RetroArch e cia instaláveis na VM com 1 clique.
+                        text: qsTr("Emulators")
+                        Layout.fillWidth: true
+                        onClicked: navigateTo("qrc:/gui/EmulatorsView.qml", "EmulatorsView")
+                    }
+
+                    Button {
                         text: qsTr("Report a problem")
                         enabled: !LauncherApi.busy
                         Layout.fillWidth: true

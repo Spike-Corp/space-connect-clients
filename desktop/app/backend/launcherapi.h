@@ -40,6 +40,8 @@ class LauncherApi : public QObject
     Q_PROPERTY(QVariantList outgoingRequests READ outgoingRequests NOTIFY friendsChanged)
     Q_PROPERTY(QVariantList friendMachines READ friendMachines NOTIFY friendsChanged)
     Q_PROPERTY(QString myUsername READ myUsername NOTIFY friendsChanged)
+    // Emuladores: [{id, name, tagline, systems, sizeBytes, version, icon, installed}]
+    Q_PROPERTY(QVariantList emulators READ emulators NOTIFY emulatorsChanged)
     // Lista de VMs dedicadas do usuário (multi-plano) e a VM escolhida pra
     // abrir. Quando há 2+ máquinas, a UI mostra um seletor (o app Android já
     // tinha; o desktop não passava machineId em nada e o backend escolhia
@@ -86,6 +88,7 @@ public:
     QVariantList friendMachines() const { return m_FriendMachines; }
     QString myUsername() const { return m_MyUsername; }
     QVariantList myMachines() const { return m_MyMachines; }
+    QVariantList emulators() const { return m_Emulators; }
 
     Q_INVOKABLE void login(const QString& email, const QString& password);
     Q_INVOKABLE void verifyTwoFactor(const QString& code);
@@ -101,6 +104,13 @@ public:
     Q_INVOKABLE void fetchMachines();
     Q_INVOKABLE void submitPairPin(const QString& pin);
     Q_INVOKABLE void uploadFileToVm(const QString& filePath);
+    // Emuladores: catálogo oficial + instalar/lançar na VM (o backend usa o
+    // guest agent do Proxmox — nao precisa de versao nova do agent Windows).
+    Q_INVOKABLE void refreshEmulators();
+    Q_INVOKABLE void installEmulator(const QString& emulatorId);
+    Q_INVOKABLE void launchEmulator(const QString& emulatorId);
+    // (interno) polling do install assíncrono
+    void pollEmulatorInstall(const QString& emulatorId, int attempt);
     // Relato de bug de dentro do app (vai pra página "Bugs app" do admin).
     // Funciona mesmo deslogado (tela de login): nesse caso emailHint é usado.
     Q_INVOKABLE void reportBug(const QString& description, const QString& emailHint);
@@ -157,6 +167,9 @@ signals:
     void friendsChanged();
     void friendActionResult(bool success, QString message);
     void usernameCheckResult(bool available, QString reason);
+    // Emuladores
+    void emulatorsChanged();
+    void emulatorActionResult(bool success, QString message);
 
 private:
     using ResponseHandler = std::function<void(int, const QJsonObject&)>;
@@ -216,6 +229,8 @@ private:
     QVariantList m_Incoming;
     QVariantList m_Outgoing;
     QVariantList m_FriendMachines;
+    // Emuladores (catalogo + flag installed)
+    QVariantList m_Emulators;
     // Máquina de amigo sendo conectada agora (o PIN vai pra rota friend-aware).
     QString m_PendingFriendMachineId;
     // endereço ("host:port") → machineId das conexões abertas neste app —
