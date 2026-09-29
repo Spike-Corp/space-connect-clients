@@ -34,7 +34,7 @@ void LatencyTester::startTest()
     m_PingIndex = 0;
     m_BestForTarget = -1;
     m_MedianMs = m_MinMs = m_MaxMs = m_JitterMs = -1;
-    m_ProgressText = tr("Measuring…");
+    m_ProgressText = tr("Medindo…");
     emit runningChanged();
     emit progressChanged();
     pingNext();

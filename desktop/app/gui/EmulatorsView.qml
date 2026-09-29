@@ -9,7 +9,7 @@ import LauncherApi 1.0
 // versão nova do agent. ROMs são responsabilidade do cliente (upload próprio).
 Item {
     id: emulatorsView
-    objectName: qsTr("Emulators")
+    objectName: qsTr("Emuladores")
 
     Component.onCompleted: LauncherApi.refreshEmulators()
 
@@ -61,7 +61,7 @@ Item {
                 Item { Layout.fillWidth: true }
                 Label {
                     visible: !!card.emu.installed
-                    text: qsTr("INSTALLED")
+                    text: qsTr("INSTALADO")
                     color: "#2dd4a0"
                     font.pixelSize: 11
                     font.bold: true
@@ -99,13 +99,13 @@ Item {
                 Button {
                     visible: !card.emu.installed
                     enabled: !LauncherApi.busy
-                    text: LauncherApi.busy ? qsTr("Installing…") : qsTr("Install on my PC")
+                    text: LauncherApi.busy ? qsTr("Instalando…") : qsTr("Instalar no meu PC")
                     onClicked: LauncherApi.installEmulator(card.emu.id)
                 }
                 Button {
                     visible: !!card.emu.installed
                     enabled: !LauncherApi.busy
-                    text: qsTr("Open on my PC")
+                    text: qsTr("Abrir no meu PC")
                     onClicked: LauncherApi.launchEmulator(card.emu.id)
                 }
             }
@@ -127,13 +127,13 @@ Item {
 
             RowLayout {
                 Layout.fillWidth: true
-                Label { text: qsTr("EMULATORS"); color: "#a482fa"; font.pixelSize: 24; font.bold: true }
+                Label { text: qsTr("EMULADORES"); color: "#a482fa"; font.pixelSize: 24; font.bold: true }
                 Item { Layout.fillWidth: true }
-                Button { text: qsTr("Refresh"); onClicked: LauncherApi.refreshEmulators() }
+                Button { text: qsTr("Atualizar"); onClicked: LauncherApi.refreshEmulators() }
             }
 
             Label {
-                text: qsTr("Install emulators on your cloud PC with one click and play the classics. Your game files (ROMs) are yours: send them from your computer or phone with \"Send file\".")
+                text: qsTr("Instale emuladores no seu PC em nuvem com um clique e jogue os clássicos. Seus arquivos de jogo (ROMs) são seus: envie do computador ou celular com \"Enviar arquivo\".")
                 color: "#9793aa"
                 font.pixelSize: 12
                 wrapMode: Text.WordWrap
@@ -147,7 +147,7 @@ Item {
 
             Label {
                 visible: LauncherApi.emulators.length === 0
-                text: qsTr("No emulators available right now.")
+                text: qsTr("Nenhum emulador disponível no momento.")
                 color: "#6b6580"
                 font.pixelSize: 13
                 horizontalAlignment: Text.AlignHCenter
@@ -156,7 +156,7 @@ Item {
             }
 
             Button {
-                text: qsTr("Back")
+                text: qsTr("Voltar")
                 Layout.alignment: Qt.AlignHCenter
                 onClicked: stackView.pop()
             }
@@ -167,7 +167,7 @@ Item {
         id: resultDialog
         property bool isError: false
         property alias text: resultLabel.text
-        title: isError ? qsTr("Something went wrong") : qsTr("Done")
+        title: isError ? qsTr("Algo deu errado") : qsTr("Feito")
         standardButtons: Dialog.Ok
         parent: Overlay.overlay
         x: Math.round((parent.width - width) / 2)
