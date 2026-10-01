@@ -22,9 +22,10 @@ Flickable {
         }
     }
 
-    // Para de capturar ao sair das configurações (não vaza o microfone aberto)
+    // Para de capturar ao sair das configurações (não vaza o microfone aberto).
+    // O stop no Component.onDestruction fica no handler que já existe abaixo
+    // (QML não aceita dois Component.onDestruction — quebrava o build Qt5).
     StackView.onDeactivated: MicLevelTester.stopTesting()
-    Component.onDestruction: MicLevelTester.stopTesting()
 
     id: settingsPage
     objectName: qsTr("Settings")
@@ -108,6 +109,8 @@ Flickable {
         // Also save preferences on destruction, since we won't get a
         // deactivating callback if the user just closes Moonlight
         StreamingPreferences.save()
+        // Para o teste de mic se o app fechar com ele rodando
+        MicLevelTester.stopTesting()
     }
 
     Column {
