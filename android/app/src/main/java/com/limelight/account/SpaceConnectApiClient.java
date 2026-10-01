@@ -174,6 +174,11 @@ public final class SpaceConnectApiClient {
         return get("downloads", accessToken, DownloadsResponse.class);
     }
 
+    // Transfere o disco de uma VM pra outra (a de origem é excluída).
+    public TransferDiskResponse transferDisk(String accessToken, String sourceMachineId, String targetMachineId) throws IOException, ApiException {
+        return post("machines/" + sourceMachineId + "/transfer-disk", new TransferDiskRequest(targetMachineId), accessToken, TransferDiskResponse.class);
+    }
+
     // ── Amigos (beta) — mesma API do site (social) ─────────────────────────
 
     public FriendsResponse getFriends(String accessToken) throws IOException, ApiException {
@@ -749,9 +754,15 @@ public final class SpaceConnectApiClient {
         public String accountName;
         public String provider;
         public String state;
+        // Tamanho do disco (GB) — usado na transferência de disco entre VMs.
+        public MachineSpecs specs;
         // Plano/saldo ligado à máquina (null quando não há entitlement ativo).
         // hoursRemaining/bonusHours vêm em HORAS (ex.: 87.5).
         public Entitlement entitlement;
+    }
+
+    public static final class MachineSpecs {
+        public Integer diskGb;
     }
 
     public static final class Entitlement {
@@ -797,6 +808,18 @@ public final class SpaceConnectApiClient {
 
     public static final class DownloadsResponse {
         public DownloadItem[] downloads;
+    }
+
+    public static final class TransferDiskRequest {
+        public String targetMachineId;
+        public TransferDiskRequest(String targetMachineId) { this.targetMachineId = targetMachineId; }
+    }
+
+    public static final class TransferDiskResponse {
+        public Boolean ok;
+        public Integer transferredGb;
+        public Integer targetNewDiskGb;
+        public String message;
     }
 
     public static final class UploadResponse {

@@ -131,6 +131,8 @@ public class LauncherActivity extends Activity {
         // Downloads: biblioteca de arquivos/links gerenciada pelo admin.
         findViewById(R.id.launcherDownloadsButton).setOnClickListener(v ->
                 startActivity(new Intent(LauncherActivity.this, DownloadsActivity.class)));
+        // Transferir disco entre VMs (só aparece com 2+ máquinas Proxmox).
+        findViewById(R.id.launcherTransferDiskButton).setOnClickListener(v -> showTransferDiskDialog());
         // USB passthrough: o helper é Windows-only (roda no PC do cliente). No
         // Android o botão vira um how-to + link de download, visível com a VM pronta.
         findViewById(R.id.launcherUsbButton).setOnClickListener(v -> showUsbPassthroughInfo());
@@ -414,6 +416,7 @@ public class LauncherActivity extends Activity {
                 }
                 renderPlanHours();
                 render(lastStatus);
+                updateTransferDiskButton();
             }
 
             @Override
@@ -458,6 +461,119 @@ public class LauncherActivity extends Activity {
                 requestRunning = false;
                 progressBar.setVisibility(View.GONE);
                 Toast.makeText(LauncherActivity.this, message, Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    // Transferência de disco só faz sentido com 2+ máquinas Proxmox.
+    private void updateTransferDiskButton() {
+        int proxmox = 0;
+        if (machines != null) {
+            for (SpaceConnectApiClient.MachineListItem m : machines) {
+                if (m != null && "proxmox".equals(m.provider)) proxmox++;
+            }
+        }
+        findViewById(R.id.launcherTransferDiskButton).setVisibility(proxmox >= 2 ? View.VISIBLE : View.GONE);
+    }
+
+    // Dialog de transferência de disco entre VMs: exclui a de origem e soma o
+    // disco dela (inteiro) na de destino. Avisa que é irreversível.
+    private void showTransferDiskDialog() {
+        java.util.List<SpaceConnectApiClient.MachineListItem> proxmox = new java.util.ArrayList<>();
+        if (machines != null) {
+            for (SpaceConnectApiClient.MachineListItem m : machines) {
+                if (m != null && "proxmox".equals(m.provider)) proxmox.add(m);
+            }
+        }
+        if (proxmox.size() < 2) return;
+
+        String[] labels = new String[proxmox.size()];
+        for (int i = 0; i < proxmox.size(); i++) {
+            SpaceConnectApiClient.MachineListItem m = proxmox.get(i);
+            String name = (m.name == null || m.name.trim().isEmpty()) ? m.id : m.name;
+            int gb = m.specs != null && m.specs.diskGb != null ? m.specs.diskGb : 0;
+            labels[i] = name + (gb > 0 ? " (" + gb + " GB)" : "");
+        }
+
+        final int[] sourceIdx = { -1 };
+        final int[] targetIdx = { -1 };
+
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(this);
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = (int) (20 * getResources().getDisplayMetrics().density);
+        layout.setPadding(pad, pad, pad, pad);
+
+        TextView srcLabel = new TextView(this);
+        srcLabel.setText(R.string.transfer_disk_source);
+        srcLabel.setTextSize(12);
+        layout.addView(srcLabel);
+        android.widget.Spinner srcSpinner = new android.widget.Spinner(this);
+        srcSpinner.setAdapter(new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, labels));
+        layout.addView(srcSpinner);
+
+        TextView dstLabel = new TextView(this);
+        dstLabel.setText(R.string.transfer_disk_target);
+        dstLabel.setTextSize(12);
+        layout.addView(dstLabel);
+        android.widget.Spinner dstSpinner = new android.widget.Spinner(this);
+        dstSpinner.setAdapter(new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, labels));
+        layout.addView(dstSpinner);
+
+        TextView warn = new TextView(this);
+        warn.setText(R.string.transfer_disk_warn);
+        warn.setTextSize(12);
+        warn.setTextColor(0xFFF87171);
+        layout.addView(warn);
+
+        srcSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            public void onItemSelected(android.widget.AdapterView<?> p, View v, int pos, long id) { sourceIdx[0] = pos; }
+            public void onNothingSelected(android.widget.AdapterView<?> p) {}
+        });
+        dstSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            public void onItemSelected(android.widget.AdapterView<?> p, View v, int pos, long id) { targetIdx[0] = pos; }
+            public void onNothingSelected(android.widget.AdapterView<?> p) {}
+        });
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.transfer_disk_title)
+                .setView(layout)
+                .setNegativeButton(R.string.game_menu_cancel, null)
+                .setPositiveButton(R.string.transfer_disk_confirm, (d, w) -> {
+                    if (sourceIdx[0] < 0 || targetIdx[0] < 0 || sourceIdx[0] == targetIdx[0]) {
+                        Toast.makeText(this, R.string.transfer_disk_same, Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    String sourceId = proxmox.get(sourceIdx[0]).id;
+                    String targetId = proxmox.get(targetIdx[0]).id;
+                    // Segunda confirmação — excluir uma VM é irreversível.
+                    new AlertDialog.Builder(this)
+                            .setTitle(R.string.transfer_disk_title)
+                            .setMessage(getString(R.string.transfer_disk_final_warn, labels[sourceIdx[0]], labels[targetIdx[0]]))
+                            .setNegativeButton(R.string.game_menu_cancel, null)
+                            .setPositiveButton(R.string.transfer_disk_confirm_yes, (d2, w2) -> doTransferDisk(sourceId, targetId))
+                            .show();
+                })
+                .show();
+    }
+
+    private void doTransferDisk(String sourceId, String targetId) {
+        if (requestRunning) return;
+        requestRunning = true;
+        progressBar.setVisibility(View.VISIBLE);
+        AccountManager.transferDisk(this, sourceId, targetId, new AccountManager.ResultCallback<SpaceConnectApiClient.TransferDiskResponse>() {
+            @Override
+            public void onSuccess(SpaceConnectApiClient.TransferDiskResponse r) {
+                requestRunning = false;
+                progressBar.setVisibility(View.GONE);
+                Toast.makeText(LauncherActivity.this, r != null && r.message != null ? r.message : getString(R.string.transfer_disk_done), Toast.LENGTH_LONG).show();
+                checkMachines();
+            }
+
+            @Override
+            public void onError(String message) {
+                requestRunning = false;
+                progressBar.setVisibility(View.GONE);
+                Toast.makeText(LauncherActivity.this, message != null ? message : getString(R.string.transfer_disk_fail), Toast.LENGTH_LONG).show();
             }
         });
     }

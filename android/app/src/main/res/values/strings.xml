@@ -327,6 +327,16 @@
     <string name="dl_open_link">Open link</string>
     <string name="dl_started">Download started — check your notifications.</string>
     <string name="dl_load_fail">Couldn\'t load the downloads list.</string>
+    <string name="transfer_disk_title">Transfer disk between machines</string>
+    <string name="transfer_disk_source">Delete this machine (its disk is gone for good):</string>
+    <string name="transfer_disk_target">Receive the space on this machine:</string>
+    <string name="transfer_disk_warn">⚠️ This is irreversible. The source machine will be permanently deleted.</string>
+    <string name="transfer_disk_confirm">Transfer disk</string>
+    <string name="transfer_disk_confirm_yes">Yes, delete and transfer</string>
+    <string name="transfer_disk_same">Pick two different machines.</string>
+    <string name="transfer_disk_final_warn">"⚠️ %1$s will be permanently deleted and its disk space goes to %2$s. Confirm?"</string>
+    <string name="transfer_disk_done">Disk transferred!</string>
+    <string name="transfer_disk_fail">Couldn\'t transfer the disk.</string>
     <string name="friends_no_username">No username yet — create one so friends can find you</string>
     <string name="friends_edit_username">My username</string>
     <string name="friends_add_hint">friend_username</string>

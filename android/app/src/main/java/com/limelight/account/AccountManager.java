@@ -264,6 +264,16 @@ public final class AccountManager {
         executeAuthenticated(context, API::getDownloads, callback);
     }
 
+    // Transfere o disco de uma VM pra outra (a de origem é excluída, a de
+    // destino ganha o espaço inteiro). Só faz sentido com 2+ VMs Proxmox.
+    public static void transferDisk(
+            Context context,
+            String sourceMachineId,
+            String targetMachineId,
+            ResultCallback<SpaceConnectApiClient.TransferDiskResponse> callback) {
+        executeAuthenticated(context, token -> API.transferDisk(token, sourceMachineId, targetMachineId), callback);
+    }
+
     public static void endSession(
             Context context,
             ResultCallback<SpaceConnectApiClient.EndSessionResponse> callback) {

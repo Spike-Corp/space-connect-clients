@@ -288,6 +288,9 @@ void LauncherApi::fetchMachines()
                             entitlement.value(QStringLiteral("bonusHours")).toDouble();
                         entry.insert(QStringLiteral("planSlug"),
                                      entitlement.value(QStringLiteral("planSlug")).toString());
+                        // Tamanho do disco (pra transferência de disco entre VMs).
+                        entry.insert(QStringLiteral("diskGb"),
+                                     machine.value(QStringLiteral("specs")).toObject().value(QStringLiteral("diskGb")).toInt());
                         // Nome de exibição vindo do cadastro do produto no banco.
                         entry.insert(QStringLiteral("planName"),
                                      entitlement.value(QStringLiteral("planName")).toString());
@@ -1363,4 +1366,28 @@ void LauncherApi::downloadItem(const QString& id, const QString& url, const QStr
         reply->deleteLater();
         emit downloadItemFinished(true, tr("%1 baixado pra sua pasta Downloads.").arg(name));
     });
+}
+
+void LauncherApi::transferDisk(const QString& sourceMachineId, const QString& targetMachineId)
+{
+    if (!m_LoggedIn) return;
+    if (sourceMachineId.isEmpty() || targetMachineId.isEmpty() || sourceMachineId == targetMachineId) {
+        emit diskTransferFinished(false, tr("Escolha duas máquinas diferentes."));
+        return;
+    }
+    setBusy(true);
+    QJsonObject body{{QStringLiteral("targetMachineId"), targetMachineId}};
+    request("POST", QStringLiteral("machines/") + sourceMachineId + QStringLiteral("/transfer-disk"),
+            body, true,
+            [this](int status, const QJsonObject& root) {
+                setBusy(false);
+                if (status >= 200 && status < 300) {
+                    emit diskTransferFinished(true, root.value(QStringLiteral("message")).toString(
+                        tr("Disco transferido!")));
+                    fetchMachines(); // atualiza a lista (a origem sumiu, o destino cresceu)
+                } else {
+                    emit diskTransferFinished(false, errorObject(root).value(QStringLiteral("message")).toString(
+                        tr("Não consegui transferir o disco.")));
+                }
+            });
 }

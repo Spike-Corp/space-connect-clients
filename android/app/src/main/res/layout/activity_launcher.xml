@@ -262,6 +262,20 @@
                 android:textSize="14sp" />
 
             <Button
+                android:id="@+id/launcherTransferDiskButton"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_button_ghost"
+                android:gravity="start|center_vertical"
+                android:paddingStart="16dp"
+                android:text="@string/transfer_disk_title"
+                android:textAllCaps="false"
+                android:textColor="?attr/appForegroundColor"
+                android:textSize="14sp"
+                android:visibility="gone" />
+
+            <Button
                 android:id="@+id/launcherUsbButton"
                 android:layout_width="match_parent"
                 android:layout_height="50dp"

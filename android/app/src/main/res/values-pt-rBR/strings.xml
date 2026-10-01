@@ -350,6 +350,16 @@
     <string name="dl_open_link">Abrir link</string>
     <string name="dl_started">Download iniciado — acompanhe nas notificações.</string>
     <string name="dl_load_fail">Não consegui carregar a lista de downloads.</string>
+    <string name="transfer_disk_title">Transferir disco entre máquinas</string>
+    <string name="transfer_disk_source">Excluir esta máquina (o disco dela vai embora pra sempre):</string>
+    <string name="transfer_disk_target">Receber o espaço nesta máquina:</string>
+    <string name="transfer_disk_warn">⚠️ Isso é irreversível. A máquina de origem vai ser excluída pra sempre.</string>
+    <string name="transfer_disk_confirm">Transferir disco</string>
+    <string name="transfer_disk_confirm_yes">Sim, excluir e transferir</string>
+    <string name="transfer_disk_same">Escolha duas máquinas diferentes.</string>
+    <string name="transfer_disk_final_warn">"⚠️ %1$s vai ser excluída pra sempre e o espaço dela vai pra %2$s. Confirma?"</string>
+    <string name="transfer_disk_done">Disco transferido!</string>
+    <string name="transfer_disk_fail">Não consegui transferir o disco.</string>
     <string name="friends_no_username">Sem username ainda — crie um pra amigos te acharem</string>
     <string name="friends_edit_username">Meu username</string>
     <string name="friends_add_hint">username_do_amigo</string>

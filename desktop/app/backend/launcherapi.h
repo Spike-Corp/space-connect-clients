@@ -113,6 +113,9 @@ public:
     // conectar quando o encaminhamento de mic está ligado). Fire-and-forget.
     void ensureMicBridge();
     Q_INVOKABLE void refreshEmulators();
+    // Transfere o disco de uma VM pra outra (a de origem é excluída, a de
+    // destino ganha o espaço inteiro). Só aparece na UI com 2+ VMs Proxmox.
+    Q_INVOKABLE void transferDisk(const QString& sourceMachineId, const QString& targetMachineId);
     Q_INVOKABLE void refreshDownloads();
     // Baixa um item da biblioteca pra pasta Downloads do PC (kind=file) ou
     // abre no navegador (kind=link). Emite downloadItemProgress(0-100) e
@@ -194,6 +197,7 @@ signals:
     void downloadsChanged();
     void downloadItemProgress(int percent);
     void downloadItemFinished(bool success, QString message);
+    void diskTransferFinished(bool success, QString message);
 
 private:
     using ResponseHandler = std::function<void(int, const QJsonObject&)>;

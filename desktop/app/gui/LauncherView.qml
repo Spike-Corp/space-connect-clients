@@ -138,6 +138,12 @@ Item {
             bugResultDialog.text = message
             bugResultDialog.open()
         }
+        function onDiskTransferFinished(success, message) {
+            bugResultDialog.isError = !success
+            bugResultDialog.customTitle = success ? qsTr("Disco transferido") : ""
+            bugResultDialog.text = message
+            bugResultDialog.open()
+        }
         function onUsbHelperMissing() {
             usbSetupDialog.open()
         }
@@ -360,6 +366,14 @@ Item {
                     }
 
                     Button {
+                        // Transferir disco entre VMs (só com 2+ máquinas Proxmox).
+                        visible: countProxmoxMachines() >= 2
+                        text: qsTr("Transferir disco")
+                        Layout.fillWidth: true
+                        onClicked: transferDiskDialog.open()
+                    }
+
+                    Button {
                         text: qsTr("Report a problem")
                         enabled: !LauncherApi.busy
                         Layout.fillWidth: true
@@ -430,6 +444,136 @@ Item {
                     createMachineDialog.close()
                 }
             }
+        }
+    }
+
+    // Quantas máquinas Proxmox o usuário tem (a transferência de disco só faz
+    // sentido com 2+, e só entre Proxmox).
+    function countProxmoxMachines() {
+        var n = 0
+        for (var i = 0; i < LauncherApi.machines.length; i++) {
+            if (LauncherApi.machines[i].provider === "proxmox") n++
+        }
+        return n
+    }
+
+    // Dialog de transferência de disco entre VMs: exclui a de origem e soma o
+    // disco dela (inteiro) na de destino. Avisa que é irreversível.
+    Dialog {
+        id: transferDiskDialog
+        title: qsTr("Transferir disco entre máquinas")
+        standardButtons: Dialog.Cancel
+        parent: Overlay.overlay
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
+        modal: true
+
+        property string sourceId: ""
+        property string targetId: ""
+
+        function proxmoxMachines() {
+            var out = []
+            for (var i = 0; i < LauncherApi.machines.length; i++) {
+                var m = LauncherApi.machines[i]
+                if (m.provider === "proxmox") out.push(m)
+            }
+            return out
+        }
+
+        ColumnLayout {
+            width: 400
+            spacing: 12
+
+            Label {
+                text: qsTr("Excluir uma máquina e aproveitar o espaço dela na outra. A de origem é EXCLUÍDA pra sempre (jogos, arquivos, tudo) e a de destino ganha o espaço.")
+                wrapMode: Text.WordWrap
+                color: "#cfc8e3"
+                Layout.fillWidth: true
+            }
+
+            Label { text: qsTr("Excluir esta máquina (o disco dela vai embora):"); color: "#9793aa"; font.pixelSize: 11 }
+            SpaceComboBox {
+                id: transferSourceCombo
+                Layout.fillWidth: true
+                textRole: "text"
+                model: ListModel { id: transferSourceModel }
+                function rebuild() {
+                    transferSourceModel.clear()
+                    transferSourceModel.append({"text": qsTr("Escolher…"), "machineId": ""})
+                    var ms = transferDiskDialog.proxmoxMachines()
+                    for (var i = 0; i < ms.length; i++) {
+                        transferSourceModel.append({
+                            "text": (ms[i].name || ms[i].id) + " (" + (ms[i].diskGb || "?") + " GB)",
+                            "machineId": ms[i].id
+                        })
+                    }
+                    currentIndex = 0
+                    recalculateWidth()
+                }
+                onActivated: transferDiskDialog.sourceId = transferSourceModel.get(currentIndex).machineId
+                Component.onCompleted: rebuild()
+            }
+
+            Label { text: qsTr("Receber o espaço nesta máquina:"); color: "#9793aa"; font.pixelSize: 11 }
+            SpaceComboBox {
+                id: transferTargetCombo
+                Layout.fillWidth: true
+                textRole: "text"
+                model: ListModel { id: transferTargetModel }
+                function rebuild() {
+                    transferTargetModel.clear()
+                    transferTargetModel.append({"text": qsTr("Escolher…"), "machineId": ""})
+                    var ms = transferDiskDialog.proxmoxMachines()
+                    for (var i = 0; i < ms.length; i++) {
+                        transferTargetModel.append({
+                            "text": (ms[i].name || ms[i].id) + " (" + (ms[i].diskGb || "?") + " GB)",
+                            "machineId": ms[i].id
+                        })
+                    }
+                    currentIndex = 0
+                    recalculateWidth()
+                }
+                onActivated: transferDiskDialog.targetId = transferTargetModel.get(currentIndex).machineId
+                Component.onCompleted: rebuild()
+            }
+
+            Label {
+                id: transferConfirmLabel
+                visible: false
+                text: qsTr("⚠️ Isso é irreversível. A máquina de origem vai ser excluída pra sempre. Confirma?")
+                wrapMode: Text.WordWrap
+                color: "#f87171"
+                Layout.fillWidth: true
+            }
+
+            Button {
+                id: transferConfirmButton
+                highlighted: true
+                Layout.fillWidth: true
+                enabled: transferDiskDialog.sourceId !== "" && transferDiskDialog.targetId !== "" && transferDiskDialog.sourceId !== transferDiskDialog.targetId
+                property bool armed: false
+                text: armed ? qsTr("Confirmar exclusão e transferência") : qsTr("Transferir disco")
+                onClicked: {
+                    if (!armed) {
+                        armed = true
+                        transferConfirmLabel.visible = true
+                    } else {
+                        LauncherApi.transferDisk(transferDiskDialog.sourceId, transferDiskDialog.targetId)
+                        armed = false
+                        transferConfirmLabel.visible = false
+                        transferDiskDialog.close()
+                    }
+                }
+            }
+        }
+
+        onOpened: {
+            transferSourceCombo.rebuild()
+            transferTargetCombo.rebuild()
+            sourceId = ""
+            targetId = ""
+            transferConfirmLabel.visible = false
+            transferConfirmButton.armed = false
         }
     }
 
