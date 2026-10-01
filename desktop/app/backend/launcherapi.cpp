@@ -16,13 +16,14 @@
 #include <QSettings>
 #include <QDir>
 #include <QProcess>
-#if defined(Q_OS_WIN)
-#include <windows.h>
-#pragma comment(lib, "winmm.lib")
-#elif defined(Q_OS_LINUX)
+// Downloads/auto-update usam esses em TODAS as plataformas (não só Linux) —
+// ficar dentro do #elif Q_OS_LINUX quebrava o build do Windows (C2653).
 #include <QStandardPaths>
 #include <QDesktopServices>
 #include <QRegularExpression>
+#if defined(Q_OS_WIN)
+#include <windows.h>
+#pragma comment(lib, "winmm.lib")
 #endif
 #include <QSysInfo>
 #include <QUuid>
