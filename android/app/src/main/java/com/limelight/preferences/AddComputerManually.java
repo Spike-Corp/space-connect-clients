@@ -40,6 +40,10 @@ import android.widget.Toast;
 
 public class AddComputerManually extends Activity {
     public static final String EXTRA_AUTO_HOST = "spaceConnectAutoHost";
+    // SpaceCloud: machineId da conta + origem ("launcher"/"friend") pra marcar
+    // o PC e permitir a limpeza automática de PCs obsoletos da conta.
+    public static final String EXTRA_SC_MACHINE_ID = "spaceConnectMachineId";
+    public static final String EXTRA_SC_ORIGIN = "spaceConnectOrigin";
 
     private TextView hostText;
     private ComputerManagerService.ComputerManagerBinder managerBinder;
@@ -150,6 +154,12 @@ public class AddComputerManually extends Activity {
                 }
 
                 details.manualAddress = new ComputerDetails.AddressTuple(host, port);
+                // Marcação SpaceCloud vinda do launcher (sobrevive ao poll —
+                // ComputerDetails.update() só copia esses campos de valores não-nulos)
+                String scMid = getIntent().getStringExtra(EXTRA_SC_MACHINE_ID);
+                String scOrigin = getIntent().getStringExtra(EXTRA_SC_ORIGIN);
+                if (scMid != null && !scMid.trim().isEmpty()) details.scMachineId = scMid.trim();
+                if (scOrigin != null && !scOrigin.trim().isEmpty()) details.scOrigin = scOrigin.trim();
                 success = managerBinder.addComputerBlocking(details);
                 if (!success){
                     wrongSiteLocal = isWrongSubnetSiteLocalAddress(host);

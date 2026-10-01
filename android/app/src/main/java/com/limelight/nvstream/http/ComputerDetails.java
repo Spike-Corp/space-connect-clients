@@ -71,6 +71,12 @@ public class ComputerDetails {
     public AddressTuple ipv6Address;
     public String macAddress;
     public X509Certificate serverCert;
+    // SpaceCloud: qual máquina da conta este PC representa + origem
+    // ("launcher" = minha VM, "friend" = VM de amigo, null = legado/manual).
+    // Permite sumir com PCs obsoletos da conta (VM recriada com UUID/IP novo)
+    // sem tocar nos PCs de amigos.
+    public String scMachineId;
+    public String scOrigin;
 
     // Transient attributes
     public State state;
@@ -162,6 +168,14 @@ public class ComputerDetails {
         this.rawAppList = details.rawAppList;
         if (details.gpuModel != null) {
             this.gpuModel = details.gpuModel;
+        }
+        // Marcação SpaceCloud: o update vem do polling (sem esses campos), então
+        // só copia quando o outro lado TEM valor — nunca apaga a marcação.
+        if (details.scMachineId != null) {
+            this.scMachineId = details.scMachineId;
+        }
+        if (details.scOrigin != null) {
+            this.scOrigin = details.scOrigin;
         }
     }
 

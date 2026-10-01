@@ -28,7 +28,9 @@ Item {
             addingComputer = true
             friendConnectAddress = address
             friendConnectName = name || ""
-            ComputerManager.addNewHostManually(address)
+            // VM de amigo é marcada como "friend" — nunca é removida pela
+            // limpeza automática de PCs obsoletos da conta.
+            ComputerManager.addNewHostForMachine(address, machineId || "", "friend")
         }
         function onUsernameCheckResult(available, reason) {
             usernameCheckLabel.visible = true

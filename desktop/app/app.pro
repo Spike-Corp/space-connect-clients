@@ -186,6 +186,7 @@ SOURCES += \
     backend/computerseeker.cpp \
     backend/identitymanager.cpp \
     backend/micforwarder.cpp \
+    backend/micleveltester.cpp \
     backend/launcherapi.cpp \
     backend/xdapi.cpp \
     backend/latencytester.cpp \
@@ -234,6 +235,7 @@ HEADERS += \
     backend/computerseeker.h \
     backend/identitymanager.h \
     backend/micforwarder.h \
+    backend/micleveltester.h \
     backend/launcherapi.h \
     backend/xdapi.h \
     backend/latencytester.h \

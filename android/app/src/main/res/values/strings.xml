@@ -316,6 +316,10 @@
     <string name="emu_opened_ok">Emulator opened on your PC!</string>
     <string name="emu_open_fail">Couldn\'t open the emulator.</string>
     <string name="emu_install_timeout">Install is taking too long — check if it opened on your PC and try again.</string>
+    <string name="emu_install_downloading">Downloading… %1$d%%</string>
+    <string name="emu_install_extracting">Extracting files on your PC…</string>
+    <string name="emu_install_starting">Starting install…</string>
+    <string name="emu_install_lost">The install was lost on the server. Tap Install again.</string>
     <string name="friends_no_username">No username yet — create one so friends can find you</string>
     <string name="friends_edit_username">My username</string>
     <string name="friends_add_hint">friend_username</string>
@@ -419,6 +423,11 @@
     <string name="summary_checkbox_enable_audiofx">Allows audio effects to function while streaming, but may increase audio latency</string>
     <string name="title_mic_forwarding_device">Microphone input device</string>
     <string name="summary_mic_forwarding_device">Choose which microphone to capture when forwarding to the host. If forwarding doesn\'t seem to work, try selecting your microphone explicitly here instead of Automatic.</string>
+    <string name="title_mic_level_test">Test microphone</string>
+    <string name="summary_mic_level_test">Speak and watch the level bar move — confirms the right mic is selected before you connect.</string>
+    <string name="mic_test_start">Start test</string>
+    <string name="mic_test_stop">Stop test</string>
+    <string name="mic_test_hint">Say something — the bar should move. If it doesn\'t, change the input device above.</string>
     <string name="mic_device_automatic">Automatic (Recommended)</string>
 
     <string name="category_gamepad_settings">Gamepad Settings</string>

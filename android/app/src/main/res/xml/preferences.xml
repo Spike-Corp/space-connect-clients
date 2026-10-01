@@ -121,6 +121,11 @@
             android:entries="@array/mic_device_default_names"
             android:entryValues="@array/mic_device_default_values"
             android:defaultValue="" />
+        <Preference
+            android:key="mic_level_test"
+            android:icon="@drawable/ic_microphone"
+            android:title="@string/title_mic_level_test"
+            android:summary="@string/summary_mic_level_test" />
     </PreferenceCategory>
     <PreferenceCategory android:title="@string/category_session_notify"
         android:key="category_session_notify">

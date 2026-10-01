@@ -28,6 +28,13 @@ public class EmulatorsActivity extends Activity {
     private TextView emptyText;
     private ProgressBar progress;
     private boolean busy;
+    // Install em andamento (por emulador) + progresso 0-100. O install NÃO
+    // trava a tela toda: o usuário pode sair da aba e até entrar na VM
+    // enquanto baixa — só o card do emulador mostra a barra.
+    private String installingEmuId;
+    private int installingProgress = -1;
+    // Último catálogo renderizado — pra re-renderizar o progresso sem refetch.
+    private SpaceConnectApiClient.EmulatorEntry[] lastCatalog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -86,12 +93,14 @@ public class EmulatorsActivity extends Activity {
                     }
                 }
                 setBusy(false);
+                lastCatalog = catalog;
                 render(catalog);
             }
 
             @Override
             public void onError(String message) {
                 setBusy(false);
+                lastCatalog = catalog;
                 render(catalog);
             }
         });
@@ -128,9 +137,30 @@ public class EmulatorsActivity extends Activity {
                 systems.setVisibility(View.GONE);
             }
             badge.setVisibility(emu.installed ? View.VISIBLE : View.GONE);
+
+            // Barra de progresso do download — visível só no card instalando
+            ProgressBar emuProgress = card.findViewById(R.id.emuProgress);
+            TextView emuProgressText = card.findViewById(R.id.emuProgressText);
+            boolean isInstalling = emu.id != null && emu.id.equals(installingEmuId);
+            emuProgress.setVisibility(isInstalling ? View.VISIBLE : View.GONE);
+            emuProgressText.setVisibility(isInstalling ? View.VISIBLE : View.GONE);
+            if (isInstalling) {
+                if (installingProgress >= 0) {
+                    emuProgress.setIndeterminate(false);
+                    emuProgress.setProgress(installingProgress);
+                    emuProgressText.setText(installingProgress >= 85
+                            ? getString(R.string.emu_install_extracting)
+                            : getString(R.string.emu_install_downloading, installingProgress));
+                } else {
+                    emuProgress.setIndeterminate(true);
+                    emuProgressText.setText(R.string.emu_install_starting);
+                }
+            }
+
             action.setText(emu.installed ? R.string.emu_open : R.string.emu_install);
+            action.setEnabled(installingEmuId == null);
             action.setOnClickListener(v -> {
-                if (busy) return;
+                if (busy || installingEmuId != null) return;
                 if (emu.installed) launch(emu); else install(emu);
             });
 
@@ -139,7 +169,9 @@ public class EmulatorsActivity extends Activity {
     }
 
     private void install(SpaceConnectApiClient.EmulatorEntry emu) {
-        setBusy(true);
+        installingEmuId = emu.id;
+        installingProgress = 0;
+        reloadCardsOnly();
         Toast.makeText(this, getString(R.string.emu_installing, emu.name), Toast.LENGTH_SHORT).show();
         AccountManager.installEmulator(this, emu.id, new AccountManager.ResultCallback<SpaceConnectApiClient.EmulatorActionResponse>() {
             @Override
@@ -151,15 +183,25 @@ public class EmulatorsActivity extends Activity {
 
             @Override
             public void onError(String message) {
-                setBusy(false);
+                installingEmuId = null;
+                installingProgress = -1;
+                reloadCardsOnly();
                 Toast.makeText(EmulatorsActivity.this, message != null ? message : getString(R.string.emu_install_fail), Toast.LENGTH_LONG).show();
             }
         });
     }
 
+    // Re-renderiza os cards SEM o spinner de tela cheia (o install roda em
+    // paralelo, com a barra de progresso no próprio card).
+    private void reloadCardsOnly() {
+        if (lastCatalog != null) render(lastCatalog);
+    }
+
     private void pollInstall(final SpaceConnectApiClient.EmulatorEntry emu, final int attempt) {
         if (attempt > 240) { // 240 x 2s = ~8min
-            setBusy(false);
+            installingEmuId = null;
+            installingProgress = -1;
+            reloadCardsOnly();
             Toast.makeText(this, R.string.emu_install_timeout, Toast.LENGTH_LONG).show();
             return;
         }
@@ -169,17 +211,35 @@ public class EmulatorsActivity extends Activity {
                 public void onSuccess(SpaceConnectApiClient.EmulatorInstallStatusResponse st) {
                     String state = st != null && st.state != null ? st.state : "none";
                     if ("done".equals(state)) {
-                        setBusy(false);
+                        installingEmuId = null;
+                        installingProgress = -1;
                         Toast.makeText(EmulatorsActivity.this, R.string.emu_installed_ok, Toast.LENGTH_LONG).show();
                         reload();
                         return;
                     }
                     if ("failed".equals(state)) {
-                        setBusy(false);
+                        installingEmuId = null;
+                        installingProgress = -1;
+                        reloadCardsOnly();
                         Toast.makeText(EmulatorsActivity.this,
                                 st != null && st.message != null ? st.message : getString(R.string.emu_install_fail),
                                 Toast.LENGTH_LONG).show();
                         return;
+                    }
+                    // "none" por muito tempo = o job sumiu do backend (ex.: API
+                    // reiniciou no meio). Antes ficava em loop pra sempre.
+                    if ("none".equals(state) && attempt > 15) {
+                        installingEmuId = null;
+                        installingProgress = -1;
+                        reloadCardsOnly();
+                        Toast.makeText(EmulatorsActivity.this, R.string.emu_install_lost, Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    // Progresso real do download (0-85%) vindo do backend
+                    if (st != null && st.progress != null && st.progress >= 0
+                            && st.progress != installingProgress) {
+                        installingProgress = st.progress;
+                        reloadCardsOnly();
                     }
                     pollInstall(emu, attempt + 1);
                 }

@@ -50,6 +50,25 @@
         android:textColor="@color/moonlight_muted_foreground"
         android:textSize="11sp" />
 
+    <ProgressBar
+        android:id="@+id/emuProgress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:max="100"
+        android:progress="0"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/emuProgressText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textColor="@color/moonlight_muted_foreground"
+        android:textSize="11sp"
+        android:visibility="gone" />
+
     <Button
         android:id="@+id/emuActionButton"
         android:layout_width="match_parent"

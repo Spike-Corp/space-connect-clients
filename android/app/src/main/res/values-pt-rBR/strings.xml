@@ -339,6 +339,10 @@
     <string name="emu_opened_ok">Emulador aberto no seu PC!</string>
     <string name="emu_open_fail">Não consegui abrir o emulador.</string>
     <string name="emu_install_timeout">A instalação está demorando — verifique se abriu no seu PC e tente de novo.</string>
+    <string name="emu_install_downloading">Baixando… %1$d%%</string>
+    <string name="emu_install_extracting">Extraindo arquivos no seu PC…</string>
+    <string name="emu_install_starting">Iniciando a instalação…</string>
+    <string name="emu_install_lost">A instalação se perdeu no servidor. Toque em Instalar de novo.</string>
     <string name="friends_no_username">Sem username ainda — crie um pra amigos te acharem</string>
     <string name="friends_edit_username">Meu username</string>
     <string name="friends_add_hint">username_do_amigo</string>
@@ -581,6 +585,11 @@
     <string name="summary_checkbox_enable_audiofx">Permitir que efeitos de audio funcionem durante o streaming, pode acrescentar latência de audio</string>
     <string name="title_mic_forwarding_device">Dispositivo de entrada do microfone</string>
     <string name="summary_mic_forwarding_device">Escolha qual microfone capturar ao encaminhar para o host. Se o encaminhamento não parecer funcionar, tente selecionar seu microfone explicitamente aqui em vez de Automático.</string>
+    <string name="title_mic_level_test">Testar microfone</string>
+    <string name="summary_mic_level_test">Fale algo e veja a barra de volume se mexer — confirma que o microfone certo está selecionado antes de conectar.</string>
+    <string name="mic_test_start">Iniciar teste</string>
+    <string name="mic_test_stop">Parar teste</string>
+    <string name="mic_test_hint">Fale algo — a barra deve se mexer. Se não mexer, troque o dispositivo acima.</string>
     <string name="mic_device_automatic">Automático (Recomendado)</string>
     <string name="title_full_range">Forçar vídeo de gama completa de cores (Experimental)</string>
     <string name="frame_conversion_error">O PC host relatou um erro fatal de codificação de vídeo.

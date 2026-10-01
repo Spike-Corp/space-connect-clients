@@ -120,7 +120,10 @@ Item {
             addingComputer = true
             pendingConnectAddress = address
             pendingConnectName = name || ""
-            ComputerManager.addNewHostManually(address)
+            // Marca como VM da conta (machineId) — PCs antigos da conta
+            // (VM recriada com IP/UUID novo) somem sozinhos em vez de
+            // acumular entradas mortas na grade.
+            ComputerManager.addNewHostForMachine(address, machineId || "", "launcher")
         }
         // Navegação de login/logout é centralizada no main.qml
         // (window.showLoginView/showLauncherView) — não duplicar aqui.

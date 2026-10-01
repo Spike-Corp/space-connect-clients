@@ -113,6 +113,12 @@ public:
     QSslCertificate serverCert;
     QVector<NvApp> appList;
     bool isNvidiaServerSoftware;
+    // SpaceCloud: qual máquina da conta este PC representa + origem
+    // ("launcher" = minha VM, "friend" = VM de amigo, "" = legado/manual).
+    // Usado pra sumir com PCs obsoletos da conta quando a VM é recriada
+    // (UUID novo) sem tocar nos PCs de amigos.
+    QString scMachineId;
+    QString scOrigin;
     // Remember to update isEqualSerialized() when adding fields here!
 
     // Synchronization

@@ -564,6 +564,7 @@ public final class SpaceConnectApiClient {
     public static final class EmulatorInstallStatusResponse {
         public String state;   // none | running | done | failed
         public String message;
+        public Integer progress; // 0-100 durante o download (null se o backend ainda não sabe)
     }
 
     // ── Amigos (beta) ───────────────────────────────────────────────────────

@@ -228,6 +228,12 @@ public:
 
     Q_INVOKABLE void addNewHostManually(QString address);
 
+    // Variante SpaceCloud: adiciona o host já marcado com o machineId da conta
+    // (ou "friend" quando é VM de amigo). Ao conectar uma VM própria nova,
+    // remove os PCs anteriores da conta (obsoletos — IP/UUID mudaram) pra lista
+    // não acumular entradas mortas com "!" igual ao Moonlight puro.
+    Q_INVOKABLE void addNewHostForMachine(QString address, QString machineId, QString origin);
+
     // Índice na lista de um computador pelo endereço host:porta (pra abrir
     // direto o AppView da máquina de um amigo, sem passar pela grade). -1 se
     // não achar.
@@ -241,7 +247,8 @@ public:
     // higher bitrate tier on Space Cloud's dedicated "physical machine" hardware.
     Q_INVOKABLE QString getPrimaryGpuModel();
 
-    void addNewHost(NvAddress address, bool mdns, NvAddress mdnsIpv6Address = NvAddress());
+    void addNewHost(NvAddress address, bool mdns, NvAddress mdnsIpv6Address = NvAddress(),
+                    QString scMachineId = QString(), QString scOrigin = QString());
 
     QString generatePinString();
 
@@ -264,6 +271,10 @@ signals:
     void pairingCompleted(NvComputer* computer, QString error);
 
     void computerAddCompleted(QVariant success, QVariant detectedPortBlocking);
+
+    // Emitido quando um PC é removido da lista (deleteHost) — o model precisa
+    // resetar pra não segurar ponteiro de objeto já deletado.
+    void computerRemoved();
 
     void quitAppCompleted(QVariant error);
 

@@ -268,6 +268,10 @@ public class ComputerManagerService extends Service {
             ComputerManagerService.this.removeComputer(computer);
         }
 
+        public void removeObsoleteAccountComputers(String currentMachineId, String currentHostAddress) {
+            ComputerManagerService.this.removeObsoleteAccountComputers(currentMachineId, currentHostAddress);
+        }
+
         public void renameComputer(ComputerDetails computer, String name) {
             ComputerManagerService.this.renameComputer(computer, name);
         }
@@ -535,6 +539,64 @@ public class ComputerManagerService extends Service {
         }
 
         releaseLocalDatabaseReference();
+    }
+
+    // SpaceCloud: remove PCs obsoletos da CONTA quando uma VM nova é adicionada
+    // (VM recriada volta com UUID/IP novos e a entrada antiga ficava morta na
+    // grade com "!"). NUNCA remove PC de amigo (scOrigin == "friend").
+    // Legados sem marcação: só remove se estiverem OFFLINE e com endereço
+    // diferente do que acabou de ser adicionado.
+    public void removeObsoleteAccountComputers(String currentMachineId, String currentHostAddress) {
+        if (!getLocalDatabaseReference()) {
+            return;
+        }
+        try {
+            for (ComputerDetails computer : dbManager.getAllComputers()) {
+                if ("friend".equals(computer.scOrigin)) {
+                    continue; // PC de amigo é sagrado
+                }
+                boolean obsolete = false;
+                if ("launcher".equals(computer.scOrigin)) {
+                    // Marcado como da conta: obsoleto se é de OUTRA máquina
+                    obsolete = currentMachineId != null && !currentMachineId.isEmpty()
+                            && computer.scMachineId != null && !computer.scMachineId.equals(currentMachineId);
+                } else if (computer.scOrigin == null || computer.scOrigin.isEmpty()) {
+                    // Legado (antes da marcação): remove só se morto + não é o atual
+                    boolean sameAddr = currentHostAddress != null && (
+                            (computer.manualAddress != null && currentHostAddress.startsWith(computer.manualAddress.address)) ||
+                            (computer.remoteAddress != null && currentHostAddress.startsWith(computer.remoteAddress.address)) ||
+                            (computer.localAddress != null && currentHostAddress.startsWith(computer.localAddress.address)));
+                    ComputerDetails live = null;
+                    synchronized (pollingTuples) {
+                        for (PollingTuple tuple : pollingTuples) {
+                            if (tuple.computer.uuid.equals(computer.uuid)) { live = tuple.computer; break; }
+                        }
+                    }
+                    boolean offline = live == null || live.state != ComputerDetails.State.ONLINE;
+                    obsolete = offline && !sameAddr;
+                }
+                if (obsolete) {
+                    LimeLog.info("Removendo PC obsoleto da conta: " + computer.name + " (" + computer.uuid + ")");
+                    // removeComputer faz get/release da ref do DB — como já estamos
+                    // segurando uma aqui, deletamos direto pra não aninhar.
+                    dbManager.deleteComputer(computer);
+                    synchronized (pollingTuples) {
+                        for (PollingTuple tuple : pollingTuples) {
+                            if (tuple.computer.uuid.equals(computer.uuid)) {
+                                if (tuple.thread != null) {
+                                    tuple.thread.interrupt();
+                                    tuple.thread = null;
+                                }
+                                pollingTuples.remove(tuple);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        } finally {
+            releaseLocalDatabaseReference();
+        }
     }
 
     // Renomeia localmente (persiste no DB + marca hasCustomName pra sobreviver

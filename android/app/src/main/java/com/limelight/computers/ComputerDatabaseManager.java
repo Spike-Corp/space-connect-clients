@@ -45,6 +45,11 @@ public class ComputerDatabaseManager {
     // índice em getComputerFromCursor() é estável nos dois casos (DB novo ou
     // migrado).
     private static final String HAS_CUSTOM_NAME_COLUMN_NAME = "HasCustomName";
+    // SpaceCloud: qual máquina da conta este PC representa + origem
+    // ("launcher" = minha VM, "friend" = VM de amigo). Mesmo padrão de
+    // migração do HasCustomName: ALTER TABLE defensivo + lookup por nome.
+    private static final String SC_MACHINE_ID_COLUMN_NAME = "ScMachineId";
+    private static final String SC_ORIGIN_COLUMN_NAME = "ScOrigin";
 
     private SQLiteDatabase computerDb;
 
@@ -81,6 +86,18 @@ public class ComputerDatabaseManager {
         } catch (SQLiteException e) {
             // Coluna já existe (banco criado por uma versão já com esse campo) — ignora.
         }
+
+        // Idem pras colunas de marcação SpaceCloud (machineId/origin).
+        try {
+            computerDb.execSQL(String.format((Locale)null,
+                    "ALTER TABLE %s ADD COLUMN %s TEXT",
+                    COMPUTER_TABLE_NAME, SC_MACHINE_ID_COLUMN_NAME));
+        } catch (SQLiteException e) { /* já existe */ }
+        try {
+            computerDb.execSQL(String.format((Locale)null,
+                    "ALTER TABLE %s ADD COLUMN %s TEXT",
+                    COMPUTER_TABLE_NAME, SC_ORIGIN_COLUMN_NAME));
+        } catch (SQLiteException e) { /* já existe */ }
 
         // Move all computers from the old DB (if any) to the new one
         List<ComputerDetails> oldComputers = LegacyDatabaseReader.migrateAllComputers(c);
@@ -128,6 +145,8 @@ public class ComputerDatabaseManager {
         values.put(COMPUTER_UUID_COLUMN_NAME, details.uuid);
         values.put(COMPUTER_NAME_COLUMN_NAME, details.name);
         values.put(HAS_CUSTOM_NAME_COLUMN_NAME, details.hasCustomName ? 1 : 0);
+        values.put(SC_MACHINE_ID_COLUMN_NAME, details.scMachineId);
+        values.put(SC_ORIGIN_COLUMN_NAME, details.scOrigin);
 
         try {
             JSONObject addresses = new JSONObject();
@@ -199,6 +218,11 @@ public class ComputerDatabaseManager {
         // caso getColumnIndex retorna -1 e o padrão fica false, como esperado.
         int hasCustomNameIdx = c.getColumnIndex(HAS_CUSTOM_NAME_COLUMN_NAME);
         details.hasCustomName = hasCustomNameIdx >= 0 && !c.isNull(hasCustomNameIdx) && c.getInt(hasCustomNameIdx) != 0;
+
+        int scMachineIdIdx = c.getColumnIndex(SC_MACHINE_ID_COLUMN_NAME);
+        details.scMachineId = scMachineIdIdx >= 0 && !c.isNull(scMachineIdIdx) ? c.getString(scMachineIdIdx) : null;
+        int scOriginIdx = c.getColumnIndex(SC_ORIGIN_COLUMN_NAME);
+        details.scOrigin = scOriginIdx >= 0 && !c.isNull(scOriginIdx) ? c.getString(scOriginIdx) : null;
 
         return details;
     }

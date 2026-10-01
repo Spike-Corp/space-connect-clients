@@ -9,8 +9,23 @@ import ComputerManager 1.0
 import SdlGamepadKeyNavigation 1.0
 import SystemProperties 1.0
 import LauncherApi 1.0
+import MicLevelTester 1.0
 
 Flickable {
+    // Nível atual do mic (0.0-1.0) — atualizado pelo sinal do MicLevelTester
+    property real micLevelValue: 0.0
+
+    Connections {
+        target: MicLevelTester
+        function onLevelChanged() {
+            micLevelValue = MicLevelTester.currentLevel()
+        }
+    }
+
+    // Para de capturar ao sair das configurações (não vaza o microfone aberto)
+    StackView.onDeactivated: MicLevelTester.stopTesting()
+    Component.onDestruction: MicLevelTester.stopTesting()
+
     id: settingsPage
     objectName: qsTr("Settings")
 
@@ -1158,6 +1173,65 @@ Flickable {
                     ToolTip.timeout: 5000
                     ToolTip.visible: hovered
                     ToolTip.text: qsTr("Choose which microphone to capture and forward. If forwarding doesn't seem to work, try selecting your microphone explicitly here instead of Automatic.")
+                }
+
+                // Medidor de nível estilo Discord: o usuário vê na hora se o
+                // mic certo está captando, sem precisar entrar numa sessão pra
+                // descobrir que estava mudo/no dispositivo errado. Captura é
+                // 100% local (nada é enviado pra VM no teste).
+                RowLayout {
+                    width: parent.width
+                    spacing: 10
+                    visible: micForwardingCheck.checked
+
+                    Button {
+                        id: micTestButton
+                        text: MicLevelTester.isTesting() ? qsTr("Parar teste") : qsTr("Testar microfone")
+                        font.pointSize: 11
+                        onClicked: {
+                            if (MicLevelTester.isTesting()) {
+                                MicLevelTester.stopTesting()
+                            } else {
+                                var idx = micDeviceComboBox.currentIndex
+                                var dev = idx > 0 ? micDeviceListModel.get(idx).deviceName : ""
+                                MicLevelTester.startTesting(dev)
+                            }
+                        }
+                    }
+
+                    // Barrinha de nível ao vivo
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 14
+                        radius: 7
+                        color: "#272133"
+                        border.color: "#3a2d52"
+                        border.width: 1
+                        visible: MicLevelTester.isTesting()
+
+                        Rectangle {
+                            id: micLevelFill
+                            anchors.left: parent.left
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            anchors.margins: 2
+                            radius: 5
+                            width: Math.max(0, (parent.width - 4) * micLevelValue)
+                            // verde → amarelo → vermelho conforme o volume
+                            color: micLevelValue < 0.5 ? "#2dd4a0" : (micLevelValue < 0.8 ? "#fbbf24" : "#f87171")
+
+                            Behavior on width { NumberAnimation { duration: 60 } }
+                        }
+                    }
+                }
+
+                Label {
+                    visible: MicLevelTester.isTesting()
+                    text: qsTr("Fale algo — a barra deve se mexer. Se não mexer, troque o dispositivo acima.")
+                    color: "#9793aa"
+                    font.pixelSize: 11
+                    wrapMode: Text.WordWrap
+                    width: parent.width
                 }
             }
         }

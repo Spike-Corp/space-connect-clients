@@ -1019,7 +1019,12 @@ void LauncherApi::refreshEmulators()
 void LauncherApi::installEmulator(const QString& emulatorId)
 {
     if (!m_LoggedIn) return;
-    setBusy(true);
+    if (!m_InstallingEmulatorId.isEmpty()) return; // um install por vez
+    // NÃO usa o busy global — o usuário pode continuar usando o app (e entrar
+    // na VM) enquanto baixa. O estado do install é próprio, por emulador.
+    m_InstallingEmulatorId = emulatorId;
+    m_EmulatorInstallProgress = 0;
+    emit emulatorInstallProgressChanged();
     request("POST", QStringLiteral("emulators/") + emulatorId + QStringLiteral("/install"),
             QJsonObject(), true,
             [this, emulatorId](int status, const QJsonObject& root) {
@@ -1029,7 +1034,9 @@ void LauncherApi::installEmulator(const QString& emulatorId)
                     // done/failed (máx ~8min).
                     pollEmulatorInstall(emulatorId, 0);
                 } else {
-                    setBusy(false);
+                    m_InstallingEmulatorId.clear();
+                    m_EmulatorInstallProgress = -1;
+                    emit emulatorInstallProgressChanged();
                     emit emulatorActionResult(false, errorObject(root).value(QStringLiteral("message")).toString(
                         tr("Não consegui instalar (a VM precisa estar ligada).")));
                 }
@@ -1039,7 +1046,9 @@ void LauncherApi::installEmulator(const QString& emulatorId)
 void LauncherApi::pollEmulatorInstall(const QString& emulatorId, int attempt)
 {
     if (attempt > 240) { // 240 x 2s = ~8min
-        setBusy(false);
+        m_InstallingEmulatorId.clear();
+        m_EmulatorInstallProgress = -1;
+        emit emulatorInstallProgressChanged();
         emit emulatorActionResult(false, tr("Instalação demorou demais — verifique se abriu na VM e tente de novo."));
         return;
     }
@@ -1048,15 +1057,37 @@ void LauncherApi::pollEmulatorInstall(const QString& emulatorId, int attempt)
             [this, emulatorId, attempt](int status, const QJsonObject& root) {
                 const QString state = root.value(QStringLiteral("state")).toString();
                 if (state == QStringLiteral("done")) {
-                    setBusy(false);
+                    m_InstallingEmulatorId.clear();
+                    m_EmulatorInstallProgress = 100;
+                    emit emulatorInstallProgressChanged();
                     emit emulatorActionResult(true, tr("Emulador instalado! Pode abrir."));
                     refreshEmulators();
                     return;
                 }
                 if (state == QStringLiteral("failed")) {
-                    setBusy(false);
+                    m_InstallingEmulatorId.clear();
+                    m_EmulatorInstallProgress = -1;
+                    emit emulatorInstallProgressChanged();
                     emit emulatorActionResult(false, root.value(QStringLiteral("message")).toString(tr("Falha ao instalar.")));
                     return;
+                }
+                // "none" por muito tempo = o job sumiu do backend (ex.: API
+                // reiniciou no meio). Antes isso ficava em loop pra sempre —
+                // agora falha claro depois de ~30s sem o job existir.
+                if (state == QStringLiteral("none") && attempt > 15) {
+                    m_InstallingEmulatorId.clear();
+                    m_EmulatorInstallProgress = -1;
+                    emit emulatorInstallProgressChanged();
+                    emit emulatorActionResult(false, tr("A instalação se perdeu no servidor. Toque em Instalar de novo."));
+                    return;
+                }
+                // Progresso real do download (0-85%) vindo do backend
+                if (root.contains(QStringLiteral("progress")) && !root.value(QStringLiteral("progress")).isNull()) {
+                    int p = root.value(QStringLiteral("progress")).toInt(-1);
+                    if (p >= 0 && p != m_EmulatorInstallProgress) {
+                        m_EmulatorInstallProgress = p;
+                        emit emulatorInstallProgressChanged();
+                    }
                 }
                 // running / none → continua polling
                 QTimer::singleShot(2000, this, [this, emulatorId, attempt]() {

@@ -12,6 +12,8 @@ void ComputerModel::initialize(ComputerManager* computerManager)
             this, &ComputerModel::handleComputerStateChanged);
     connect(m_ComputerManager, &ComputerManager::pairingCompleted,
             this, &ComputerModel::handlePairingCompleted);
+    connect(m_ComputerManager, &ComputerManager::computerRemoved,
+            this, &ComputerModel::handleComputerRemoved);
 
     m_Computers = m_ComputerManager->getComputers();
 }
@@ -240,6 +242,17 @@ void ComputerModel::handleComputerStateChanged(NvComputer* computer)
         int index = m_Computers.indexOf(computer);
         emit dataChanged(createIndex(index, 0), createIndex(index, 0));
     }
+}
+
+void ComputerModel::handleComputerRemoved()
+{
+    // PC removido (ex.: limpeza automática de PCs obsoletos da conta).
+    // Só resetamos — NUNCA dereferenciar ponteiros da lista velha aqui,
+    // o objeto pode já ter sido deletado pelo DeferredHostDeletionTask.
+    QVector<NvComputer*> newComputerList = m_ComputerManager->getComputers();
+    beginResetModel();
+    m_Computers = newComputerList;
+    endResetModel();
 }
 
 #include "computermodel.moc"

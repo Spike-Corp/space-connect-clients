@@ -1,6 +1,9 @@
 #include "autoupdatechecker.h"
 
 #include <QNetworkReply>
+#include <QStandardPaths>
+#include <QFile>
+#include <QProcess>
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -221,4 +224,69 @@ void AutoUpdateChecker::handleUpdateCheckRequestFinished(QNetworkReply* reply)
         qWarning() << "Update checking failed with error:" << reply->error();
         reply->deleteLater();
     }
+}
+
+void AutoUpdateChecker::downloadAndInstall(QString url)
+{
+#ifdef Q_OS_WIN32
+    // O NAM original se autodestrói depois do check de manifest — recria se
+    // preciso (download é uma segunda fase de vida do objeto).
+    if (!m_Nam) {
+        m_Nam = new QNetworkAccessManager(this);
+        m_Nam->setStrictTransportSecurityEnabled(true);
+        m_Nam->setRedirectPolicy(QNetworkRequest::NoLessSafeRedirectPolicy);
+    }
+
+    QNetworkRequest request(url);
+    m_DownloadReply = m_Nam->get(request);
+    connect(m_DownloadReply, &QNetworkReply::downloadProgress,
+            this, [this](qint64 received, qint64 total) {
+        if (total > 0) {
+            emit downloadProgress(static_cast<int>((received * 100) / total));
+        }
+    });
+    connect(m_DownloadReply, &QNetworkReply::finished, this, [this]() {
+        if (m_DownloadReply->error() != QNetworkReply::NoError) {
+            emit downloadFailed(m_DownloadReply->errorString());
+            m_DownloadReply->deleteLater();
+            m_DownloadReply = nullptr;
+            return;
+        }
+
+        // Grava o instalador no %TEMP% com nome fixo por versão (idempotente —
+        // baixou, interrompeu, clicou de novo = sobrescreve e segue).
+        QString tempDir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+        QString installerPath = tempDir + "/SpaceConnect-Update.exe";
+        QFile file(installerPath);
+        if (!file.open(QIODevice::WriteOnly)) {
+            emit downloadFailed("Não consegui gravar o instalador temporário.");
+            m_DownloadReply->deleteLater();
+            m_DownloadReply = nullptr;
+            return;
+        }
+        file.write(m_DownloadReply->readAll());
+        file.close();
+        m_DownloadReply->deleteLater();
+        m_DownloadReply = nullptr;
+
+        // Inno Setup silencioso: instala por cima e já agenda relançar o app
+        // novo. /SUPPRESSMSGBOXES evita qualquer prompt modal; /NOCLOSEAPPLICATIONS
+        // não é usado — a gente fecha o app logo em seguida (installReady) pra
+        // não brigar pelo executável travado.
+        bool started = QProcess::startDetached(installerPath, {
+            QStringLiteral("/VERYSILENT"),
+            QStringLiteral("/SUPPRESSMSGBOXES"),
+            QStringLiteral("/NORESTART"),
+        });
+        if (started) {
+            emit installReady();
+        } else {
+            emit downloadFailed("Não consegui executar o instalador baixado.");
+        }
+    });
+#else
+    // Fora do Windows a atualização continua sendo via store/browser (AppImage,
+    // macOS DMG) — o manifest já aponta pro artefato certo.
+    emit downloadFailed(QStringLiteral("Auto-instalação só está disponível no Windows."));
+#endif
 }

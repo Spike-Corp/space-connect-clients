@@ -43,6 +43,7 @@
 #include "gui/computermodel.h"
 #include "gui/appmodel.h"
 #include "backend/autoupdatechecker.h"
+#include "backend/micleveltester.h"
 #include "backend/computermanager.h"
 #include "backend/systemproperties.h"
 #include "backend/launcherapi.h"
@@ -695,6 +696,11 @@ int main(int argc, char *argv[])
                                                 [](QQmlEngine*, QJSEngine*) -> QObject* {
                                                     return new AutoUpdateChecker();
                                                 });
+    qmlRegisterSingletonType<MicLevelTester>("MicLevelTester", 1, 0,
+                                             "MicLevelTester",
+                                             [](QQmlEngine*, QJSEngine*) -> QObject* {
+                                                 return new MicLevelTester();
+                                             });
     qmlRegisterSingletonType<SystemProperties>("SystemProperties", 1, 0,
                                                "SystemProperties",
                                                [](QQmlEngine*, QJSEngine*) -> QObject* {

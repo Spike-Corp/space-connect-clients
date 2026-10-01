@@ -133,6 +133,76 @@ public class StreamSettings extends Activity {
     }
 
     public static class SettingsFragment extends PreferenceFragment {
+        // Tester do mic — vive enquanto o dialog de teste está aberto
+        private com.limelight.binding.audio.MicLevelTester micTester;
+        private AlertDialog micTestDialog;
+        private Handler micLevelHandler;
+
+        private void showMicTestDialog() {
+            if (getActivity() == null) return;
+            android.widget.LinearLayout layout = new android.widget.LinearLayout(getActivity());
+            layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+            int pad = (int) (20 * getResources().getDisplayMetrics().density);
+            layout.setPadding(pad, pad, pad, pad);
+
+            android.widget.ProgressBar bar = new android.widget.ProgressBar(
+                    getActivity(), null, android.R.attr.progressBarStyleHorizontal);
+            bar.setMax(100);
+            bar.setLayoutParams(new android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT));
+            layout.addView(bar);
+
+            android.widget.TextView hint = new android.widget.TextView(getActivity());
+            hint.setText(R.string.mic_test_hint);
+            hint.setTextSize(12);
+            layout.addView(hint);
+
+            final String deviceId = PreferenceManager.getDefaultSharedPreferences(getActivity())
+                    .getString("mic_forwarding_device", "");
+
+            micLevelHandler = new Handler();
+            micTester = new com.limelight.binding.audio.MicLevelTester(getActivity(), deviceId,
+                    new com.limelight.binding.audio.MicLevelTester.LevelListener() {
+                        @Override
+                        public void onLevel(float level) {
+                            if (micLevelHandler != null) {
+                                micLevelHandler.post(() -> bar.setProgress((int) (level * 100)));
+                            }
+                        }
+
+                        @Override
+                        public void onError(String message) {
+                            if (micLevelHandler != null) {
+                                micLevelHandler.post(() -> hint.setText(message));
+                            }
+                        }
+                    });
+
+            micTestDialog = new AlertDialog.Builder(getActivity())
+                    .setTitle(R.string.title_mic_level_test)
+                    .setView(layout)
+                    .setNegativeButton(R.string.mic_test_stop, null)
+                    .create();
+            micTestDialog.setOnDismissListener(d -> stopMicTest());
+            micTestDialog.show();
+            micTester.start();
+        }
+
+        private void stopMicTest() {
+            if (micTester != null) {
+                micTester.stop();
+                micTester = null;
+            }
+            micTestDialog = null;
+        }
+
+        @Override
+        public void onDestroy() {
+            stopMicTest();
+            super.onDestroy();
+        }
+
         private int nativeResolutionStartIndex = Integer.MAX_VALUE;
         private boolean nativeFramerateShown = false;
 
@@ -571,6 +641,25 @@ public class StreamSettings extends Activity {
                 PreferenceCategory category =
                         (PreferenceCategory) findPreference("category_audio_settings");
                 category.removePreference(micDevicePref);
+            }
+
+            // Teste de microfone estilo Discord: abre um dialog com a barrinha
+            // de nível ao vivo (captura 100% local — nada vai pra rede). O
+            // usuário confirma que o mic certo capta ANTES de conectar na VM.
+            Preference micTestPref = findPreference("mic_level_test");
+            if (micTestPref != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+                        getActivity().checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)
+                                != PackageManager.PERMISSION_GRANTED) {
+                    // Sem a permissão o teste não abre o mic — esconde (o toggle
+                    // de forwarding já pede a permissão quando o usuário liga).
+                    micTestPref.setEnabled(false);
+                    micTestPref.setSummary(R.string.summary_mic_forwarding_device);
+                }
+                micTestPref.setOnPreferenceClickListener(preference -> {
+                    showMicTestDialog();
+                    return true;
+                });
             }
 
             // Remove PiP mode on devices pre-Oreo, where the feature is not available (some low RAM devices),

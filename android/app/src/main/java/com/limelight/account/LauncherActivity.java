@@ -46,6 +46,9 @@ public class LauncherActivity extends Activity {
     private ProgressBar progressBar;
     private boolean requestRunning;
     private String pendingHost;
+    // machineId da VM que está sendo adicionada agora (sobrevive ao fluxo
+    // AddComputerManually → onActivityResult, onde a limpeza de obsoletos roda).
+    private String pendingMachineId;
     private Boolean hasMachine;
     private SpaceConnectApiClient.MachineListItem[] machines;
     private String selectedMachineId;
@@ -661,6 +664,7 @@ public class LauncherActivity extends Activity {
                     address = "[" + address + "]";
                 }
                 pendingHost = address + ":" + connection.port;
+                pendingMachineId = machineId;
                 // Guarda o vínculo host -> (machineId, apelido) pra sessão atual — o
                 // PcView usa isso pra aplicar o apelido salvo na conta (accountName)
                 // e pra saber em qual VM chamar o backend quando o usuário renomear.
@@ -679,11 +683,14 @@ public class LauncherActivity extends Activity {
                         "space_connect_launcher",
                         MODE_PRIVATE);
                 if (pendingHost.equals(prefs.getString("last_host", null))) {
-                    startActivity(new Intent(LauncherActivity.this, PcView.class));
+                    // Mesmo PC de sempre — só garante que não ficou lixo obsoleto pra trás
+                    startActivity(pcViewWithCleanup(machineId, pendingHost));
                     return;
                 }
                 Intent addComputer = new Intent(LauncherActivity.this, AddComputerManually.class);
                 addComputer.putExtra(AddComputerManually.EXTRA_AUTO_HOST, pendingHost);
+                addComputer.putExtra(AddComputerManually.EXTRA_SC_MACHINE_ID, machineId);
+                addComputer.putExtra(AddComputerManually.EXTRA_SC_ORIGIN, "launcher");
                 startActivityForResult(addComputer, ADD_COMPUTER_REQUEST);
             }
 
@@ -801,7 +808,9 @@ public class LauncherActivity extends Activity {
                         .putString("last_host", pendingHost)
                         .apply();
             }
-            startActivity(new Intent(this, PcView.class));
+            // Limpa os PCs obsoletos da conta (VM recriada = UUID/IP novo) —
+            // a entrada morta com "!" não deve ficar na grade.
+            startActivity(pcViewWithCleanup(pendingMachineId, pendingHost));
             return;
         }
         if (requestCode == PICK_FILE_REQUEST && resultCode == RESULT_OK && data != null) {
@@ -817,6 +826,15 @@ public class LauncherActivity extends Activity {
         requestRunning = false;
         progressBar.setVisibility(View.GONE);
         refreshStatus(false);
+    }
+
+    // PcView com pedido de limpeza de PCs obsoletos da conta (a limpeza em si
+    // roda lá, onde já existe o bind no ComputerManagerService).
+    private Intent pcViewWithCleanup(String machineId, String hostAddress) {
+        Intent i = new Intent(this, PcView.class);
+        i.putExtra(PcView.EXTRA_CLEANUP_MACHINE_ID, machineId);
+        i.putExtra(PcView.EXTRA_CLEANUP_HOST, hostAddress);
+        return i;
     }
 
     private interface StatusAction {

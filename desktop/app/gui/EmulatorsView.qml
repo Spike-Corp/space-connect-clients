@@ -97,9 +97,9 @@ Item {
                 Item { Layout.fillWidth: true }
 
                 Button {
-                    visible: !card.emu.installed
-                    enabled: !LauncherApi.busy
-                    text: LauncherApi.busy ? qsTr("Instalando…") : qsTr("Instalar no meu PC")
+                    visible: !card.emu.installed && LauncherApi.installingEmulatorId !== card.emu.id
+                    enabled: LauncherApi.installingEmulatorId === ""
+                    text: LauncherApi.installingEmulatorId !== "" ? qsTr("Aguarde…") : qsTr("Instalar no meu PC")
                     onClicked: LauncherApi.installEmulator(card.emu.id)
                 }
                 Button {
@@ -107,6 +107,33 @@ Item {
                     enabled: !LauncherApi.busy
                     text: qsTr("Abrir no meu PC")
                     onClicked: LauncherApi.launchEmulator(card.emu.id)
+                }
+            }
+
+            // Barra de progresso do download (só no card que está instalando)
+            ColumnLayout {
+                visible: LauncherApi.installingEmulatorId === card.emu.id
+                Layout.fillWidth: true
+                spacing: 4
+
+                ProgressBar {
+                    Layout.fillWidth: true
+                    from: 0
+                    to: 100
+                    value: LauncherApi.emulatorInstallProgress
+                    indeterminate: LauncherApi.emulatorInstallProgress < 0
+                }
+                Label {
+                    text: LauncherApi.emulatorInstallProgress >= 85
+                          ? qsTr("Extraindo arquivos na VM…")
+                          : qsTr("Baixando… %1%").arg(Math.max(0, LauncherApi.emulatorInstallProgress))
+                    color: "#9793aa"
+                    font.pixelSize: 11
+                }
+                Label {
+                    text: qsTr("Pode continuar usando o app — inclusive entrar na VM.")
+                    color: "#6b6580"
+                    font.pixelSize: 10
                 }
             }
         }

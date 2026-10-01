@@ -505,6 +505,10 @@ public:
         // Persist the new host list with this computer deleted
         m_ComputerManager->saveHosts();
 
+        // Avisa a UI ANTES de deletar o objeto — o model compara ponteiros
+        // (não derefencia) e faz reset pegando a lista nova sem o removido.
+        emit m_ComputerManager->computerRemoved();
+
         // Delete the polling entry first. This will stop all polling threads too.
         delete pollingEntry;
 
@@ -722,6 +726,57 @@ void ComputerManager::addNewHostManually(QString address)
     }
 }
 
+void ComputerManager::addNewHostForMachine(QString address, QString machineId, QString origin)
+{
+    QUrl url = QUrl::fromUserInput("moonlight://" + address);
+    if (!(url.isValid() && !url.host().isEmpty() && url.scheme() == "moonlight")) {
+        emit computerAddCompleted(false, false);
+        return;
+    }
+
+    // Limpeza de PCs obsoletos da CONTA (nunca toca em PCs de amigos):
+    // quando uma VM é recriada (formatação, reprovisionamento, troca de node)
+    // ela volta com UUID e IP novos — a entrada antiga fica pra sempre na
+    // lista como um PC morto com "!". Aqui, ao adicionar a VM atual, removemos
+    // as entradas anteriores da mesma conta (origin == "launcher" ou legados
+    // sem marcação que estejam OFFLINE e com endereço diferente).
+    if (origin == QStringLiteral("launcher") && !machineId.isEmpty()) {
+        QVector<NvComputer*> toDelete;
+        {
+            QReadLocker lock(&m_Lock);
+            for (NvComputer* computer : m_KnownHosts.values()) {
+                QReadLocker computerLock(&computer->lock);
+                if (computer->scOrigin == QStringLiteral("friend")) {
+                    continue; // PC de amigo é sagrado — nunca remover sozinho
+                }
+                if (computer->scOrigin == QStringLiteral("launcher")) {
+                    // Já marcado: obsoleto se é de OUTRA máquina da conta
+                    if (computer->scMachineId != machineId) {
+                        toDelete.append(computer);
+                    }
+                    continue;
+                }
+                // Legado (sem marcação, de antes dessa feature): remove só se
+                // está OFFLINE e o endereço é diferente do que estamos
+                // adicionando agora (não dá pra saber se era da conta, então
+                // o critério conservador é: morto + não é o atual).
+                if (computer->state == NvComputer::CS_OFFLINE &&
+                        computer->manualAddress.address() != url.host() &&
+                        computer->remoteAddress.address() != url.host() &&
+                        computer->localAddress.address() != url.host()) {
+                    toDelete.append(computer);
+                }
+            }
+        }
+        for (NvComputer* computer : toDelete) {
+            qInfo() << "Removendo PC obsoleto da conta:" << computer->name;
+            deleteHost(computer);
+        }
+    }
+
+    addNewHost(NvAddress(url.host(), url.port(DEFAULT_HTTP_PORT)), false, NvAddress(), machineId, origin);
+}
+
 int ComputerManager::findComputerIndexByAddress(QString address)
 {
     QUrl url = QUrl::fromUserInput("moonlight://" + address);
@@ -769,11 +824,14 @@ class PendingAddTask : public QObject, public QRunnable
     Q_OBJECT
 
 public:
-    PendingAddTask(ComputerManager* computerManager, NvAddress address, NvAddress mdnsIpv6Address, bool mdns)
+    PendingAddTask(ComputerManager* computerManager, NvAddress address, NvAddress mdnsIpv6Address, bool mdns,
+                   QString scMachineId = QString(), QString scOrigin = QString())
         : m_ComputerManager(computerManager),
           m_Address(address),
           m_MdnsIpv6Address(mdnsIpv6Address),
           m_Mdns(mdns),
+          m_ScMachineId(scMachineId),
+          m_ScOrigin(scOrigin),
           m_AboutToQuit(false)
     {
         connect(this, &PendingAddTask::computerAddCompleted,
@@ -863,6 +921,10 @@ private:
 
         // Create initial newComputer using HTTP serverinfo with no pinned cert
         NvComputer* newComputer = new NvComputer(http, serverInfo);
+
+        // Marcação SpaceCloud (persistida): qual máquina da conta este PC é
+        newComputer->scMachineId = m_ScMachineId;
+        newComputer->scOrigin = m_ScOrigin;
 
         // Check if we have a record of this host UUID to pull the pinned cert
         NvComputer* existingComputer;
@@ -999,14 +1061,17 @@ private:
     NvAddress m_Address;
     NvAddress m_MdnsIpv6Address;
     bool m_Mdns;
+    QString m_ScMachineId;
+    QString m_ScOrigin;
     bool m_AboutToQuit;
 };
 
-void ComputerManager::addNewHost(NvAddress address, bool mdns, NvAddress mdnsIpv6Address)
+void ComputerManager::addNewHost(NvAddress address, bool mdns, NvAddress mdnsIpv6Address,
+                                 QString scMachineId, QString scOrigin)
 {
     // Punt to a worker thread to avoid stalling the
     // UI while waiting for serverinfo query to complete
-    PendingAddTask* addTask = new PendingAddTask(this, address, mdnsIpv6Address, mdns);
+    PendingAddTask* addTask = new PendingAddTask(this, address, mdnsIpv6Address, mdns, scMachineId, scOrigin);
     QThreadPool::globalInstance()->start(addTask);
 }
 

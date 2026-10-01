@@ -66,6 +66,11 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
 public class PcView extends Activity implements AdapterFragmentCallbacks {
+    // SpaceCloud: quando o launcher abre a grade depois de conectar numa VM,
+    // pede a remoção dos PCs obsoletos da conta (VM recriada = UUID/IP novo).
+    // PCs de amigos nunca entram na limpeza.
+    public static final String EXTRA_CLEANUP_MACHINE_ID = "spaceConnectCleanupMachineId";
+    public static final String EXTRA_CLEANUP_HOST = "spaceConnectCleanupHost";
     // Endereço "host:porta" de um PC que deve ser aberto direto, sem passar pela grade.
     // Usado ao conectar na VM de um amigo: cair na grade fazia o usuário clicar no
     // PRÓPRIO PC por engano (ou ver "Nenhum PC ainda" enquanto o host não aparecia).
@@ -92,6 +97,18 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
 
                     // Now make the binder visible
                     managerBinder = localBinder;
+
+                    // Limpeza de PCs obsoletos da conta (pedido do launcher via
+                    // Intent extra) — antes de começar o polling, pra grade já
+                    // abrir limpa.
+                    String cleanupMid = getIntent().getStringExtra(EXTRA_CLEANUP_MACHINE_ID);
+                    String cleanupHost = getIntent().getStringExtra(EXTRA_CLEANUP_HOST);
+                    if (cleanupMid != null && !cleanupMid.trim().isEmpty()) {
+                        localBinder.removeObsoleteAccountComputers(cleanupMid.trim(), cleanupHost);
+                        // Consome o extra pra não rodar de novo em recreate (rotação etc.)
+                        getIntent().removeExtra(EXTRA_CLEANUP_MACHINE_ID);
+                        getIntent().removeExtra(EXTRA_CLEANUP_HOST);
+                    }
 
                     // Start updates
                     startComputerUpdates();

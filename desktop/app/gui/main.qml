@@ -468,6 +468,7 @@ ApplicationWindow {
 
             NavigableToolButton {
                 property string browserUrl: ""
+                property bool downloading: false
 
                 id: updateButton
 
@@ -482,20 +483,48 @@ ApplicationWindow {
                 visible: false
 
                 onClicked: {
-                    if (SystemProperties.hasBrowser) {
-                        Qt.openUrlExternally(browserUrl);
+                    // SpaceCloud: clique = baixa e instala de verdade (Inno
+                    // silencioso), não só abre o navegador. Se o download
+                    // falhar, cai pro navegador como fallback.
+                    if (!downloading) {
+                        downloading = true
+                        AutoUpdateChecker.downloadAndInstall(browserUrl)
                     }
                 }
 
                 function updateAvailable(version, url)
                 {
-                    ToolTip.text = qsTr("Update available for Space Connect: Version %1").arg(version)
+                    ToolTip.text = qsTr("Update available for Space Connect: Version %1. Click to install now.").arg(version)
                     updateButton.browserUrl = url
                     updateButton.visible = true
                 }
 
+                function downloadProgress(percent)
+                {
+                    ToolTip.text = qsTr("Downloading update... %1%").arg(percent)
+                }
+
+                function downloadFailed(error)
+                {
+                    downloading = false
+                    ToolTip.text = qsTr("Download failed (%1). Opening browser...").arg(error)
+                    if (SystemProperties.hasBrowser) {
+                        Qt.openUrlExternally(browserUrl);
+                    }
+                }
+
+                function installReady()
+                {
+                    // O instalador silencioso já está rodando — fecha o app pra
+                    // ele conseguir substituir o executável sem prompt.
+                    Qt.quit()
+                }
+
                 Component.onCompleted: {
                     AutoUpdateChecker.onUpdateAvailable.connect(updateAvailable)
+                    AutoUpdateChecker.downloadProgress.connect(downloadProgress)
+                    AutoUpdateChecker.downloadFailed.connect(downloadFailed)
+                    AutoUpdateChecker.installReady.connect(installReady)
                     AutoUpdateChecker.start()
                 }
 

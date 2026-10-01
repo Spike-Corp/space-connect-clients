@@ -111,6 +111,14 @@ public:
     Q_INVOKABLE void launchEmulator(const QString& emulatorId);
     // (interno) polling do install assíncrono
     void pollEmulatorInstall(const QString& emulatorId, int attempt);
+    // Progresso do install em andamento (0-100; -1 = nenhum). O install NÃO
+    // usa o busy global: o usuário pode continuar usando o app (inclusive
+    // entrar na VM) enquanto baixa/instala — antes o busy travava tudo e
+    // parecia um loop infinito.
+    Q_PROPERTY(QString installingEmulatorId READ installingEmulatorId NOTIFY emulatorInstallProgressChanged)
+    Q_PROPERTY(int emulatorInstallProgress READ emulatorInstallProgress NOTIFY emulatorInstallProgressChanged)
+    QString installingEmulatorId() const { return m_InstallingEmulatorId; }
+    int emulatorInstallProgress() const { return m_EmulatorInstallProgress; }
     // Relato de bug de dentro do app (vai pra página "Bugs app" do admin).
     // Funciona mesmo deslogado (tela de login): nesse caso emailHint é usado.
     Q_INVOKABLE void reportBug(const QString& description, const QString& emailHint);
@@ -170,6 +178,7 @@ signals:
     // Emuladores
     void emulatorsChanged();
     void emulatorActionResult(bool success, QString message);
+    void emulatorInstallProgressChanged();
 
 private:
     using ResponseHandler = std::function<void(int, const QJsonObject&)>;
@@ -231,6 +240,8 @@ private:
     QVariantList m_FriendMachines;
     // Emuladores (catalogo + flag installed)
     QVariantList m_Emulators;
+    QString m_InstallingEmulatorId;
+    int m_EmulatorInstallProgress = -1;
     // Máquina de amigo sendo conectada agora (o PIN vai pra rota friend-aware).
     QString m_PendingFriendMachineId;
     // endereço ("host:port") → machineId das conexões abertas neste app —
