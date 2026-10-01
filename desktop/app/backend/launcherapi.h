@@ -42,6 +42,8 @@ class LauncherApi : public QObject
     Q_PROPERTY(QString myUsername READ myUsername NOTIFY friendsChanged)
     // Emuladores: [{id, name, tagline, systems, sizeBytes, version, icon, installed}]
     Q_PROPERTY(QVariantList emulators READ emulators NOTIFY emulatorsChanged)
+    // Biblioteca de downloads gerenciada pelo admin (aba Downloads do app)
+    Q_PROPERTY(QVariantList downloads READ downloads NOTIFY downloadsChanged)
     // Lista de VMs dedicadas do usuário (multi-plano) e a VM escolhida pra
     // abrir. Quando há 2+ máquinas, a UI mostra um seletor (o app Android já
     // tinha; o desktop não passava machineId em nada e o backend escolhia
@@ -89,6 +91,7 @@ public:
     QString myUsername() const { return m_MyUsername; }
     QVariantList myMachines() const { return m_MyMachines; }
     QVariantList emulators() const { return m_Emulators; }
+    QVariantList downloads() const { return m_Downloads; }
 
     Q_INVOKABLE void login(const QString& email, const QString& password);
     Q_INVOKABLE void verifyTwoFactor(const QString& code);
@@ -106,7 +109,15 @@ public:
     Q_INVOKABLE void uploadFileToVm(const QString& filePath);
     // Emuladores: catálogo oficial + instalar/lançar na VM (o backend usa o
     // guest agent do Proxmox — nao precisa de versao nova do agent Windows).
+    // Mic bridge: garante que o MicBridge está rodando na VM (chamado ao
+    // conectar quando o encaminhamento de mic está ligado). Fire-and-forget.
+    void ensureMicBridge();
     Q_INVOKABLE void refreshEmulators();
+    Q_INVOKABLE void refreshDownloads();
+    // Baixa um item da biblioteca pra pasta Downloads do PC (kind=file) ou
+    // abre no navegador (kind=link). Emite downloadItemProgress(0-100) e
+    // downloadItemFinished(ok, message).
+    Q_INVOKABLE void downloadItem(const QString& id, const QString& url, const QString& name, const QString& kind);
     Q_INVOKABLE void installEmulator(const QString& emulatorId);
     Q_INVOKABLE void launchEmulator(const QString& emulatorId);
     // (interno) polling do install assíncrono
@@ -179,6 +190,10 @@ signals:
     void emulatorsChanged();
     void emulatorActionResult(bool success, QString message);
     void emulatorInstallProgressChanged();
+    // Downloads (biblioteca do admin)
+    void downloadsChanged();
+    void downloadItemProgress(int percent);
+    void downloadItemFinished(bool success, QString message);
 
 private:
     using ResponseHandler = std::function<void(int, const QJsonObject&)>;
@@ -240,6 +255,7 @@ private:
     QVariantList m_FriendMachines;
     // Emuladores (catalogo + flag installed)
     QVariantList m_Emulators;
+    QVariantList m_Downloads;
     QString m_InstallingEmulatorId;
     int m_EmulatorInstallProgress = -1;
     // Máquina de amigo sendo conectada agora (o PIN vai pra rota friend-aware).

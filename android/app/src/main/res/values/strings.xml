@@ -320,6 +320,13 @@
     <string name="emu_install_extracting">Extracting files on your PC…</string>
     <string name="emu_install_starting">Starting install…</string>
     <string name="emu_install_lost">The install was lost on the server. Tap Install again.</string>
+    <string name="downloads_title">Downloads</string>
+    <string name="downloads_hint">Official SpaceCloud files and tools to download to your device.</string>
+    <string name="downloads_empty">No downloads available right now.</string>
+    <string name="dl_download">Download</string>
+    <string name="dl_open_link">Open link</string>
+    <string name="dl_started">Download started — check your notifications.</string>
+    <string name="dl_load_fail">Couldn\'t load the downloads list.</string>
     <string name="friends_no_username">No username yet — create one so friends can find you</string>
     <string name="friends_edit_username">My username</string>
     <string name="friends_add_hint">friend_username</string>

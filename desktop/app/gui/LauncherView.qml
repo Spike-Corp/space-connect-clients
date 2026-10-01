@@ -353,6 +353,13 @@ Item {
                     }
 
                     Button {
+                        // Downloads: biblioteca de arquivos/links do admin.
+                        text: qsTr("Downloads")
+                        Layout.fillWidth: true
+                        onClicked: navigateTo("qrc:/gui/DownloadsView.qml", "DownloadsView")
+                    }
+
+                    Button {
                         text: qsTr("Report a problem")
                         enabled: !LauncherApi.busy
                         Layout.fillWidth: true

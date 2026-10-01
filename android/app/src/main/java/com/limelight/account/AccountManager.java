@@ -249,6 +249,21 @@ public final class AccountManager {
         executeAuthenticated(context, token -> API.getConnection(token, machineId), callback);
     }
 
+    // Garante que o MicBridge está rodando na VM (chamado ao ligar o mic).
+    // Fire-and-forget: callback pode ser null.
+    public static void ensureMicBridge(
+            Context context,
+            ResultCallback<SpaceConnectApiClient.MicEnsureResponse> callback) {
+        executeAuthenticated(context, API::ensureMicBridge, callback);
+    }
+
+    // Biblioteca de downloads (aba Downloads do app).
+    public static void getDownloads(
+            Context context,
+            ResultCallback<SpaceConnectApiClient.DownloadsResponse> callback) {
+        executeAuthenticated(context, API::getDownloads, callback);
+    }
+
     public static void endSession(
             Context context,
             ResultCallback<SpaceConnectApiClient.EndSessionResponse> callback) {

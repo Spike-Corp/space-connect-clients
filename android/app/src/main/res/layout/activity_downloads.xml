@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/downloadsRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_app_gradient"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="60dp"
+        android:background="@color/moonlight_surface"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp">
+
+        <ImageButton
+            android:id="@+id/downloadsBackButton"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:background="@drawable/bg_button_ghost"
+            android:contentDescription="@string/back"
+            android:padding="11dp"
+            android:src="@drawable/ic_back"
+            android:tint="@color/moonlight_foreground" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:text="@string/downloads_title"
+            android:textColor="@color/moonlight_foreground"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <ImageButton
+            android:id="@+id/downloadsRefreshButton"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:background="@drawable/bg_button_ghost"
+            android:contentDescription="@string/refresh"
+            android:padding="11dp"
+            android:src="@drawable/ic_games"
+            android:tint="@color/moonlight_foreground" />
+
+        <ProgressBar
+            android:id="@+id/downloadsProgress"
+            style="?android:attr/progressBarStyleSmall"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginStart="10dp"
+            android:indeterminateTint="@color/moonlight_purple"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="14dp"
+                android:text="@string/downloads_hint"
+                android:textColor="@color/moonlight_muted_foreground"
+                android:textSize="12sp" />
+
+            <LinearLayout
+                android:id="@+id/downloadsList"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <TextView
+                android:id="@+id/downloadsEmpty"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="30dp"
+                android:gravity="center"
+                android:text="@string/downloads_empty"
+                android:textColor="@color/moonlight_muted_foreground"
+                android:textSize="13sp"
+                android:visibility="gone" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

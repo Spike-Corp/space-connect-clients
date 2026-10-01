@@ -343,6 +343,13 @@
     <string name="emu_install_extracting">Extraindo arquivos no seu PC…</string>
     <string name="emu_install_starting">Iniciando a instalação…</string>
     <string name="emu_install_lost">A instalação se perdeu no servidor. Toque em Instalar de novo.</string>
+    <string name="downloads_title">Downloads</string>
+    <string name="downloads_hint">Arquivos e ferramentas oficiais da SpaceCloud pra baixar no seu aparelho.</string>
+    <string name="downloads_empty">Nenhum download disponível no momento.</string>
+    <string name="dl_download">Baixar</string>
+    <string name="dl_open_link">Abrir link</string>
+    <string name="dl_started">Download iniciado — acompanhe nas notificações.</string>
+    <string name="dl_load_fail">Não consegui carregar a lista de downloads.</string>
     <string name="friends_no_username">Sem username ainda — crie um pra amigos te acharem</string>
     <string name="friends_edit_username">Meu username</string>
     <string name="friends_add_hint">username_do_amigo</string>

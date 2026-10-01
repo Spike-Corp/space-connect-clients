@@ -21,6 +21,8 @@
 #pragma comment(lib, "winmm.lib")
 #elif defined(Q_OS_LINUX)
 #include <QStandardPaths>
+#include <QDesktopServices>
+#include <QRegularExpression>
 #endif
 #include <QSysInfo>
 #include <QUuid>
@@ -476,10 +478,32 @@ void LauncherApi::requestConnection()
                         }
                     }
                     m_MachineIdByAddress.insert(address, targetMachineId);
+                    // Mic bridge: se o usuário encaminha o mic (padrão ligado),
+                    // garante que o bridge está RODANDO na VM antes da sessão
+                    // começar — o processo morre entre boots e a task ONLOGON
+                    // não ressuscita. Sem isso o mic ia pra um buraco negro.
+                    QSettings micPrefs;
+                    if (micPrefs.value(QStringLiteral("micforwarding"), true).toBool()) {
+                        ensureMicBridge();
+                    }
                     emit connectionReady(address, targetMachineId, name);
                 }
                 catch (const std::exception&) {
                     setError(QStringLiteral("Conexão Moonlight ainda não disponível"));
+                }
+            });
+}
+
+void LauncherApi::ensureMicBridge()
+{
+    if (!m_LoggedIn) return;
+    // Fire-and-forget: o resultado não bloqueia a sessão. Se a VM ainda não tem
+    // o bridge (build antigo), o backend responde 409 e a gente só loga.
+    request("POST", QStringLiteral("mic/ensure"),
+            QJsonObject(), true,
+            [this](int status, const QJsonObject&) {
+                if (status < 200 || status >= 300) {
+                    qWarning() << "MicBridge ensure falhou (status" << status << ")";
                 }
             });
 }
@@ -1283,4 +1307,60 @@ QString LauncherApi::platformName()
 #else
     return QStringLiteral("linux");
 #endif
+}
+
+void LauncherApi::refreshDownloads()
+{
+    if (!m_LoggedIn)
+        return;
+    request("GET", QStringLiteral("downloads"), QJsonObject(), true,
+            [this](int status, const QJsonObject& root) {
+                if (status < 200 || status >= 300) return;
+                m_Downloads = root.value(QStringLiteral("downloads")).toArray().toVariantList();
+                emit downloadsChanged();
+            });
+}
+
+void LauncherApi::downloadItem(const QString& id, const QString& url, const QString& name, const QString& kind)
+{
+    Q_UNUSED(id);
+    if (kind == QStringLiteral("link")) {
+        QDesktopServices::openUrl(QUrl(url));
+        emit downloadItemFinished(true, tr("Link aberto no navegador."));
+        return;
+    }
+
+    // Arquivo: baixa pra pasta Downloads do PC com progresso.
+    QString downloadsDir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+    if (downloadsDir.isEmpty()) downloadsDir = QDir::homePath();
+    QString safeName = name;
+    safeName.replace(QRegularExpression(QStringLiteral("[^\\w.\\-() ]+")), QStringLiteral("_"));
+    // Tenta pegar a extensão da URL (ex.: .zip, .exe) pro arquivo abrir direito
+    QString urlPath = QUrl(url).path();
+    QString ext = urlPath.contains(QLatin1Char('.')) ? urlPath.mid(urlPath.lastIndexOf(QLatin1Char('.'))) : QString();
+    QString filePath = downloadsDir + QLatin1Char('/') + safeName + ext;
+
+    QNetworkAccessManager* nam = new QNetworkAccessManager(this);
+    QNetworkReply* reply = nam->get(QNetworkRequest(QUrl(url)));
+    connect(reply, &QNetworkReply::downloadProgress, this, [this](qint64 received, qint64 total) {
+        if (total > 0) emit downloadItemProgress(static_cast<int>((received * 100) / total));
+    });
+    connect(reply, &QNetworkReply::finished, this, [this, reply, nam, filePath, name]() {
+        nam->deleteLater();
+        if (reply->error() != QNetworkReply::NoError) {
+            emit downloadItemFinished(false, tr("Falha no download: %1").arg(reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+        QFile file(filePath);
+        if (!file.open(QIODevice::WriteOnly)) {
+            emit downloadItemFinished(false, tr("Não consegui gravar em Downloads."));
+            reply->deleteLater();
+            return;
+        }
+        file.write(reply->readAll());
+        file.close();
+        reply->deleteLater();
+        emit downloadItemFinished(true, tr("%1 baixado pra sua pasta Downloads.").arg(name));
+    });
 }

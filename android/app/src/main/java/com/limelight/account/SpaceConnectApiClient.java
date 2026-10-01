@@ -164,6 +164,16 @@ public final class SpaceConnectApiClient {
         return post("emulators/" + emulatorId + "/launch", new Object(), accessToken, EmulatorActionResponse.class);
     }
 
+    // Garante que o MicBridge está rodando na VM antes de encaminhar o mic.
+    public MicEnsureResponse ensureMicBridge(String accessToken) throws IOException, ApiException {
+        return post("mic/ensure", new Object(), accessToken, MicEnsureResponse.class);
+    }
+
+    // Biblioteca de downloads gerenciada pelo admin (aba Downloads do app).
+    public DownloadsResponse getDownloads(String accessToken) throws IOException, ApiException {
+        return get("downloads", accessToken, DownloadsResponse.class);
+    }
+
     // ── Amigos (beta) — mesma API do site (social) ─────────────────────────
 
     public FriendsResponse getFriends(String accessToken) throws IOException, ApiException {
@@ -768,6 +778,25 @@ public final class SpaceConnectApiClient {
     public static final class RenameMachineResponse {
         public String machineId;
         public String name;
+    }
+
+    public static final class MicEnsureResponse {
+        public Boolean ok;
+        public String state; // already_running | started | unknown
+    }
+
+    public static final class DownloadItem {
+        public String id;
+        public String name;
+        public String description;
+        public String url;
+        public long sizeBytes;
+        public String icon;
+        public String kind; // file | link
+    }
+
+    public static final class DownloadsResponse {
+        public DownloadItem[] downloads;
     }
 
     public static final class UploadResponse {

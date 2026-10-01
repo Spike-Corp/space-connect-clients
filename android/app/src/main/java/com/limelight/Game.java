@@ -2218,6 +2218,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (hostAddress == null) {
             return;
         }
+        // Garante que o MicBridge está RODANDO na VM antes de mandar áudio —
+        // o processo morre entre boots e a task ONLOGON não ressuscita, então
+        // sem isso o mic ia pra um buraco negro (UDP sem listener).
+        com.limelight.account.AccountManager.ensureMicBridge(this, null);
         int micPort = (streamPort > 0 && streamPort != NvHTTP.DEFAULT_HTTP_PORT && streamPort != 47989)
                 ? (streamPort + 25)
                 : MicForwarder.DEFAULT_PORT;
