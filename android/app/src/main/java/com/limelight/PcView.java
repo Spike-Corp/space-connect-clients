@@ -143,6 +143,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
     private final static int UNPAIR_ID = 3;
     private final static int POWER_ON_ID = 4;
     private final static int DELETE_ID = 5;
+    private final static int DELETE_VM_ID = 13;
     private final static int RESUME_ID = 6;
     private final static int QUIT_ID = 7;
     private final static int VIEW_DETAILS_ID = 8;
@@ -439,6 +440,11 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         menu.add(Menu.NONE, RENAME_ID, 6, getResources().getString(R.string.pcview_menu_rename));
         menu.add(Menu.NONE, DELETE_ID, 7, getResources().getString(R.string.pcview_menu_delete_pc));
         menu.add(Menu.NONE, VIEW_DETAILS_ID, 8,  getResources().getString(R.string.pcview_menu_details));
+        // Excluir a VM de VERDADE (wipe total na nuvem) — só aparece pra
+        // máquinas da própria conta (têm machineId). Sempre pede 2x.
+        if (machineIdForComputer(computer.details) != null) {
+            menu.add(Menu.NONE, DELETE_VM_ID, 9, getResources().getString(R.string.pcview_menu_delete_vm));
+        }
     }
 
     @Override
@@ -700,6 +706,22 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                 }, null);
                 return true;
 
+            case DELETE_VM_ID: {
+                if (ActivityManager.isUserAMonkey()) {
+                    LimeLog.info("Ignoring delete VM request from monkey");
+                    return true;
+                }
+                final String machineId = machineIdForComputer(computer.details);
+                if (machineId == null) return true;
+                new AlertDialog.Builder(this)
+                        .setTitle(R.string.pcview_menu_delete_vm)
+                        .setMessage(getResources().getString(R.string.pcview_delete_vm_confirm, computer.details.name))
+                        .setNegativeButton(R.string.game_menu_cancel, null)
+                        .setPositiveButton(R.string.pcview_delete_vm_confirm_yes, (d, w) -> deleteVm(machineId))
+                        .show();
+                return true;
+            }
+
             case FULL_APP_LIST_ID:
                 doAppList(computer.details, false, true);
                 return true;
@@ -750,6 +772,24 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         }
     }
     
+    // Exclui a VM de VERDADE na nuvem (wipe total). Só pra máquinas da própria
+    // conta. Depois de excluir, o PC some da grade (a VM não existe mais).
+    private void deleteVm(final String machineId) {
+        AccountManager.deleteMachine(this, machineId, new AccountManager.ResultCallback<SpaceConnectApiClient.DeleteMachineResponse>() {
+            @Override
+            public void onSuccess(SpaceConnectApiClient.DeleteMachineResponse r) {
+                Toast.makeText(PcView.this, r != null && r.message != null ? r.message : getResources().getString(R.string.pcview_delete_vm_done), Toast.LENGTH_LONG).show();
+                // Recarrega a grade — a VM excluída some.
+                startComputerUpdates();
+            }
+
+            @Override
+            public void onError(String message) {
+                Toast.makeText(PcView.this, message != null ? message : getResources().getString(R.string.pcview_delete_vm_fail), Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
     private void removeComputer(ComputerDetails details) {
         managerBinder.removeComputer(details);
 

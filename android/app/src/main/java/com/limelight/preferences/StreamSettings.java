@@ -137,6 +137,17 @@ public class StreamSettings extends Activity {
         private com.limelight.binding.audio.MicLevelTester micTester;
         private AlertDialog micTestDialog;
         private Handler micLevelHandler;
+        private boolean pendingMicTest;
+
+        // Depois de pedir a permissão de mic, abre o teste se foi concedida.
+        @Override
+        public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+            super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+            if (requestCode == 0 && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED && pendingMicTest) {
+                pendingMicTest = false;
+                showMicTestDialog();
+            }
+        }
 
         private void showMicTestDialog() {
             if (getActivity() == null) return;
@@ -648,15 +659,17 @@ public class StreamSettings extends Activity {
             // usuário confirma que o mic certo capta ANTES de conectar na VM.
             Preference micTestPref = findPreference("mic_level_test");
             if (micTestPref != null) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
-                        getActivity().checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)
-                                != PackageManager.PERMISSION_GRANTED) {
-                    // Sem a permissão o teste não abre o mic — esconde (o toggle
-                    // de forwarding já pede a permissão quando o usuário liga).
-                    micTestPref.setEnabled(false);
-                    micTestPref.setSummary(R.string.summary_mic_forwarding_device);
-                }
                 micTestPref.setOnPreferenceClickListener(preference -> {
+                    // Sem a permissão o teste não abre o mic — pede NA HORA
+                    // (antes escondia desabilitado e o usuário clicava sem
+                    // nada acontecer, parecia bug).
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+                            getActivity().checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)
+                                    != PackageManager.PERMISSION_GRANTED) {
+                        pendingMicTest = true;
+                        requestPermissions(new String[]{ android.Manifest.permission.RECORD_AUDIO }, 0);
+                        return true;
+                    }
                     showMicTestDialog();
                     return true;
                 });

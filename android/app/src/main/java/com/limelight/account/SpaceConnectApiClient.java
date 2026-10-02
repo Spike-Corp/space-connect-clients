@@ -111,6 +111,11 @@ public final class SpaceConnectApiClient {
     // (PATCH machines/:id/name). Se a VM não for do usuário (ex.: VM de
     // amigo), o backend responde 404/403 e quem chamou deve tratar como
     // "fica só local" (fire-and-forget), sem exibir erro.
+    // Exclui a VM de VERDADE (wipe total na nuvem). Irreversível.
+    public DeleteMachineResponse deleteMachine(String accessToken, String machineId) throws IOException, ApiException {
+        return delete("machines/" + machineId, accessToken, DeleteMachineResponse.class);
+    }
+
     public RenameMachineResponse renameMachine(String accessToken, String machineId, String name)
             throws IOException, ApiException {
         RenameMachineRequest input = new RenameMachineRequest();
@@ -819,6 +824,11 @@ public final class SpaceConnectApiClient {
         public Boolean ok;
         public Integer transferredGb;
         public Integer targetNewDiskGb;
+        public String message;
+    }
+
+    public static final class DeleteMachineResponse {
+        public Boolean ok;
         public String message;
     }
 

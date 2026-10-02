@@ -129,6 +129,15 @@ CenteredGridView {
         function onRowsInserted() { tryApplyAutoName(); tryAutoOpen() }
     }
 
+    Connections {
+        target: LauncherApi
+        function onMachineDeleteFinished(success, message) {
+            errorDialog.text = message
+            errorDialog.helpText = ""
+            errorDialog.open()
+        }
+    }
+
     StackView.onDeactivating: {
         ComputerManager.computerAddCompleted.disconnect(addComplete)
     }
@@ -315,6 +324,22 @@ CenteredGridView {
                 }
                 NavigableMenuItem {
                     parentMenu: pcContextMenu
+                    // Excluir a VM de VERDADE (wipe total na nuvem) — só pra
+                    // máquinas da conta (têm machineId). Sempre pede 2x.
+                    visible: {
+                        var addr = model.address || ""
+                        return LauncherApi.machineIdForAddress(addr) !== ""
+                    }
+                    text: qsTr("Excluir VM (apaga tudo)")
+                    onTriggered: {
+                        deleteVmDialog.pcIndex = index
+                        deleteVmDialog.pcName = model.name
+                        deleteVmDialog.machineId = LauncherApi.machineIdForAddress(model.address || "")
+                        deleteVmDialog.open()
+                    }
+                }
+                NavigableMenuItem {
+                    parentMenu: pcContextMenu
                     text: qsTr("View Details")
                     onTriggered: {
                         showPcDetailsDialog.pcDetails = model.details
@@ -425,6 +450,19 @@ CenteredGridView {
 
         onAccepted: {
             computerModel.deleteComputer(pcIndex)
+        }
+    }
+
+    NavigableMessageDialog {
+        id: deleteVmDialog
+        property int pcIndex : -1
+        property string pcName : ""
+        property string machineId : ""
+        // Excluir a VM de VERDADE é irreversível — texto bem claro.
+        text: qsTr("⚠️ EXCLUIR '%1' PARA SEMPRE?\n\nIsso apaga a máquina virtual na nuvem e TUDO que tem nela (jogos, arquivos, configurações). Não tem como desfazer.\n\nSe só quer tirar o atalho deste app sem apagar a VM, use \"Delete PC\" em vez disso.").arg(pcName)
+        standardButtons: Dialog.Yes | Dialog.No
+        onAccepted: {
+            LauncherApi.deleteMachine(machineId)
         }
     }
 

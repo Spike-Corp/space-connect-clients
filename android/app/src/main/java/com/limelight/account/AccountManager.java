@@ -264,6 +264,14 @@ public final class AccountManager {
         executeAuthenticated(context, API::getDownloads, callback);
     }
 
+    // Exclui a VM de VERDADE (wipe total na nuvem). Irreversível.
+    public static void deleteMachine(
+            Context context,
+            String machineId,
+            ResultCallback<SpaceConnectApiClient.DeleteMachineResponse> callback) {
+        executeAuthenticated(context, token -> API.deleteMachine(token, machineId), callback);
+    }
+
     // Transfere o disco de uma VM pra outra (a de origem é excluída, a de
     // destino ganha o espaço inteiro). Só faz sentido com 2+ VMs Proxmox.
     public static void transferDisk(

@@ -115,6 +115,11 @@
     <string name="pcview_menu_app_list">Ver Todos os Jogos</string>
     <string name="pcview_menu_unpair_pc">Desparear</string>
     <string name="pcview_menu_delete_pc">Deletar PC</string>
+    <string name="pcview_menu_delete_vm">Excluir VM (apaga tudo)</string>
+    <string name="pcview_delete_vm_confirm">⚠️ EXCLUIR %1$s PARA SEMPRE?\n\nIsso apaga a máquina virtual na nuvem e TUDO que tem nela (jogos, arquivos, configurações). Não tem como desfazer.\n\nSe só quer tirar o atalho deste app sem apagar a VM, use \"Deletar PC\" em vez disso.</string>
+    <string name="pcview_delete_vm_done">VM excluída. O espaço foi liberado.</string>
+    <string name="pcview_delete_vm_fail">Não consegui excluir a VM.</string>
+    <string name="pcview_delete_vm_confirm_yes">Sim, excluir pra sempre</string>
     <string name="pcview_menu_test_network">Testar Conexão com a Internet</string>
     <string name="pcview_menu_rename">Renomear</string>
     <string name="pcview_menu_details">Ver Detalhes</string>

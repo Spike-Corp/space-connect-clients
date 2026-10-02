@@ -1392,3 +1392,22 @@ void LauncherApi::transferDisk(const QString& sourceMachineId, const QString& ta
                 }
             });
 }
+
+void LauncherApi::deleteMachine(const QString& machineId)
+{
+    if (!m_LoggedIn || machineId.isEmpty()) return;
+    setBusy(true);
+    request("DELETE", QStringLiteral("machines/") + machineId,
+            QJsonObject(), true,
+            [this](int status, const QJsonObject& root) {
+                setBusy(false);
+                if (status >= 200 && status < 300) {
+                    emit machineDeleteFinished(true, root.value(QStringLiteral("message")).toString(
+                        tr("Máquina excluída.")));
+                    fetchMachines(); // atualiza a lista (a VM sumiu)
+                } else {
+                    emit machineDeleteFinished(false, errorObject(root).value(QStringLiteral("message")).toString(
+                        tr("Não consegui excluir a máquina.")));
+                }
+            });
+}

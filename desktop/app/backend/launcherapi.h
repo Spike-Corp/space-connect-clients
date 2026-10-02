@@ -160,6 +160,9 @@ public:
     // Renomeia a VM no backend (só funciona pra VM do próprio usuário — o
     // backend rejeita VM de amigo; nesse caso o rename fica só local no app).
     Q_INVOKABLE void renameMachine(const QString& machineId, const QString& name);
+    // Exclui a VM de VERDADE (wipe total: disco + snapshots + libera slot).
+    // Irreversível. O cliente confirma 2x no app. Emite machineDeleteFinished.
+    Q_INVOKABLE void deleteMachine(const QString& machineId);
     // machineId da última conexão aberta pra um endereço (auto-rename no PcView).
     Q_INVOKABLE QString machineIdForAddress(const QString& address) const;
     Q_INVOKABLE void setUsername(const QString& username);
@@ -198,6 +201,7 @@ signals:
     void downloadItemProgress(int percent);
     void downloadItemFinished(bool success, QString message);
     void diskTransferFinished(bool success, QString message);
+    void machineDeleteFinished(bool success, QString message);
 
 private:
     using ResponseHandler = std::function<void(int, const QJsonObject&)>;
