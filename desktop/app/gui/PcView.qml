@@ -417,7 +417,10 @@ CenteredGridView {
         // don't allow edits to the rest of the window while open
         property int pcIndex : -1
         property string pcName : ""
-        text: qsTr("Are you sure you want to remove '%1'?").arg(pcName)
+        // "Excluir PC" remove da LISTA do app (o PC salvo neste computador) —
+        // NÃO apaga a VM na nuvem nem os arquivos dela. A VM continua rodando
+        // e você pode adicionar de novo depois. O texto deixava isso ambíguo.
+        text: qsTr("Remove '%1' from this app?\n\nThis only removes the shortcut from your list — your VM in the cloud (and everything in it) is NOT deleted. You can add it back anytime.\n\nTo actually delete the VM and free its disk, use the panel (spacecloud.gg/painel).").arg(pcName)
         standardButtons: Dialog.Yes | Dialog.No
 
         onAccepted: {

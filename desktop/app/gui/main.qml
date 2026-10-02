@@ -10,9 +10,12 @@ import StreamingPreferences 1.0
 import SystemProperties 1.0
 import SdlGamepadKeyNavigation 1.0
 import LauncherApi 1.0
+import MicLevelTester 1.0
 
 ApplicationWindow {
     property bool pollingActive: false
+    // Nível do mic pro medidor do dialog de atalhos (atualizado pelo sinal)
+    property real shortcutsMicLevel: 0.0
 
     // Set by SettingsView to force the back operation to pop all
     // pages except the initial view. This is required when doing
@@ -466,6 +469,26 @@ ApplicationWindow {
                 }
             }
 
+            // Guia de atalhos e modos de uso (teclas, mic, sair da VM) — a "?"
+            // perto dos botões de comunidade. Abre o ShortcutsDialog.
+            NavigableToolButton {
+                id: shortcutsButton
+                visible: !SystemProperties.isXdConsole
+
+                iconSource: "qrc:/res/question_mark.svg"
+
+                ToolTip.delay: 1000
+                ToolTip.timeout: 3000
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Shortcuts & how to use (keys, mic, exit)")
+
+                onClicked: shortcutsDialog.open()
+
+                Keys.onDownPressed: {
+                    stackView.currentItem.forceActiveFocus(Qt.TabFocus)
+                }
+            }
+
             NavigableToolButton {
                 property string browserUrl: ""
                 property bool downloading: false
@@ -619,6 +642,119 @@ ApplicationWindow {
         text: qsTr("Are you sure you want to quit?")
         // For keyboard/gamepad navigation
         onAccepted: Qt.quit()
+    }
+
+    // Guia de atalhos e modos de uso (o botão "?" da toolbar). Lista as teclas
+    // principais + o botão de testar o microfone (sem entrar numa sessão).
+    Dialog {
+        id: shortcutsDialog
+        title: qsTr("Shortcuts & how to use")
+        standardButtons: Dialog.Close
+        parent: Overlay.overlay
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
+        modal: true
+
+        ColumnLayout {
+            width: Math.min(480, shortcutsDialog.parent ? shortcutsDialog.parent.width - 80 : 480)
+            spacing: 10
+
+            Label {
+                text: qsTr("Essentials")
+                font.bold: true
+                font.pixelSize: 14
+                color: "#a482fa"
+            }
+            Label {
+                text: qsTr("• Disconnect from the VM: %1").arg("Ctrl+Alt+Shift+Q") + "\n" +
+                      qsTr("• Fullscreen on/off: %1").arg("Ctrl+Alt+Shift+F") + "\n" +
+                      qsTr("• Mouse capture on/off: %1").arg("Ctrl+Alt+Shift+M") + "\n" +
+                      qsTr("• Show performance stats: %1").arg("Ctrl+Alt+Shift+S") + "\n" +
+                      qsTr("• Gamepad: %1").arg("Start+Select+L1+R1 " + qsTr("(disconnect)"))
+                wrapMode: Text.WordWrap
+                color: "#e8e2ff"
+                font.pixelSize: 12
+                Layout.fillWidth: true
+            }
+
+            Label {
+                text: qsTr("Microphone")
+                font.bold: true
+                font.pixelSize: 14
+                color: "#a482fa"
+                Layout.topMargin: 6
+            }
+            Label {
+                text: qsTr("Your mic is forwarded to the VM (for Discord, games, etc.). Test it here before connecting:")
+                wrapMode: Text.WordWrap
+                color: "#cfc8e3"
+                font.pixelSize: 12
+                Layout.fillWidth: true
+            }
+
+            // Medidor de mic inline (mesmo tester das Settings)
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+
+                Button {
+                    text: MicLevelTester.isTesting() ? qsTr("Stop test") : qsTr("Test microphone")
+                    font.pointSize: 11
+                    onClicked: {
+                        if (MicLevelTester.isTesting()) {
+                            MicLevelTester.stopTesting()
+                        } else {
+                            MicLevelTester.startTesting("")
+                        }
+                    }
+                }
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 14
+                    radius: 7
+                    color: "#272133"
+                    border.color: "#3a2d52"
+                    border.width: 1
+                    visible: MicLevelTester.isTesting()
+
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        anchors.margins: 2
+                        radius: 5
+                        width: Math.max(0, (parent.width - 4) * shortcutsMicLevel)
+                        color: shortcutsMicLevel < 0.5 ? "#2dd4a0" : (shortcutsMicLevel < 0.8 ? "#fbbf24" : "#f87171")
+                        Behavior on width { NumberAnimation { duration: 60 } }
+                    }
+                }
+            }
+
+            Label {
+                text: qsTr("Streaming quality")
+                font.bold: true
+                font.pixelSize: 14
+                color: "#a482fa"
+                Layout.topMargin: 6
+            }
+            Label {
+                text: qsTr("Adjust resolution, FPS and bitrate in Settings before connecting. The VM applies them on the next session.")
+                wrapMode: Text.WordWrap
+                color: "#cfc8e3"
+                font.pixelSize: 12
+                Layout.fillWidth: true
+            }
+        }
+
+        onOpened: shortcutsMicLevel = 0.0
+    }
+
+    // Atualiza o medidor do dialog de atalhos quando o MicLevelTester emite
+    Connections {
+        target: MicLevelTester
+        function onLevelChanged(level) {
+            shortcutsMicLevel = level
+        }
     }
 
     // O modal de 2FA mora no LoginView (única tela onde login acontece). Como a

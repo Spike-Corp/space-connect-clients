@@ -17,8 +17,8 @@ Flickable {
 
     Connections {
         target: MicLevelTester
-        function onLevelChanged() {
-            micLevelValue = MicLevelTester.currentLevel()
+        function onLevelChanged(level) {
+            micLevelValue = level
         }
     }
 

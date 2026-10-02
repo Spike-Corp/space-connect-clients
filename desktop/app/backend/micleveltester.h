@@ -23,10 +23,15 @@ public:
     // 0.0 (silêncio) a 1.0 (alto) — mesma curva RMS do MicForwarder pra o
     // medidor das configurações bater com o que a VM vai receber.
     Q_INVOKABLE float currentLevel() const { return m_CurrentLevel.load(); }
-    Q_INVOKABLE bool isTesting() const { return m_Running.load(); }
+    Q_INVOKABLE bool isTesting() { emit testingChanged(); return m_Running.load(); }
 
 signals:
-    void levelChanged();
+    // Passa o nível junto (0.0-1.0) — o QML atualiza a barra direto do sinal,
+    // sem depender de uma segunda leitura do singleton (que podia não
+    // re-renderizar a tempo e a barra parecia travada).
+    void levelChanged(float level);
+    // Sinal sem parâmetro, pro QML que só quer saber se ligou/desligou.
+    void testingChanged();
 
 protected:
     void run() override;

@@ -31,6 +31,7 @@ void MicLevelTester::startTesting(const QString& captureDeviceName)
     }
     m_CaptureDeviceName = captureDeviceName;
     m_Running.store(true);
+    emit testingChanged();
     start();
 }
 
@@ -41,6 +42,7 @@ void MicLevelTester::stopTesting()
     }
     m_Running.store(false);
     wait(1000);
+    emit testingChanged();
 }
 
 void MicLevelTester::run()
@@ -88,8 +90,9 @@ void MicLevelTester::run()
             sumSquares += normalized * normalized;
         }
         float rms = sampleCount > 0 ? static_cast<float>(sqrt(sumSquares / sampleCount)) : 0.0f;
-        m_CurrentLevel.store(std::min(1.0f, std::max(0.0f, rms * 6.0f)));
-        emit levelChanged();
+        float level = std::min(1.0f, std::max(0.0f, rms * 6.0f));
+        m_CurrentLevel.store(level);
+        emit levelChanged(level);
     }
 
     SDL_CloseAudioDevice(device);
