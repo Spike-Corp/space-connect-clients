@@ -252,3 +252,27 @@ void XdApi::powerAction(const QString& machineId, const QString& action)
                 }
             });
 }
+
+void XdApi::connectToMachine(const QString& machineId)
+{
+    if (!m_LoggedIn || machineId.isEmpty()) return;
+    setBusy(true);
+    request("GET", QStringLiteral("admin/xd/machines/") + machineId + QStringLiteral("/connection"), {},
+            [this](int status, const QJsonObject& root) {
+                setBusy(false);
+                if (status >= 200 && status < 300) {
+                    const QString host = root.value(QStringLiteral("host")).toString();
+                    const int port = root.value(QStringLiteral("port")).toInt();
+                    const QString name = root.value(QStringLiteral("machineName")).toString();
+                    if (host.isEmpty() || port <= 0) {
+                        emit actionFinished(false, tr("Conexão ainda não disponível pra esta VM."));
+                        return;
+                    }
+                    emit connectionReady(host + QStringLiteral(":") + QString::number(port), name);
+                } else {
+                    emit actionFinished(false, errorMessageOf(root, tr("Não consegui pegar a conexão da VM.")));
+                    if (status == 401) clearSession();
+                    if (status == 403) { m_AccessDenied = true; emit accessDeniedChanged(); }
+                }
+            });
+}

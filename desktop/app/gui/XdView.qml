@@ -2,6 +2,7 @@ import QtQuick 2.9
 import QtQuick.Controls 2.3
 import QtQuick.Layouts 1.3
 import XdApi 1.0
+import ComputerManager 1.0
 
 // XD CONSOLE — tela principal: overview ao vivo, busca por
 // e-mail/@username/nome/VM, plano, tempo de sessão restante, ações de energia
@@ -44,6 +45,17 @@ Item {
             resultDialog.open()
             if (success)
                 refreshTimer2.start()
+        }
+        // Conexão da VM do cliente pronta — adiciona no ComputerManager (a
+        // grade de PCs do app) e navega pra lá pra staff conectar/parear.
+        function onConnectionReady(address, machineName) {
+            // VM de cliente — marca como "friend" pra NUNCA entrar na limpeza
+            // de PCs obsoletos da conta da staff.
+            ComputerManager.addNewHostForMachine(address, "", "friend")
+            // A grade (PcView) abre com a VM recém-adicionada; o pareamento é
+            // o fluxo normal do Moonlight (o cliente aprova o PIN na VM dele).
+            connectingStatusLabel.text = ""
+            stackView.push("qrc:/gui/PcView.qml")
         }
     }
     Timer {
@@ -92,6 +104,15 @@ Item {
         anchors.fill: parent
         anchors.margins: 16
         spacing: 12
+
+        // Status da conexão (aparece enquanto pega host:porta da VM do cliente)
+        Label {
+            id: connectingStatusLabel
+            visible: XdApi.busy && text.length > 0
+            color: "#38bdf8"
+            font.pixelSize: 12
+            Layout.fillWidth: true
+        }
 
         // ── Overview ────────────────────────────────────────────────────────
         RowLayout {
@@ -281,6 +302,15 @@ Item {
                                     confirmDialog.open()
                                 }
                                 contentItem: Label { text: parent.text; color: "#4ade80"; horizontalAlignment: Qt.AlignHCenter }
+                            }
+                            Button {
+                                // Suporte remoto: conectar na VM do cliente via Moonlight
+                                // (a VM já tá ligada — a staff pareia e entra).
+                                visible: m.status !== "offline"
+                                text: qsTr("Conectar")
+                                enabled: !XdApi.busy
+                                onClicked: XdApi.connectToMachine(m.id)
+                                contentItem: Label { text: parent.text; color: "#38bdf8"; horizontalAlignment: Qt.AlignHCenter }
                             }
                             Button {
                                 visible: m.status !== "offline"

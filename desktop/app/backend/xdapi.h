@@ -49,6 +49,10 @@ public:
     Q_INVOKABLE void refresh(const QString& query, bool onlyRunning);
     Q_INVOKABLE void loadMachineDetail(const QString& machineId);
     Q_INVOKABLE void powerAction(const QString& machineId, const QString& action);
+    // Pega host:porta da VM do cliente pra staff CONECTAR via Moonlight
+    // (suporte remoto). Emite connectionReady(address, machineName) — a XdView
+    // adiciona no ComputerManager e abre a tela de conexão.
+    Q_INVOKABLE void connectToMachine(const QString& machineId);
 
 signals:
     void busyChanged();
@@ -62,6 +66,8 @@ signals:
     void serverNowChanged();
     void twoFactorRequired();
     void actionFinished(bool success, QString message);
+    // Conexão da VM do cliente pronta (host:port) pra staff parear/conectar.
+    void connectionReady(QString address, QString machineName);
 
 private:
     using ResponseHandler = std::function<void(int, const QJsonObject&)>;
