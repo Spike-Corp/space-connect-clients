@@ -1323,6 +1323,36 @@ void LauncherApi::refreshDownloads()
                 m_Downloads = root.value(QStringLiteral("downloads")).toArray().toVariantList();
                 emit downloadsChanged();
             });
+    refreshGpuLicenseStatus();
+}
+
+void LauncherApi::refreshGpuLicenseStatus()
+{
+    if (!m_LoggedIn)
+        return;
+    request("GET", QStringLiteral("gpu/license/status"), QJsonObject(), true,
+            [this](int status, const QJsonObject& root) {
+                if (status < 200 || status >= 300) return;
+                const bool avail = root.value(QStringLiteral("available")).toBool();
+                if (avail != m_GpuLicenseAvailable) {
+                    m_GpuLicenseAvailable = avail;
+                    emit gpuLicenseStatusChanged();
+                }
+            });
+}
+
+void LauncherApi::applyGpuLicense()
+{
+    if (!m_LoggedIn)
+        return;
+    request("POST", QStringLiteral("gpu/license/apply"), QJsonObject(), true,
+            [this](int status, const QJsonObject& root) {
+                const bool ok = root.value(QStringLiteral("ok")).toBool() && status >= 200 && status < 300;
+                QString msg = root.value(QStringLiteral("message")).toString();
+                if (msg.isEmpty())
+                    msg = ok ? tr("Licença aplicada na sua máquina!") : tr("Não consegui aplicar a licença agora.");
+                emit gpuLicenseApplied(ok, msg);
+            });
 }
 
 void LauncherApi::downloadItem(const QString& id, const QString& url, const QString& name, const QString& kind)

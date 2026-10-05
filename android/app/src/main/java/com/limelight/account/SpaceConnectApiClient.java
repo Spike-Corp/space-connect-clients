@@ -179,6 +179,17 @@ public final class SpaceConnectApiClient {
         return get("downloads", accessToken, DownloadsResponse.class);
     }
 
+    // Licença NVIDIA vGPU (RTX Virtual Workstation) da T4: depois de atualizar
+    // o driver GRID (aba Downloads), o cliente aplica a licença por aqui — o
+    // backend empurra o token .tok direto pra VM (nunca URL pública).
+    public GpuLicenseStatusResponse getGpuLicenseStatus(String accessToken) throws IOException, ApiException {
+        return get("gpu/license/status", accessToken, GpuLicenseStatusResponse.class);
+    }
+
+    public GpuLicenseApplyResponse applyGpuLicense(String accessToken) throws IOException, ApiException {
+        return post("gpu/license/apply", new Object(), accessToken, GpuLicenseApplyResponse.class);
+    }
+
     // Transfere o disco de uma VM pra outra (a de origem é excluída).
     public TransferDiskResponse transferDisk(String accessToken, String sourceMachineId, String targetMachineId) throws IOException, ApiException {
         return post("machines/" + sourceMachineId + "/transfer-disk", new TransferDiskRequest(targetMachineId), accessToken, TransferDiskResponse.class);
@@ -813,6 +824,16 @@ public final class SpaceConnectApiClient {
 
     public static final class DownloadsResponse {
         public DownloadItem[] downloads;
+    }
+
+    public static final class GpuLicenseStatusResponse {
+        public Boolean available;
+    }
+
+    public static final class GpuLicenseApplyResponse {
+        public Boolean ok;
+        public String state;   // licensed | applied | agent_offline | no_machine | not_configured | failed
+        public String message;
     }
 
     public static final class TransferDiskRequest {

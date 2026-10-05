@@ -27,6 +27,9 @@ public class DownloadsActivity extends Activity {
     private TextView emptyText;
     private ProgressBar progress;
     private boolean busy;
+    private View gpuLicenseCard;
+    private Button gpuLicenseButton;
+    private boolean applyingLicense;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,11 +41,62 @@ public class DownloadsActivity extends Activity {
         listBox = findViewById(R.id.downloadsList);
         emptyText = findViewById(R.id.downloadsEmpty);
         progress = findViewById(R.id.downloadsProgress);
+        gpuLicenseCard = findViewById(R.id.gpuLicenseCard);
+        gpuLicenseButton = findViewById(R.id.gpuLicenseButton);
 
         findViewById(R.id.downloadsBackButton).setOnClickListener(v -> finish());
         findViewById(R.id.downloadsRefreshButton).setOnClickListener(v -> reload());
 
+        gpuLicenseButton.setOnClickListener(v -> applyGpuLicense());
+
         reload();
+        loadGpuLicenseStatus();
+    }
+
+    // Card da licença NVIDIA vGPU — só aparece quando o admin configurou o
+    // token no servidor (getGpuLicenseStatus). O cliente aplica com 1 toque.
+    private void loadGpuLicenseStatus() {
+        AccountManager.getGpuLicenseStatus(this, new AccountManager.ResultCallback<SpaceConnectApiClient.GpuLicenseStatusResponse>() {
+            @Override
+            public void onSuccess(SpaceConnectApiClient.GpuLicenseStatusResponse r) {
+                boolean available = r != null && Boolean.TRUE.equals(r.available);
+                gpuLicenseCard.setVisibility(available ? View.VISIBLE : View.GONE);
+            }
+
+            @Override
+            public void onError(String message) {
+                gpuLicenseCard.setVisibility(View.GONE);
+            }
+        });
+    }
+
+    private void applyGpuLicense() {
+        if (applyingLicense) return;
+        applyingLicense = true;
+        gpuLicenseButton.setEnabled(false);
+        gpuLicenseButton.setText(R.string.gpu_license_applying);
+        AccountManager.applyGpuLicense(this, new AccountManager.ResultCallback<SpaceConnectApiClient.GpuLicenseApplyResponse>() {
+            @Override
+            public void onSuccess(SpaceConnectApiClient.GpuLicenseApplyResponse r) {
+                applyingLicense = false;
+                gpuLicenseButton.setEnabled(true);
+                gpuLicenseButton.setText(R.string.gpu_license_apply);
+                boolean ok = r != null && Boolean.TRUE.equals(r.ok);
+                String msg = (r != null && r.message != null) ? r.message
+                        : (ok ? "Licença aplicada na sua máquina!" : "Não consegui aplicar a licença agora.");
+                Toast.makeText(DownloadsActivity.this, msg, Toast.LENGTH_LONG).show();
+            }
+
+            @Override
+            public void onError(String message) {
+                applyingLicense = false;
+                gpuLicenseButton.setEnabled(true);
+                gpuLicenseButton.setText(R.string.gpu_license_apply);
+                Toast.makeText(DownloadsActivity.this,
+                        message != null ? message : "Não consegui aplicar a licença agora.",
+                        Toast.LENGTH_LONG).show();
+            }
+        });
     }
 
     private void setBusy(boolean b) {

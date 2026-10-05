@@ -12,6 +12,7 @@ Item {
 
     property int downloadProgress: -1
     property string downloadingId: ""
+    property bool applyingLicense: false
 
     Component.onCompleted: LauncherApi.refreshDownloads()
 
@@ -23,6 +24,12 @@ Item {
         function onDownloadItemFinished(success, message) {
             downloadsView.downloadingId = ""
             downloadsView.downloadProgress = -1
+            resultDialog.isError = !success
+            resultDialog.text = message
+            resultDialog.open()
+        }
+        function onGpuLicenseApplied(success, message) {
+            downloadsView.applyingLicense = false
             resultDialog.isError = !success
             resultDialog.text = message
             resultDialog.open()
@@ -143,6 +150,50 @@ Item {
                 font.pixelSize: 12
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
+            }
+
+            // Card da licença NVIDIA vGPU — aparece quando o admin configurou
+            // o token. Depois de atualizar o driver (card acima), o cliente
+            // aplica a licença da T4 com 1 clique.
+            Rectangle {
+                visible: LauncherApi.gpuLicenseAvailable
+                Layout.fillWidth: true
+                implicitHeight: licCol.implicitHeight + 28
+                radius: 12
+                color: "#1a1426"
+                border.width: 1
+                border.color: "#5a3d8a"
+
+                ColumnLayout {
+                    id: licCol
+                    anchors.fill: parent
+                    anchors.margins: 14
+                    spacing: 8
+
+                    Label {
+                        text: "🔑  " + qsTr("Licença NVIDIA vGPU (RTX Virtual Workstation)")
+                        color: "#f8f5ff"
+                        font.pixelSize: 17
+                        font.bold: true
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                    }
+                    Label {
+                        text: qsTr("Depois de instalar/atualizar o driver NVIDIA GRID, aplique a licença pra ativar a sua T4. Recomendado após atualizar o driver.")
+                        color: "#cfc8e3"
+                        font.pixelSize: 13
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
+                    Button {
+                        enabled: !downloadsView.applyingLicense
+                        text: downloadsView.applyingLicense ? qsTr("Aplicando…") : qsTr("Aplicar licença na máquina")
+                        onClicked: {
+                            downloadsView.applyingLicense = true
+                            LauncherApi.applyGpuLicense()
+                        }
+                    }
+                }
             }
 
             Repeater {

@@ -264,6 +264,20 @@ public final class AccountManager {
         executeAuthenticated(context, API::getDownloads, callback);
     }
 
+    // Licença NVIDIA vGPU (RTX Virtual Workstation) da T4 — o cliente aplica
+    // depois de atualizar o driver GRID. O token é empurrado direto pra VM.
+    public static void getGpuLicenseStatus(
+            Context context,
+            ResultCallback<SpaceConnectApiClient.GpuLicenseStatusResponse> callback) {
+        executeAuthenticated(context, API::getGpuLicenseStatus, callback);
+    }
+
+    public static void applyGpuLicense(
+            Context context,
+            ResultCallback<SpaceConnectApiClient.GpuLicenseApplyResponse> callback) {
+        executeAuthenticated(context, API::applyGpuLicense, callback);
+    }
+
     // Exclui a VM de VERDADE (wipe total na nuvem). Irreversível.
     public static void deleteMachine(
             Context context,

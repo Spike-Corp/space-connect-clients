@@ -121,6 +121,14 @@ public:
     // abre no navegador (kind=link). Emite downloadItemProgress(0-100) e
     // downloadItemFinished(ok, message).
     Q_INVOKABLE void downloadItem(const QString& id, const QString& url, const QString& name, const QString& kind);
+    // Licença NVIDIA vGPU (RTX Virtual Workstation) da T4: o cliente baixa o
+    // driver novo (aba Downloads) e APLICA a licença por aqui — o backend
+    // empurra o token .tok direto pra VM (nunca URL pública). Emite
+    // gpuLicenseStatusChanged / gpuLicenseApplied(ok, message).
+    Q_PROPERTY(bool gpuLicenseAvailable READ gpuLicenseAvailable NOTIFY gpuLicenseStatusChanged)
+    bool gpuLicenseAvailable() const { return m_GpuLicenseAvailable; }
+    Q_INVOKABLE void refreshGpuLicenseStatus();
+    Q_INVOKABLE void applyGpuLicense();
     Q_INVOKABLE void installEmulator(const QString& emulatorId);
     Q_INVOKABLE void launchEmulator(const QString& emulatorId);
     // (interno) polling do install assíncrono
@@ -200,6 +208,8 @@ signals:
     void downloadsChanged();
     void downloadItemProgress(int percent);
     void downloadItemFinished(bool success, QString message);
+    void gpuLicenseStatusChanged();
+    void gpuLicenseApplied(bool success, QString message);
     void diskTransferFinished(bool success, QString message);
     void machineDeleteFinished(bool success, QString message);
 
@@ -264,6 +274,7 @@ private:
     // Emuladores (catalogo + flag installed)
     QVariantList m_Emulators;
     QVariantList m_Downloads;
+    bool m_GpuLicenseAvailable = false;
     QString m_InstallingEmulatorId;
     int m_EmulatorInstallProgress = -1;
     // Máquina de amigo sendo conectada agora (o PIN vai pra rota friend-aware).

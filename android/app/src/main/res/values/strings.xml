@@ -332,6 +332,10 @@
     <string name="dl_open_link">Open link</string>
     <string name="dl_started">Download started — check your notifications.</string>
     <string name="dl_load_fail">Couldn\'t load the downloads list.</string>
+    <string name="gpu_license_title">🔑  NVIDIA vGPU License (RTX Virtual Workstation)</string>
+    <string name="gpu_license_hint">After installing/updating the NVIDIA GRID driver, apply the license to activate your T4. Recommended after a driver update.</string>
+    <string name="gpu_license_apply">Apply license to my machine</string>
+    <string name="gpu_license_applying">Applying…</string>
     <string name="transfer_disk_title">Transfer disk between machines</string>
     <string name="transfer_disk_source">Delete this machine (its disk is gone for good):</string>
     <string name="transfer_disk_target">Receive the space on this machine:</string>
