@@ -1357,45 +1357,55 @@ void LauncherApi::applyGpuLicense()
 
 void LauncherApi::downloadItem(const QString& id, const QString& url, const QString& name, const QString& kind)
 {
-    Q_UNUSED(id);
+    Q_UNUSED(url);
     if (kind == QStringLiteral("link")) {
         QDesktopServices::openUrl(QUrl(url));
         emit downloadItemFinished(true, tr("Link aberto no navegador."));
         return;
     }
 
-    // Arquivo: baixa pra pasta Downloads do PC com progresso.
-    QString downloadsDir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
-    if (downloadsDir.isEmpty()) downloadsDir = QDir::homePath();
-    QString safeName = name;
-    safeName.replace(QRegularExpression(QStringLiteral("[^\\w.\\-() ]+")), QStringLiteral("_"));
-    // Tenta pegar a extensão da URL (ex.: .zip, .exe) pro arquivo abrir direito
-    QString urlPath = QUrl(url).path();
-    QString ext = urlPath.contains(QLatin1Char('.')) ? urlPath.mid(urlPath.lastIndexOf(QLatin1Char('.'))) : QString();
-    QString filePath = downloadsDir + QLatin1Char('/') + safeName + ext;
+    // Arquivo: a VM baixa direto da URL pra pasta Downloads DELA (não pro PC
+    // local — o bug era baixar um driver de 750MB pro PC em vez da máquina em
+    // nuvem onde ele é usado). O backend dispara o job na VM; o app faz
+    // polling no status pra barra de progresso.
+    request("POST", QStringLiteral("downloads/%1/to-vm").arg(id), QJsonObject(), true,
+            [this, id, name](int status, const QJsonObject& root) {
+                if (status < 200 || status >= 300) {
+                    const QString msg = root.value(QStringLiteral("error")).toObject().value(QStringLiteral("message")).toString();
+                    emit downloadItemFinished(false, msg.isEmpty() ? tr("Não consegui baixar na máquina.") : msg);
+                    return;
+                }
+                emit downloadItemProgress(0);
+                pollVmDownload(id, name, 0);
+            });
+}
 
-    QNetworkAccessManager* nam = new QNetworkAccessManager(this);
-    QNetworkReply* reply = nam->get(QNetworkRequest(QUrl(url)));
-    connect(reply, &QNetworkReply::downloadProgress, this, [this](qint64 received, qint64 total) {
-        if (total > 0) emit downloadItemProgress(static_cast<int>((received * 100) / total));
-    });
-    connect(reply, &QNetworkReply::finished, this, [this, reply, nam, filePath, name]() {
-        nam->deleteLater();
-        if (reply->error() != QNetworkReply::NoError) {
-            emit downloadItemFinished(false, tr("Falha no download: %1").arg(reply->errorString()));
-            reply->deleteLater();
-            return;
-        }
-        QFile file(filePath);
-        if (!file.open(QIODevice::WriteOnly)) {
-            emit downloadItemFinished(false, tr("Não consegui gravar em Downloads."));
-            reply->deleteLater();
-            return;
-        }
-        file.write(reply->readAll());
-        file.close();
-        reply->deleteLater();
-        emit downloadItemFinished(true, tr("%1 baixado pra sua pasta Downloads.").arg(name));
+void LauncherApi::pollVmDownload(const QString& itemId, const QString& name, int attempt)
+{
+    if (attempt > 600) { // ~30min de polling (3s cada)
+        emit downloadItemFinished(false, tr("O download demorou demais. Verifique a pasta Downloads da máquina."));
+        return;
+    }
+    QTimer::singleShot(3000, this, [this, itemId, name, attempt]() {
+        request("GET", QStringLiteral("downloads/%1/to-vm/status").arg(itemId), QJsonObject(), true,
+                [this, itemId, name, attempt](int status, const QJsonObject& root) {
+                    if (status < 200 || status >= 300) { pollVmDownload(itemId, name, attempt + 1); return; }
+                    const QString state = root.value(QStringLiteral("state")).toString();
+                    if (state == QStringLiteral("running")) {
+                        const int p = root.value(QStringLiteral("progress")).toInt(-1);
+                        if (p >= 0) emit downloadItemProgress(p);
+                        pollVmDownload(itemId, name, attempt + 1);
+                    } else if (state == QStringLiteral("done")) {
+                        emit downloadItemProgress(100);
+                        emit downloadItemFinished(true, tr("%1 baixado pra pasta Downloads da sua máquina.").arg(name));
+                    } else if (state == QStringLiteral("failed")) {
+                        const QString msg = root.value(QStringLiteral("message")).toString();
+                        emit downloadItemFinished(false, msg.isEmpty() ? tr("O download falhou na máquina.") : msg);
+                    } else {
+                        // none — o backend reiniciou no meio; trata como falha recuperável
+                        emit downloadItemFinished(false, tr("O download se perdeu. Toque em Baixar de novo."));
+                    }
+                });
     });
 }
 

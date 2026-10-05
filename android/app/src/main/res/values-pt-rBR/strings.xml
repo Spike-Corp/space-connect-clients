@@ -355,6 +355,12 @@
     <string name="dl_open_link">Abrir link</string>
     <string name="dl_started">Download iniciado — acompanhe nas notificações.</string>
     <string name="dl_load_fail">Não consegui carregar a lista de downloads.</string>
+    <string name="dl_download_to_vm">Baixar na máquina</string>
+    <string name="dl_to_vm_starting">Baixando na VM…</string>
+    <string name="dl_to_vm_progress">Baixando na VM… %1$d%%</string>
+    <string name="dl_to_vm_started">Baixando pra pasta Downloads da sua máquina…</string>
+    <string name="dl_to_vm_done">Pronto! O arquivo tá na pasta Downloads da sua máquina.</string>
+    <string name="dl_to_vm_fail">Não consegui baixar na máquina. Ligue ela e tente de novo.</string>
     <string name="gpu_license_title">🔑  Licença NVIDIA vGPU (RTX Virtual Workstation)</string>
     <string name="gpu_license_hint">Depois de instalar/atualizar o driver NVIDIA GRID, aplique a licença pra ativar a sua T4. Recomendado após atualizar o driver.</string>
     <string name="gpu_license_apply">Aplicar licença na máquina</string>

@@ -264,6 +264,22 @@ public final class AccountManager {
         executeAuthenticated(context, API::getDownloads, callback);
     }
 
+    // A VM baixa o item direto da URL pra pasta Downloads dela (não pro
+    // aparelho local). Polling no status depois.
+    public static void startVmDownload(
+            Context context,
+            String itemId,
+            ResultCallback<SpaceConnectApiClient.VmDownloadStartResponse> callback) {
+        executeAuthenticated(context, token -> API.startVmDownload(token, itemId), callback);
+    }
+
+    public static void getVmDownloadStatus(
+            Context context,
+            String itemId,
+            ResultCallback<SpaceConnectApiClient.VmDownloadStatusResponse> callback) {
+        executeAuthenticated(context, token -> API.getVmDownloadStatus(token, itemId), callback);
+    }
+
     // Licença NVIDIA vGPU (RTX Virtual Workstation) da T4 — o cliente aplica
     // depois de atualizar o driver GRID. O token é empurrado direto pra VM.
     public static void getGpuLicenseStatus(

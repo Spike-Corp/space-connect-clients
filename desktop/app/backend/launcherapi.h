@@ -117,10 +117,13 @@ public:
     // destino ganha o espaço inteiro). Só aparece na UI com 2+ VMs Proxmox.
     Q_INVOKABLE void transferDisk(const QString& sourceMachineId, const QString& targetMachineId);
     Q_INVOKABLE void refreshDownloads();
-    // Baixa um item da biblioteca pra pasta Downloads do PC (kind=file) ou
-    // abre no navegador (kind=link). Emite downloadItemProgress(0-100) e
-    // downloadItemFinished(ok, message).
+    // Baixa um item da biblioteca NA VM (pasta Downloads dela) — NÃO pro PC
+    // local. O backend manda a VM baixar da URL direto; o app faz polling no
+    // status (downloadItemProgress 0-100 + downloadItemFinished ok/message).
+    // kind=link abre no navegador local.
     Q_INVOKABLE void downloadItem(const QString& id, const QString& url, const QString& name, const QString& kind);
+    // (interno) polling do download na VM
+    void pollVmDownload(const QString& itemId, const QString& name, int attempt);
     // Licença NVIDIA vGPU (RTX Virtual Workstation) da T4: o cliente baixa o
     // driver novo (aba Downloads) e APLICA a licença por aqui — o backend
     // empurra o token .tok direto pra VM (nunca URL pública). Emite

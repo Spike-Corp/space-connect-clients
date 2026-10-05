@@ -179,6 +179,16 @@ public final class SpaceConnectApiClient {
         return get("downloads", accessToken, DownloadsResponse.class);
     }
 
+    // A VM baixa o item direto da URL pra pasta Downloads DA VM (não pro
+    // aparelho local). Retorna na hora; o app faz polling no status.
+    public VmDownloadStartResponse startVmDownload(String accessToken, String itemId) throws IOException, ApiException {
+        return post("downloads/" + itemId + "/to-vm", new Object(), accessToken, VmDownloadStartResponse.class);
+    }
+
+    public VmDownloadStatusResponse getVmDownloadStatus(String accessToken, String itemId) throws IOException, ApiException {
+        return get("downloads/" + itemId + "/to-vm/status", accessToken, VmDownloadStatusResponse.class);
+    }
+
     // Licença NVIDIA vGPU (RTX Virtual Workstation) da T4: depois de atualizar
     // o driver GRID (aba Downloads), o cliente aplica a licença por aqui — o
     // backend empurra o token .tok direto pra VM (nunca URL pública).
@@ -833,6 +843,18 @@ public final class SpaceConnectApiClient {
     public static final class GpuLicenseApplyResponse {
         public Boolean ok;
         public String state;   // licensed | applied | agent_offline | no_machine | not_configured | failed
+        public String message;
+    }
+
+    public static final class VmDownloadStartResponse {
+        public Boolean ok;
+        public String job;      // started | running
+        public String message;
+    }
+
+    public static final class VmDownloadStatusResponse {
+        public String state;    // none | running | done | failed
+        public Integer progress; // 0-100 (null se o backend ainda não sabe)
         public String message;
     }
 

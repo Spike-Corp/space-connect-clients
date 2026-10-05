@@ -103,8 +103,8 @@ Item {
                     text: card.item.kind === "link"
                           ? qsTr("Abrir link")
                           : (downloadsView.downloadingId === card.item.id
-                             ? qsTr("Baixando… %1%").arg(Math.max(0, downloadsView.downloadProgress))
-                             : qsTr("Baixar"))
+                             ? qsTr("Baixando na VM… %1%").arg(Math.max(0, downloadsView.downloadProgress))
+                             : qsTr("Baixar na máquina"))
                     onClicked: {
                         downloadsView.downloadingId = card.item.id
                         downloadsView.downloadProgress = 0
@@ -145,7 +145,7 @@ Item {
             }
 
             Label {
-                text: qsTr("Arquivos e ferramentas oficiais da SpaceCloud pra baixar no seu PC.")
+                text: qsTr("Arquivos e ferramentas oficiais da SpaceCloud. \"Baixar na máquina\" manda o arquivo direto pra pasta Downloads da sua máquina em nuvem.")
                 color: "#9793aa"
                 font.pixelSize: 12
                 wrapMode: Text.WordWrap

@@ -1,11 +1,7 @@
 package com.limelight.account;
 
 import android.app.Activity;
-import android.app.DownloadManager;
-import android.content.Context;
-import android.net.Uri;
 import android.os.Bundle;
-import android.os.Environment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
@@ -19,8 +15,10 @@ import com.limelight.utils.HelpLauncher;
 import com.limelight.utils.UiHelper;
 
 // Aba "Downloads" — biblioteca de arquivos/links gerenciada pelo admin
-// (Admin → Downloads do app). Arquivo baixa via DownloadManager do sistema
-// (vai pra pasta Downloads do aparelho); link abre no navegador.
+// (Admin → Downloads do app). Arquivo: a VM baixa direto da URL pra pasta
+// Downloads DELA (C:\Users\scg\Downloads) — NÃO pro aparelho (o bug era baixar
+// pro celular; um driver de 750MB descia pro celular em vez da máquina em
+// nuvem). Link abre no navegador.
 public class DownloadsActivity extends Activity {
 
     private LinearLayout listBox;
@@ -156,13 +154,13 @@ public class DownloadsActivity extends Activity {
             meta.setVisibility(size.isEmpty() ? View.GONE : View.VISIBLE);
 
             boolean isLink = "link".equals(item.kind);
-            action.setText(isLink ? R.string.dl_open_link : R.string.dl_download);
+            action.setText(isLink ? R.string.dl_open_link : R.string.dl_download_to_vm);
             action.setOnClickListener(v -> {
                 if (item.url == null || item.url.trim().isEmpty()) return;
                 if (isLink) {
                     HelpLauncher.launchUrl(this, item.url);
                 } else {
-                    downloadFile(item);
+                    startVmDownload(item, action);
                 }
             });
 
@@ -170,29 +168,86 @@ public class DownloadsActivity extends Activity {
         }
     }
 
-    private void downloadFile(SpaceConnectApiClient.DownloadItem item) {
-        try {
-            // DownloadManager do sistema: baixa em background, mostra na
-            // bandeja de notificações e grava na pasta Downloads pública.
-            DownloadManager.Request req = new DownloadManager.Request(Uri.parse(item.url));
-            req.setTitle(item.name != null ? item.name : "Download");
-            req.setDescription("SpaceCloud");
-            req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-            // Nome de arquivo seguro + extensão da URL
-            String safe = (item.name != null ? item.name : "arquivo").replaceAll("[^\\w.\\-() ]+", "_");
-            String path = Uri.parse(item.url).getPath();
-            String ext = (path != null && path.contains(".")) ? path.substring(path.lastIndexOf('.')) : "";
-            req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, safe + ext);
-            DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
-            if (dm != null) {
-                dm.enqueue(req);
-                Toast.makeText(this, R.string.dl_started, Toast.LENGTH_LONG).show();
-            } else {
-                HelpLauncher.launchUrl(this, item.url);
+    // A VM baixa o arquivo direto da URL pra pasta Downloads DELA (não pro
+    // aparelho). O botão vira barra de progresso via polling no status.
+    private final java.util.Map<String, Boolean> downloadingToVm = new java.util.HashMap<>();
+    private final android.os.Handler vmDlHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+
+    private void startVmDownload(SpaceConnectApiClient.DownloadItem item, Button action) {
+        final String id = item.id;
+        if (id == null || downloadingToVm.containsKey(id)) return;
+        downloadingToVm.put(id, true);
+        action.setEnabled(false);
+        action.setText(R.string.dl_to_vm_starting);
+        AccountManager.startVmDownload(this, id, new AccountManager.ResultCallback<SpaceConnectApiClient.VmDownloadStartResponse>() {
+            @Override
+            public void onSuccess(SpaceConnectApiClient.VmDownloadStartResponse r) {
+                Toast.makeText(DownloadsActivity.this,
+                        (r != null && r.message != null) ? r.message : getString(R.string.dl_to_vm_started),
+                        Toast.LENGTH_LONG).show();
+                pollVmDownload(item, action);
             }
-        } catch (Exception e) {
-            // Fallback: abre no navegador (que baixa)
-            HelpLauncher.launchUrl(this, item.url);
-        }
+
+            @Override
+            public void onError(String message) {
+                downloadingToVm.remove(id);
+                action.setEnabled(true);
+                action.setText(R.string.dl_download_to_vm);
+                Toast.makeText(DownloadsActivity.this, message != null ? message : getString(R.string.dl_to_vm_fail), Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private void pollVmDownload(final SpaceConnectApiClient.DownloadItem item, final Button action) {
+        final String id = item.id;
+        vmDlHandler.postDelayed(() -> {
+            if (id == null || !downloadingToVm.containsKey(id)) return;
+            AccountManager.getVmDownloadStatus(this, id, new AccountManager.ResultCallback<SpaceConnectApiClient.VmDownloadStatusResponse>() {
+                @Override
+                public void onSuccess(SpaceConnectApiClient.VmDownloadStatusResponse r) {
+                    if (r == null || r.state == null) { pollVmDownload(item, action); return; }
+                    switch (r.state) {
+                        case "running":
+                            int p = r.progress != null ? r.progress : -1;
+                            action.setText(p >= 0
+                                    ? getString(R.string.dl_to_vm_progress, p)
+                                    : getString(R.string.dl_to_vm_starting));
+                            pollVmDownload(item, action);
+                            break;
+                        case "done":
+                            downloadingToVm.remove(id);
+                            action.setEnabled(true);
+                            action.setText(R.string.dl_download_to_vm);
+                            Toast.makeText(DownloadsActivity.this, R.string.dl_to_vm_done, Toast.LENGTH_LONG).show();
+                            break;
+                        case "failed":
+                            downloadingToVm.remove(id);
+                            action.setEnabled(true);
+                            action.setText(R.string.dl_download_to_vm);
+                            Toast.makeText(DownloadsActivity.this,
+                                    r.message != null ? r.message : getString(R.string.dl_to_vm_fail),
+                                    Toast.LENGTH_LONG).show();
+                            break;
+                        default: // none
+                            downloadingToVm.remove(id);
+                            action.setEnabled(true);
+                            action.setText(R.string.dl_download_to_vm);
+                            break;
+                    }
+                }
+
+                @Override
+                public void onError(String message) {
+                    // erro de rede no polling não mata — tenta de novo
+                    pollVmDownload(item, action);
+                }
+            });
+        }, 3000);
+    }
+
+    @Override
+    protected void onDestroy() {
+        vmDlHandler.removeCallbacksAndMessages(null);
+        super.onDestroy();
     }
 }
