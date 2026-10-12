@@ -2,6 +2,7 @@ package com.limelight.account;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
+import com.limelight.BuildConfig;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
@@ -329,6 +330,7 @@ public final class SpaceConnectApiClient {
                 .post(body)
                 .header("Accept", "application/json")
                 .header("User-Agent", "SpaceConnect-Android")
+                .header("X-App-Version", BuildConfig.VERSION_NAME)
                 .header("Authorization", "Bearer " + accessToken)
                 .build();
 
@@ -352,7 +354,8 @@ public final class SpaceConnectApiClient {
                 .url(baseUrl + path)
                 .post(RequestBody.create(JSON, gson.toJson(input)))
                 .header("Accept", "application/json")
-                .header("User-Agent", "SpaceConnect-Android");
+                .header("User-Agent", "SpaceConnect-Android")
+                .header("X-App-Version", BuildConfig.VERSION_NAME);
         if (accessToken != null && !accessToken.isEmpty()) {
             request.header("Authorization", "Bearer " + accessToken);
         }
@@ -377,7 +380,8 @@ public final class SpaceConnectApiClient {
                 .url(baseUrl + path)
                 .get()
                 .header("Accept", "application/json")
-                .header("User-Agent", "SpaceConnect-Android");
+                .header("User-Agent", "SpaceConnect-Android")
+                .header("X-App-Version", BuildConfig.VERSION_NAME);
         if (accessToken != null && !accessToken.isEmpty()) {
             request.header("Authorization", "Bearer " + accessToken);
         }
@@ -402,7 +406,8 @@ public final class SpaceConnectApiClient {
                 .url(baseUrl + path)
                 .put(RequestBody.create(JSON, gson.toJson(input)))
                 .header("Accept", "application/json")
-                .header("User-Agent", "SpaceConnect-Android");
+                .header("User-Agent", "SpaceConnect-Android")
+                .header("X-App-Version", BuildConfig.VERSION_NAME);
         if (accessToken != null && !accessToken.isEmpty()) {
             request.header("Authorization", "Bearer " + accessToken);
         }
@@ -427,7 +432,8 @@ public final class SpaceConnectApiClient {
                 .url(baseUrl + path)
                 .patch(RequestBody.create(JSON, gson.toJson(input)))
                 .header("Accept", "application/json")
-                .header("User-Agent", "SpaceConnect-Android");
+                .header("User-Agent", "SpaceConnect-Android")
+                .header("X-App-Version", BuildConfig.VERSION_NAME);
         if (accessToken != null && !accessToken.isEmpty()) {
             request.header("Authorization", "Bearer " + accessToken);
         }
@@ -452,7 +458,8 @@ public final class SpaceConnectApiClient {
                 .url(baseUrl + path)
                 .delete()
                 .header("Accept", "application/json")
-                .header("User-Agent", "SpaceConnect-Android");
+                .header("User-Agent", "SpaceConnect-Android")
+                .header("X-App-Version", BuildConfig.VERSION_NAME);
         if (accessToken != null && !accessToken.isEmpty()) {
             request.header("Authorization", "Bearer " + accessToken);
         }
