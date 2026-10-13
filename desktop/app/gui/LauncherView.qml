@@ -14,11 +14,55 @@ Item {
     property string pendingConnectAddress: ""
     property string pendingConnectName: ""
 
+    function formatActivationDate(value) {
+        if (!value) return "--/--"
+        var d = new Date(value)
+        if (isNaN(d.getTime())) return "--/--"
+        var day = (d.getUTCDate() < 10 ? "0" : "") + d.getUTCDate()
+        var monthValue = d.getUTCMonth() + 1
+        var month = (monthValue < 10 ? "0" : "") + monthValue
+        return day + "/" + month
+    }
+
+    function pendingMachine() {
+        var list = LauncherApi.machines
+        if (!list || list.length === 0) return null
+        var id = LauncherApi.statusMachineId || LauncherApi.selectedMachineId
+        var m = null
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].id === id) { m = list[i]; break }
+        }
+        if (!m && list.length === 1) m = list[0]
+        return m && m.locked && m.upcomingEntitlement && m.availableAt ? m : null
+    }
+
+    function activationPending() {
+        return pendingMachine() !== null
+                || (LauncherApi.planLocked && LauncherApi.hasUpcomingPlan)
+    }
+
+    function pendingPlanName() {
+        var m = pendingMachine()
+        if (m)
+            return (m.planName && ("" + m.planName).trim().length > 0)
+                    ? m.planName : prettifyPlan(m.planSlug)
+        return LauncherApi.upcomingPlanName || qsTr("Plano")
+    }
+
+    function pendingActivationDate() {
+        var m = pendingMachine()
+        return formatActivationDate(m ? m.availableAt : LauncherApi.upcomingPlanAvailableAt)
+    }
+
     function needsMachine() {
-        return LauncherApi.state === "idle" && LauncherApi.machinesLoaded && !LauncherApi.hasMachine
+        return !activationPending()
+                && LauncherApi.state === "idle"
+                && LauncherApi.machinesLoaded
+                && !LauncherApi.hasMachine
     }
 
     function primaryAction() {
+        if (activationPending()) return
         if (needsMachine()) {
             createMachineDialog.open()
             return
@@ -32,6 +76,7 @@ Item {
     }
 
     function statusTitle() {
+        if (activationPending()) return qsTr("Pré-venda confirmada")
         if (needsMachine()) return qsTr("Create your PC")
         if (LauncherApi.state === "queued") return qsTr("You are in the queue")
         if (LauncherApi.state === "starting") return qsTr("Your PC is starting")
@@ -60,6 +105,9 @@ Item {
     }
 
     function statusDetails() {
+        if (activationPending())
+            return qsTr("Seu plano %1 está reservado. Ativação em %2; a validade começa nessa data.")
+                    .arg(pendingPlanName()).arg(pendingActivationDate())
         if (needsMachine())
             return qsTr("You don't have a dedicated PC yet. Create one to start playing.")
         if (LauncherApi.state === "queued")
@@ -73,6 +121,7 @@ Item {
     }
 
     function primaryText() {
+        if (activationPending()) return qsTr("Ativação em %1").arg(pendingActivationDate())
         if (needsMachine()) return qsTr("Create your VM")
         if (LauncherApi.state === "queued") return qsTr("Leave queue")
         if (LauncherApi.state === "ready") return qsTr("Connect")
@@ -96,22 +145,38 @@ Item {
     // "Builder Lite · faltam 87h" / "Builder Lite · horas ilimitadas" (como no site).
     function planHoursText() {
         var list = LauncherApi.machines
-        if (!list || list.length === 0) return ""
+        var lines = []
         var id = LauncherApi.statusMachineId || LauncherApi.selectedMachineId
         var m = null
-        for (var i = 0; i < list.length; i++) {
-            if (list[i].id === id) { m = list[i]; break }
+        for (var i = 0; list && i < list.length; i++) {
+            if (list[i].id === id) {
+                m = list[i]
+                break
+            }
         }
-        if (!m && list.length === 1) m = list[0]
-        if (!m || !m.entitlementActive) return ""
-        var name = (m.planName && ("" + m.planName).trim().length > 0) ? m.planName : prettifyPlan(m.planSlug)
-        if (m.unlimited) return qsTr("%1 · unlimited hours").arg(name)
-        var h = Math.round((m.hoursRemaining || 0) * 10) / 10
-        var hStr = (Math.floor(h) === h ? h.toFixed(0) : h.toFixed(1)) + "h"
-        var text = qsTr("%1 · %2 left").arg(name).arg(hStr)
-        var b = Math.round((m.bonusHours || 0) * 10) / 10
-        if (b > 0) text += qsTr(" + %1 bonus").arg((Math.floor(b) === b ? b.toFixed(0) : b.toFixed(1)) + "h")
-        return text
+        if (!m && list && list.length === 1) m = list[0]
+        if (m && m.entitlementActive) {
+            var name = (m.planName && ("" + m.planName).trim().length > 0)
+                    ? m.planName : prettifyPlan(m.planSlug)
+            if (m.unlimited) {
+                lines.push(qsTr("%1 · unlimited hours").arg(name))
+            } else {
+                var h = Math.round((m.hoursRemaining || 0) * 10) / 10
+                var hStr = (Math.floor(h) === h ? h.toFixed(0) : h.toFixed(1)) + "h"
+                var text = qsTr("%1 · %2 left").arg(name).arg(hStr)
+                var b = Math.round((m.bonusHours || 0) * 10) / 10
+                if (b > 0)
+                    text += qsTr(" + %1 bonus").arg(
+                                (Math.floor(b) === b ? b.toFixed(0) : b.toFixed(1)) + "h")
+                lines.push(text)
+            }
+        }
+        if (LauncherApi.hasUpcomingPlan) {
+            lines.push(qsTr("Pré-venda: %1 · ativação em %2")
+                       .arg(LauncherApi.upcomingPlanName || qsTr("Plano"))
+                       .arg(formatActivationDate(LauncherApi.upcomingPlanAvailableAt)))
+        }
+        return lines.join("\n")
     }
 
     Connections {
@@ -307,6 +372,7 @@ Item {
                     highlighted: true
                     enabled: !LauncherApi.busy
                              && !addingComputer
+                             && !activationPending()
                              && (needsMachine()
                                  || LauncherApi.state === "idle"
                                  || LauncherApi.state === "queued"

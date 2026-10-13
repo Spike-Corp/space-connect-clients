@@ -33,6 +33,10 @@ class LauncherApi : public QObject
     // VM a partir da fila — só o /create-machine faz isso, igual ao site).
     Q_PROPERTY(bool hasMachine READ hasMachine NOTIFY machinesChanged)
     Q_PROPERTY(bool machinesLoaded READ machinesLoaded NOTIFY machinesChanged)
+    Q_PROPERTY(bool planLocked READ planLocked NOTIFY machinesChanged)
+    Q_PROPERTY(bool hasUpcomingPlan READ hasUpcomingPlan NOTIFY machinesChanged)
+    Q_PROPERTY(QString upcomingPlanName READ upcomingPlanName NOTIFY machinesChanged)
+    Q_PROPERTY(QString upcomingPlanAvailableAt READ upcomingPlanAvailableAt NOTIFY machinesChanged)
     // Amigos (beta): listas pra UI + ações. friendMachines = máquinas que amigos
     // compartilham comigo (com permissão deles).
     Q_PROPERTY(QVariantList friends READ friends NOTIFY friendsChanged)
@@ -80,6 +84,10 @@ public:
     qint64 remainingMinutes() const { return m_RemainingMs / 60000; }
     bool hasMachine() const { return m_HasMachine; }
     bool machinesLoaded() const { return m_MachinesLoaded; }
+    bool planLocked() const { return m_PlanLocked; }
+    bool hasUpcomingPlan() const { return !m_UpcomingPlanAvailableAt.isEmpty(); }
+    QString upcomingPlanName() const { return m_UpcomingPlanName; }
+    QString upcomingPlanAvailableAt() const { return m_UpcomingPlanAvailableAt; }
     QVariantList machines() const { return m_Machines; }
     QString selectedMachineId() const { return m_SelectedMachineId; }
     void setSelectedMachineId(const QString& id);
@@ -265,6 +273,9 @@ private:
     bool m_RememberMe = true;
     bool m_HasMachine = false;
     bool m_MachinesLoaded = false;
+    bool m_PlanLocked = false;
+    QString m_UpcomingPlanName;
+    QString m_UpcomingPlanAvailableAt;
     QVariantList m_Machines;
     QString m_SelectedMachineId;
     // Máquina da sessão ativa reportada pelo /status (prioriza sobre a seleção).

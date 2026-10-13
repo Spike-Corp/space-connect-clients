@@ -227,6 +227,34 @@ public class SpaceConnectApiClientTest {
     }
 
     @Test
+    public void getMachinesParsesFuturePresaleEntitlement() throws Exception {
+        server.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("{"
+                        + "\"locked\":true,"
+                        + "\"machines\":[],"
+                        + "\"upcomingEntitlements\":[{"
+                        + "\"id\":\"future-balance\","
+                        + "\"planSlug\":\"ibm-l4-mini\","
+                        + "\"planName\":\"NVIDIA L4 Mini\","
+                        + "\"status\":\"active\","
+                        + "\"active\":false,"
+                        + "\"availableAt\":\"2026-10-28T03:00:00.000Z\""
+                        + "}]"
+                        + "}"));
+
+        SpaceConnectApiClient.MachinesResponse response = client.getMachines("access-1");
+
+        assertEquals(true, response.locked);
+        assertNotNull(response.upcomingEntitlements);
+        assertEquals(1, response.upcomingEntitlements.length);
+        assertEquals("future-balance", response.upcomingEntitlements[0].id);
+        assertEquals("ibm-l4-mini", response.upcomingEntitlements[0].planSlug);
+        assertEquals("2026-10-28T03:00:00.000Z", response.upcomingEntitlements[0].availableAt);
+    }
+
+    @Test
     public void pairSubmitsTheMoonlightPinThroughTheTrustedApi() throws Exception {
         server.enqueue(new MockResponse()
                 .setResponseCode(200)

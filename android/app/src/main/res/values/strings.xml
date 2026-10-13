@@ -283,6 +283,12 @@
     <string name="launcher_status_error">Could not update status</string>
     <string name="launcher_status_idle">Ready to play</string>
     <string name="launcher_idle_details">Join the shared queue. Your plan determines your priority.</string>
+    <string name="launcher_status_scheduled">Pre-sale confirmed</string>
+    <string name="launcher_scheduled_details">Your %1$s plan is reserved. Activation on %2$s; its validity starts on that date.</string>
+    <string name="launcher_activation_button">Activation on %1$s</string>
+    <string name="launcher_upcoming_plan">Pre-sale: %1$s · activation on %2$s</string>
+    <string name="launcher_plan_activation_short">activation %1$s</string>
+    <string name="launcher_plan_fallback">Plan</string>
     <string name="launcher_status_queued">You are in the queue</string>
     <string name="launcher_queue_position">Position %1$d of %2$d</string>
     <string name="launcher_status_starting">Your PC is starting</string>

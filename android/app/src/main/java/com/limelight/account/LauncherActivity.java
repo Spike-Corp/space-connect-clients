@@ -31,6 +31,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.InputStream;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+import java.util.TimeZone;
 
 public class LauncherActivity extends Activity {
     private static final int ADD_COMPUTER_REQUEST = 4101;
@@ -53,6 +57,9 @@ public class LauncherActivity extends Activity {
     private SpaceConnectApiClient.MachineListItem[] machines;
     private String selectedMachineId;
     private SpaceConnectApiClient.StatusResponse lastStatus;
+    private boolean planLocked;
+    private SpaceConnectApiClient.Entitlement[] upcomingEntitlements;
+    private SpaceConnectApiClient.Entitlement upcomingEntitlement;
     // Controle das notificações de sessão (transição de estado + aviso único).
     private String lastNotifiedState;
     private boolean endWarned;
@@ -262,6 +269,20 @@ public class LauncherActivity extends Activity {
             return;
         }
 
+        if (isActivationPending()) {
+            SpaceConnectApiClient.Entitlement pending = pendingActivationEntitlement();
+            String planName = entitlementPlanName(pending);
+            String activationDate = formatActivationDate(pending != null ? pending.availableAt : null);
+            statusText.setText(R.string.launcher_status_scheduled);
+            detailsText.setText(getString(
+                    R.string.launcher_scheduled_details,
+                    planName,
+                    activationDate));
+            primaryButton.setText(getString(R.string.launcher_activation_button, activationDate));
+            primaryButton.setEnabled(false);
+            return;
+        }
+
         statusText.setText(R.string.launcher_status_idle);
         if (Boolean.FALSE.equals(hasMachine)) {
             detailsText.setText(R.string.launcher_no_machine_details);
@@ -407,6 +428,9 @@ public class LauncherActivity extends Activity {
         AccountManager.getMachines(this, new AccountManager.ResultCallback<SpaceConnectApiClient.MachinesResponse>() {
             @Override
             public void onSuccess(SpaceConnectApiClient.MachinesResponse result) {
+                planLocked = result.locked;
+                upcomingEntitlements = result.upcomingEntitlements;
+                upcomingEntitlement = firstUpcomingEntitlement();
                 machines = result.machines;
                 hasMachine = machines != null && machines.length > 0;
                 if (machines != null && machines.length == 1) {
@@ -672,10 +696,18 @@ public class LauncherActivity extends Activity {
         return String.format(java.util.Locale.US, "%.1fh", hours);
     }
 
-    // Sufixo de saldo pra uma máquina: " · 87h" / " · ilimitado" / "" (sem plano ativo).
+    // Sufixo de saldo pra uma máquina: " · 87h" / " · ilimitado" /
+    // " · ativação 28/10" (pré-venda).
     private String planHoursSuffix(SpaceConnectApiClient.MachineListItem machine) {
-        if (machine == null || machine.entitlement == null || !machine.entitlement.active) return "";
+        if (machine == null || machine.entitlement == null) return "";
         SpaceConnectApiClient.Entitlement ent = machine.entitlement;
+        if (!ent.active) {
+            return isFutureEntitlement(ent)
+                    ? " · " + getString(
+                            R.string.launcher_plan_activation_short,
+                            formatActivationDate(ent.availableAt))
+                    : "";
+        }
         if (ent.unlimited) return " · " + getString(R.string.launcher_plan_unlimited_short);
         double total = ent.hoursRemaining;
         String suffix = " · " + formatHours(total);
@@ -690,32 +722,136 @@ public class LauncherActivity extends Activity {
     private void renderPlanHours() {
         if (planHoursText == null) return;
         SpaceConnectApiClient.MachineListItem machine = effectiveMachine();
-        if (machine == null || machine.entitlement == null || !machine.entitlement.active) {
+        String text = "";
+        if (machine != null && machine.entitlement != null && machine.entitlement.active) {
+            SpaceConnectApiClient.Entitlement ent = machine.entitlement;
+            String planName = entitlementPlanName(ent);
+            if (ent.unlimited) {
+                text = getString(R.string.launcher_plan_unlimited, planName);
+            } else {
+                text = getString(R.string.launcher_plan_hours, planName, formatHours(ent.hoursRemaining));
+                if (ent.bonusHours > 0) {
+                    text += getString(R.string.launcher_plan_hours_bonus, formatHours(ent.bonusHours));
+                }
+            }
+        }
+
+        if (upcomingEntitlement != null) {
+            String upcoming = getString(
+                    R.string.launcher_upcoming_plan,
+                    entitlementPlanName(upcomingEntitlement),
+                    formatActivationDate(upcomingEntitlement.availableAt));
+            text = text.isEmpty() ? upcoming : text + "\n" + upcoming;
+        }
+
+        if (text.isEmpty()) {
             planHoursText.setVisibility(View.GONE);
             return;
-        }
-        SpaceConnectApiClient.Entitlement ent = machine.entitlement;
-        // Nome de exibição vem do cadastro do produto no banco; o slug maquiado
-        // é só fallback pra contas antigas sem produto vinculado.
-        String planName = ent.planName != null && !ent.planName.trim().isEmpty()
-                ? ent.planName.trim()
-                : prettifyPlanSlug(ent.planSlug);
-        String text;
-        if (ent.unlimited) {
-            text = getString(R.string.launcher_plan_unlimited, planName);
-        } else {
-            text = getString(R.string.launcher_plan_hours, planName, formatHours(ent.hoursRemaining));
-            if (ent.bonusHours > 0) {
-                text += getString(R.string.launcher_plan_hours_bonus, formatHours(ent.bonusHours));
-            }
         }
         planHoursText.setText(text);
         planHoursText.setVisibility(View.VISIBLE);
     }
 
+    private SpaceConnectApiClient.Entitlement firstUpcomingEntitlement() {
+        if (upcomingEntitlements == null) return null;
+        for (SpaceConnectApiClient.Entitlement entitlement : upcomingEntitlements) {
+            if (entitlement != null
+                    && !entitlement.active
+                    && entitlement.availableAt != null
+                    && !entitlement.availableAt.trim().isEmpty()) {
+                return entitlement;
+            }
+        }
+        return null;
+    }
+
+    private SpaceConnectApiClient.MachineListItem machineForId(String machineId) {
+        if (machineId == null || machines == null) return null;
+        for (SpaceConnectApiClient.MachineListItem machine : machines) {
+            if (machine != null && machineId.equals(machine.id)) return machine;
+        }
+        return null;
+    }
+
+    private SpaceConnectApiClient.Entitlement pendingActivationEntitlement() {
+        SpaceConnectApiClient.MachineListItem selected = machineForId(selectedMachineId);
+        if (selected != null && isFutureEntitlement(selected.entitlement)) {
+            return selected.entitlement;
+        }
+        return upcomingEntitlement;
+    }
+
+    private boolean isActivationPending() {
+        SpaceConnectApiClient.MachineListItem selected = machineForId(selectedMachineId);
+        return (selected != null && isFutureEntitlement(selected.entitlement))
+                || (planLocked && upcomingEntitlement != null);
+    }
+
+    private boolean isFutureEntitlement(SpaceConnectApiClient.Entitlement entitlement) {
+        if (entitlement == null || entitlement.active || upcomingEntitlements == null) return false;
+        for (SpaceConnectApiClient.Entitlement upcoming : upcomingEntitlements) {
+            if (upcoming == null) continue;
+            if (entitlement.id != null && entitlement.id.equals(upcoming.id)) return true;
+            if (entitlement.id == null
+                    && upcoming.id == null
+                    && sameValue(entitlement.planSlug, upcoming.planSlug)
+                    && sameValue(entitlement.availableAt, upcoming.availableAt)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean sameValue(String left, String right) {
+        return left == null ? right == null : left.equals(right);
+    }
+
+    private String entitlementPlanName(SpaceConnectApiClient.Entitlement entitlement) {
+        if (entitlement == null) return getString(R.string.launcher_plan_fallback);
+        return entitlement.planName != null && !entitlement.planName.trim().isEmpty()
+                ? entitlement.planName.trim()
+                : prettifyPlanSlug(entitlement.planSlug);
+    }
+
+    private static Date parseIsoDate(String iso) {
+        if (iso == null || iso.trim().isEmpty()) return null;
+        String[] patterns = {
+                "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+                "yyyy-MM-dd'T'HH:mm:ss'Z'"
+        };
+        for (String pattern : patterns) {
+            try {
+                SimpleDateFormat parser = new SimpleDateFormat(pattern, Locale.US);
+                parser.setTimeZone(TimeZone.getTimeZone("UTC"));
+                return parser.parse(iso);
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
+    }
+
+    private static String formatActivationDate(String iso) {
+        Date date = parseIsoDate(iso);
+        if (date == null) return "--/--";
+        SimpleDateFormat formatter = new SimpleDateFormat("dd/MM", Locale.getDefault());
+        formatter.setTimeZone(TimeZone.getTimeZone("UTC"));
+        return formatter.format(date);
+    }
+
     private void joinQueueForMachine(String machineId) {
         if (machineId == null || machineId.trim().isEmpty()) {
             Toast.makeText(this, R.string.launcher_select_machine_required, Toast.LENGTH_LONG).show();
+            return;
+        }
+        SpaceConnectApiClient.MachineListItem machine = machineForId(machineId);
+        if (machine != null && isFutureEntitlement(machine.entitlement)) {
+            Toast.makeText(
+                    this,
+                    getString(
+                            R.string.launcher_scheduled_details,
+                            entitlementPlanName(machine.entitlement),
+                            formatActivationDate(machine.entitlement.availableAt)),
+                    Toast.LENGTH_LONG).show();
             return;
         }
         runStatusAction(callback -> AccountManager.joinQueue(this, machineId, callback));

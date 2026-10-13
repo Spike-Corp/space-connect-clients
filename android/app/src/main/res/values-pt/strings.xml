@@ -301,6 +301,12 @@
     <string name="launcher_status_error">Não foi possível atualizar o status</string>
     <string name="launcher_status_idle">Pronto para jogar</string>
     <string name="launcher_idle_details">Entre na fila compartilhada. Seu plano define a prioridade.</string>
+    <string name="launcher_status_scheduled">Pré-venda confirmada</string>
+    <string name="launcher_scheduled_details">Seu plano %1$s está reservado. Ativação em %2$s; a validade começa nessa data.</string>
+    <string name="launcher_activation_button">Ativação em %1$s</string>
+    <string name="launcher_upcoming_plan">Pré-venda: %1$s · ativação em %2$s</string>
+    <string name="launcher_plan_activation_short">ativação %1$s</string>
+    <string name="launcher_plan_fallback">Plano</string>
     <string name="launcher_status_queued">Você está na fila</string>
     <string name="launcher_queue_position">Posição %1$d de %2$d</string>
     <string name="launcher_status_starting">Seu PC está iniciando</string>

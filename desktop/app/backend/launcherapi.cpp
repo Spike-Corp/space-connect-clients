@@ -21,6 +21,7 @@
 #include <QStandardPaths>
 #include <QDesktopServices>
 #include <QRegularExpression>
+#include <QSet>
 #if defined(Q_OS_WIN)
 #include <windows.h>
 #pragma comment(lib, "winmm.lib")
@@ -260,6 +261,30 @@ void LauncherApi::fetchMachines()
     request("GET", QStringLiteral("machines"), QJsonObject(), true,
             [this](int status, const QJsonObject& root) {
                 if (status >= 200 && status < 300) {
+                    m_PlanLocked = root.value(QStringLiteral("locked")).toBool();
+                    m_UpcomingPlanName.clear();
+                    m_UpcomingPlanAvailableAt.clear();
+                    const QJsonArray upcoming =
+                        root.value(QStringLiteral("upcomingEntitlements")).toArray();
+                    QSet<QString> upcomingIds;
+                    for (const QJsonValue& value : upcoming) {
+                        const QString id = value.toObject().value(QStringLiteral("id")).toString();
+                        if (!id.isEmpty()) {
+                            upcomingIds.insert(id);
+                        }
+                    }
+                    if (!upcoming.isEmpty()) {
+                        const QJsonObject next = upcoming.first().toObject();
+                        m_UpcomingPlanName =
+                            next.value(QStringLiteral("planName")).toString();
+                        if (m_UpcomingPlanName.isEmpty()) {
+                            m_UpcomingPlanName =
+                                next.value(QStringLiteral("planSlug")).toString();
+                        }
+                        m_UpcomingPlanAvailableAt =
+                            next.value(QStringLiteral("availableAt")).toString();
+                    }
+
                     const QJsonArray array = root.value(QStringLiteral("machines")).toArray();
                     QVariantList list;
                     list.reserve(array.size());
@@ -279,6 +304,8 @@ void LauncherApi::fetchMachines()
                         // entitlement por máquina — horas em HORAS, ex.: 87.5).
                         const QJsonObject entitlement =
                             machine.value(QStringLiteral("entitlement")).toObject();
+                        const QString entitlementId =
+                            entitlement.value(QStringLiteral("id")).toString();
                         const bool entActive =
                             entitlement.value(QStringLiteral("active")).toBool();
                         const bool entUnlimited =
@@ -296,6 +323,15 @@ void LauncherApi::fetchMachines()
                         entry.insert(QStringLiteral("planName"),
                                      entitlement.value(QStringLiteral("planName")).toString());
                         entry.insert(QStringLiteral("entitlementActive"), entActive);
+                        entry.insert(
+                            QStringLiteral("upcomingEntitlement"),
+                            !entitlementId.isEmpty() && upcomingIds.contains(entitlementId));
+                        const QString availableAt =
+                            entitlement.value(QStringLiteral("availableAt")).toString();
+                        entry.insert(QStringLiteral("availableAt"), availableAt);
+                        entry.insert(
+                            QStringLiteral("locked"),
+                            machine.value(QStringLiteral("locked")).toBool() || !entActive);
                         entry.insert(QStringLiteral("unlimited"), entUnlimited);
                         entry.insert(QStringLiteral("hoursRemaining"), hoursRemaining);
                         entry.insert(QStringLiteral("bonusHours"), bonusHours);
@@ -314,6 +350,14 @@ void LauncherApi::fetchMachines()
                                 if (bonusHours > 0)
                                     display += tr(" + %1h bônus").arg(
                                         bonusHours, 0, 'f', bonusHours == std::floor(bonusHours) ? 0 : 1);
+                            }
+                        }
+                        else if (!availableAt.isEmpty()) {
+                            const QDateTime activation =
+                                QDateTime::fromString(availableAt, Qt::ISODate);
+                            if (activation.isValid()) {
+                                display += tr(" · ativação %1").arg(
+                                    activation.toUTC().date().toString(QStringLiteral("dd/MM")));
                             }
                         }
                         entry.insert(QStringLiteral("display"), display);
@@ -602,6 +646,12 @@ void LauncherApi::logout()
     m_RefreshToken.clear();
     m_TempToken.clear();
     m_Email.clear();
+    m_PlanLocked = false;
+    m_UpcomingPlanName.clear();
+    m_UpcomingPlanAvailableAt.clear();
+    m_Machines.clear();
+    m_HasMachine = false;
+    m_MachinesLoaded = false;
     const bool wasLoggedIn = m_LoggedIn;
     m_LoggedIn = false;
 
@@ -613,6 +663,7 @@ void LauncherApi::logout()
     if (wasLoggedIn)
         emit loggedInChanged();
     emit statusChanged();
+    emit machinesChanged();
 }
 
 void LauncherApi::refreshTokens()

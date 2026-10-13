@@ -777,6 +777,7 @@ public final class SpaceConnectApiClient {
     public static final class MachinesResponse {
         public boolean locked;
         public MachineListItem[] machines;
+        public Entitlement[] upcomingEntitlements;
     }
 
     public static final class MachineListItem {
@@ -792,6 +793,8 @@ public final class SpaceConnectApiClient {
         // Plano/saldo ligado à máquina (null quando não há entitlement ativo).
         // hoursRemaining/bonusHours vêm em HORAS (ex.: 87.5).
         public Entitlement entitlement;
+        public boolean locked;
+        public String lockedReason;
     }
 
     public static final class MachineSpecs {
@@ -799,6 +802,7 @@ public final class SpaceConnectApiClient {
     }
 
     public static final class Entitlement {
+        public String id;
         public String planSlug;
         // Nome de exibição do plano vindo do cadastro no banco (ex.: "xTerminator NW").
         public String planName;
@@ -808,6 +812,7 @@ public final class SpaceConnectApiClient {
         public double hoursRemaining;
         public double bonusHours;
         public String expiresAt;
+        public String availableAt;
     }
 
     public static final class CreateMachineResponse {
