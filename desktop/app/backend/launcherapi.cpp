@@ -810,6 +810,12 @@ void LauncherApi::uploadFileToVm(const QString& localFilePath)
     setBusy(true);
 
     QHttpMultiPart* multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
+    QHttpPart machinePart;
+    machinePart.setHeader(QNetworkRequest::ContentDispositionHeader,
+                          QVariant(QStringLiteral("form-data; name=\"machineId\"")));
+    machinePart.setBody(effectiveMachineId().toUtf8());
+    multiPart->append(machinePart);
+
     QHttpPart filePart;
     QFileInfo fileInfo(cleanPath);
     filePart.setHeader(QNetworkRequest::ContentDispositionHeader,
@@ -838,7 +844,10 @@ void LauncherApi::uploadFileToVm(const QString& localFilePath)
         if (status >= 200 && status < 300) {
             emit fileUploadSucceeded(fileInfo.fileName());
         } else {
-            QString err = doc.object().value(QStringLiteral("error")).toString();
+            const QJsonValue errorValue = doc.object().value(QStringLiteral("error"));
+            QString err = errorValue.isObject()
+                    ? errorValue.toObject().value(QStringLiteral("message")).toString()
+                    : errorValue.toString();
             setError(err.isEmpty() ? tr("Falha ao transferir arquivo para a VM") : err);
         }
         reply->deleteLater();

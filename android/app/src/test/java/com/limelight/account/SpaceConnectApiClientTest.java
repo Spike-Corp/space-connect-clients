@@ -3,6 +3,7 @@ package com.limelight.account;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
+import java.io.ByteArrayInputStream;
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.mockwebserver.MockResponse;
@@ -182,6 +183,29 @@ public class SpaceConnectApiClientTest {
         RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
         assertNotNull(request);
         assertEquals("/api/launcher/v1/connection?machineId=507f1f77bcf86cd799439011", request.getPath());
+    }
+
+    @Test
+    public void uploadTargetsTheSelectedMachine() throws Exception {
+        server.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("{\"ok\":true,\"filename\":\"save.zip\"}"));
+
+        client.uploadFile(
+                "access-1",
+                "507f1f77bcf86cd799439011",
+                "save.zip",
+                new ByteArrayInputStream(new byte[] { 1, 2, 3 }),
+                3);
+
+        RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
+        assertNotNull(request);
+        assertEquals("/api/launcher/v1/session/upload", request.getPath());
+        String body = request.getBody().readUtf8();
+        assertEquals(true, body.contains("name=\"machineId\""));
+        assertEquals(true, body.contains("507f1f77bcf86cd799439011"));
+        assertEquals(true, body.contains("filename=\"save.zip\""));
     }
 
     @Test

@@ -329,11 +329,12 @@ public final class AccountManager {
     // Requer sessao/maquina ligada — o backend responde com erro claro se nao ha.
     public static void uploadFileToVm(
             Context context,
+            String machineId,
             String fileName,
             java.io.InputStream input,
             long length,
             ResultCallback<SpaceConnectApiClient.UploadResponse> callback) {
-        executeAuthenticated(context, token -> API.uploadFile(token, fileName, input, length), callback);
+        executeAuthenticated(context, token -> API.uploadFile(token, machineId, fileName, input, length), callback);
     }
 
     // Relato de bug pra página "Bugs app" do admin. Funciona COM e SEM sessão:

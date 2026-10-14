@@ -1029,10 +1029,21 @@ public class LauncherActivity extends Activity {
             return;
         }
 
+        String machineId = lastStatus != null && lastStatus.session != null
+                && lastStatus.session.machine != null ? lastStatus.session.machine.id : selectedMachineId;
+        if (machineId == null || machineId.trim().isEmpty()) {
+            try {
+                input.close();
+            } catch (Exception ignored) {
+            }
+            Toast.makeText(this, R.string.launcher_no_machine_details, Toast.LENGTH_LONG).show();
+            return;
+        }
+
         requestRunning = true;
         progressBar.setVisibility(View.VISIBLE);
         Toast.makeText(this, R.string.launcher_upload_in_progress, Toast.LENGTH_LONG).show();
-        AccountManager.uploadFileToVm(this, fileName, input, size,
+        AccountManager.uploadFileToVm(this, machineId, fileName, input, size,
                 new AccountManager.ResultCallback<SpaceConnectApiClient.UploadResponse>() {
                     @Override
                     public void onSuccess(SpaceConnectApiClient.UploadResponse result) {

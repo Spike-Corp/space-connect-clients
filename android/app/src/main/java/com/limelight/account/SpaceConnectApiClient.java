@@ -287,9 +287,9 @@ public final class SpaceConnectApiClient {
 
     // Envia um arquivo do aparelho pra pasta Downloads da VM do usuario
     // (POST /launcher/v1/session/upload, multipart). O backend faz staging e a
-    // VM baixa via guest agent — ver client.routes.ts (transferFileToVm).
+    // VM baixa pelo agente SpaceCloud — ver vm-upload.service.ts.
     // Timeouts maiores porque arquivo grande em rede movel demora.
-    public UploadResponse uploadFile(String accessToken, String fileName,
+    public UploadResponse uploadFile(String accessToken, String machineId, String fileName,
                                      final java.io.InputStream input, final long length)
             throws IOException, ApiException {
         RequestBody fileBody = new RequestBody() {
@@ -316,6 +316,7 @@ public final class SpaceConnectApiClient {
 
         okhttp3.MultipartBody body = new okhttp3.MultipartBody.Builder()
                 .setType(okhttp3.MultipartBody.FORM)
+                .addFormDataPart("machineId", safeMachineId(machineId))
                 .addFormDataPart("file", fileName, fileBody)
                 .build();
 
