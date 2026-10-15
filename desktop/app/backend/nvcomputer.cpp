@@ -573,6 +573,8 @@ bool NvComputer::update(const NvComputer& that)
     ASSIGN_IF_CHANGED(maxLumaPixelsHEVC);
     ASSIGN_IF_CHANGED(gpuModel);
     ASSIGN_IF_CHANGED_AND_NONNULL(serverCert);
+    ASSIGN_IF_CHANGED_AND_NONEMPTY(scMachineId);
+    ASSIGN_IF_CHANGED_AND_NONEMPTY(scOrigin);
     ASSIGN_IF_CHANGED_AND_NONEMPTY(displayModes);
 
     if (!that.appList.isEmpty()) {

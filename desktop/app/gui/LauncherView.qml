@@ -13,6 +13,7 @@ Item {
     // PcView por cima do hostname do Apollo (SCG-VMF).
     property string pendingConnectAddress: ""
     property string pendingConnectName: ""
+    property string connectionErrorText: qsTr("Não foi possível alcançar o host Moonlight. Tente novamente em alguns segundos.")
 
     function formatActivationDate(value) {
         if (!value) return "--/--"
@@ -233,8 +234,12 @@ Item {
                     "autoAddress": pendingConnectAddress,
                     "autoName": pendingConnectName
                 })
-            else
+            else {
+                connectionErrorText = detectedPortBlocking
+                        ? qsTr("Sua rede parece bloquear as portas do Moonlight. Tente outra conexão ou libere o aplicativo no firewall.")
+                        : qsTr("Não foi possível alcançar o host Moonlight. Tente novamente em alguns segundos.")
                 errorDialog.open()
+            }
         }
     }
 
@@ -645,13 +650,13 @@ Item {
 
     Dialog {
         id: errorDialog
-        title: qsTr("Connection failed")
+        title: qsTr("Falha na conexão")
         standardButtons: Dialog.Ok
         parent: Overlay.overlay
         x: Math.round((parent.width - width) / 2)
         y: Math.round((parent.height - height) / 2)
         Label {
-            text: qsTr("The Moonlight host is not ready yet. Try again in a few seconds.")
+            text: connectionErrorText
             wrapMode: Text.WordWrap
         }
     }

@@ -853,7 +853,7 @@ private:
         m_AboutToQuit = true;
     }
 
-    QString fetchServerInfo(NvHTTP& http)
+    QString fetchServerInfo(NvHTTP& http, bool reportFailure = true)
     {
         QString serverInfo;
 
@@ -883,7 +883,7 @@ private:
             }
             return serverInfo;
         } catch (...) {
-            if (!m_Mdns) {
+            if (!m_Mdns && reportFailure) {
                 unsigned int portTestResult;
 
                 if (m_ComputerManager->m_Prefs->detectNetworkBlocking) {
@@ -936,17 +936,35 @@ private:
             }
         }
 
+        bool resetStaleLauncherPairing = false;
+
         // Fetch serverinfo again over HTTPS with the pinned cert
         if (existingComputer != nullptr) {
             Q_ASSERT(http.httpsPort() != 0);
-            serverInfo = fetchServerInfo(http);
+            const bool trustedLauncherHost =
+                    m_ScOrigin == QStringLiteral("launcher") && !m_ScMachineId.isEmpty();
+            serverInfo = fetchServerInfo(http, !trustedLauncherHost);
             if (serverInfo.isEmpty()) {
-                return;
-            }
+                if (!trustedLauncherHost) {
+                    return;
+                }
 
-            // Update the polled computer with the HTTPS information
-            NvComputer httpsComputer(http, serverInfo);
-            newComputer->update(httpsComputer);
+                // The address came from the authenticated SpaceCloud API and the
+                // public HTTP serverinfo request succeeded, but the locally pinned
+                // HTTPS identity no longer works. This happens after a VM is moved,
+                // restored, or recreated while the desktop still has its old host
+                // record. Keep the verified launcher address and require pairing
+                // again instead of rejecting the host as "not ready".
+                qWarning() << "Resetting stale pinned identity for SpaceCloud machine"
+                           << m_ScMachineId << "at" << m_Address.toString();
+                http.setServerCert(QSslCertificate());
+                resetStaleLauncherPairing = true;
+            }
+            else {
+                // Update the polled computer with the HTTPS information
+                NvComputer httpsComputer(http, serverInfo);
+                newComputer->update(httpsComputer);
+            }
         }
 
         // Update addresses depending on the context
@@ -1006,7 +1024,15 @@ private:
 
             if (existingComputer != nullptr) {
                 // Fold it into the existing PC
-                bool changed = existingComputer->update(*newComputer);
+                bool changed = false;
+                if (resetStaleLauncherPairing) {
+                    QWriteLocker computerLock(&existingComputer->lock);
+                    if (!existingComputer->serverCert.isNull()) {
+                        existingComputer->serverCert = QSslCertificate();
+                        changed = true;
+                    }
+                }
+                changed = existingComputer->update(*newComputer) || changed;
                 delete newComputer;
 
                 // Drop the lock before notifying
