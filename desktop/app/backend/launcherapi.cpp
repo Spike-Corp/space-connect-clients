@@ -1008,8 +1008,9 @@ void LauncherApi::refreshFriends()
                 m_Friends = root.value(QStringLiteral("friends")).toArray().toVariantList();
                 m_Incoming = root.value(QStringLiteral("incoming")).toArray().toVariantList();
                 m_Outgoing = root.value(QStringLiteral("outgoing")).toArray().toVariantList();
-                m_MyUsername = root.value(QStringLiteral("me")).toObject()
-                                   .value(QStringLiteral("username")).toString();
+                const QJsonObject me = root.value(QStringLiteral("me")).toObject();
+                m_MyProfile = me.toVariantMap();
+                m_MyUsername = me.value(QStringLiteral("username")).toString();
                 m_MyMachines = root.value(QStringLiteral("myMachines")).toArray().toVariantList();
                 emit friendsChanged();
             });
@@ -1018,6 +1019,56 @@ void LauncherApi::refreshFriends()
                 if (status < 200 || status >= 300) return;
                 m_FriendMachines = root.value(QStringLiteral("machines")).toArray().toVariantList();
                 emit friendsChanged();
+            });
+}
+
+void LauncherApi::searchFriend(const QString& username)
+{
+    if (!m_LoggedIn)
+        return;
+    const QString normalized = username.trimmed().toLower();
+    if (normalized.length() < 3)
+        return;
+
+    request("GET",
+            QStringLiteral("friends/search?u=") + QString::fromUtf8(QUrl::toPercentEncoding(normalized)),
+            QJsonObject(), true,
+            [this](int status, const QJsonObject& root) {
+                if (status >= 200 && status < 300) {
+                    m_FriendSearchResult = root.toVariantMap();
+                    emit friendSearchChanged();
+                }
+                else {
+                    clearFriendSearch();
+                    emit friendActionResult(false, errorObject(root).value(QStringLiteral("message")).toString(
+                        tr("Não foi possível encontrar esse usuário")));
+                }
+            });
+}
+
+void LauncherApi::clearFriendSearch()
+{
+    if (m_FriendSearchResult.isEmpty())
+        return;
+    m_FriendSearchResult.clear();
+    emit friendSearchChanged();
+}
+
+void LauncherApi::setFriendRequestSettings(bool enabled)
+{
+    request("PATCH", QStringLiteral("friends/settings"),
+            QJsonObject{{QStringLiteral("acceptFriendRequests"), enabled}}, true,
+            [this, enabled](int status, const QJsonObject& root) {
+                if (status >= 200 && status < 300) {
+                    emit friendActionResult(true, enabled
+                        ? tr("Você voltou a receber pedidos de amizade")
+                        : tr("Novos pedidos de amizade foram bloqueados"));
+                    refreshFriends();
+                }
+                else {
+                    emit friendActionResult(false, errorObject(root).value(QStringLiteral("message")).toString(
+                        tr("Não foi possível atualizar os pedidos de amizade")));
+                }
             });
 }
 
@@ -1030,6 +1081,7 @@ void LauncherApi::addFriend(const QString& username)
             [this](int status, const QJsonObject& root) {
                 if (status >= 200 && status < 300) {
                     const bool accepted = root.value(QStringLiteral("status")).toString() == QStringLiteral("accepted");
+                    clearFriendSearch();
                     emit friendActionResult(true, accepted
                         ? tr("Vocês já são amigos! (pedido mútuo aceito)")
                         : tr("Pedido de amizade enviado!"));

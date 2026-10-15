@@ -3,13 +3,18 @@ package com.limelight.account;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -30,8 +35,10 @@ public class FriendsActivity extends Activity {
 
     private static final int ADD_COMPUTER_REQUEST = 1;
 
-    private LinearLayout incomingBox, friendsBox, machinesBox;
-    private TextView myUsernameText, emptyText;
+    private LinearLayout incomingBox, friendsBox, machinesBox, searchResultBox;
+    private TextView myNameText, myUsernameText, emptyText, searchNameText, searchUsernameText, searchHintText;
+    private ImageView myAvatar, searchAvatar;
+    private Button searchAction, requestToggle;
     private EditText addField;
     private ProgressBar progress;
     private boolean busy;
@@ -65,14 +72,41 @@ public class FriendsActivity extends Activity {
         incomingBox = findViewById(R.id.friendsIncoming);
         friendsBox = findViewById(R.id.friendsList);
         machinesBox = findViewById(R.id.friendsMachines);
+        searchResultBox = findViewById(R.id.friendsSearchResult);
+        myNameText = findViewById(R.id.friendsMyName);
         myUsernameText = findViewById(R.id.friendsMyUsername);
+        myAvatar = findViewById(R.id.friendsMyAvatar);
+        searchNameText = findViewById(R.id.friendsSearchName);
+        searchUsernameText = findViewById(R.id.friendsSearchUsername);
+        searchHintText = findViewById(R.id.friendsSearchHint);
+        searchAvatar = findViewById(R.id.friendsSearchAvatar);
+        searchAction = findViewById(R.id.friendsSearchAction);
+        requestToggle = findViewById(R.id.friendsRequestToggle);
         emptyText = findViewById(R.id.friendsEmpty);
         addField = findViewById(R.id.friendsAddField);
         progress = findViewById(R.id.friendsProgress);
 
         findViewById(R.id.friendsBackButton).setOnClickListener(v -> finish());
-        findViewById(R.id.friendsAddButton).setOnClickListener(v -> addFriend());
+        findViewById(R.id.friendsAddButton).setOnClickListener(v -> searchFriend());
         findViewById(R.id.friendsEditUsername).setOnClickListener(v -> promptUsername());
+        requestToggle.setOnClickListener(v -> updateFriendRequestSettings(
+                !Boolean.TRUE.equals(requestToggle.getTag())));
+        addField.setSingleLine(true);
+        addField.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
+        addField.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                searchFriend();
+                return true;
+            }
+            return false;
+        });
+        addField.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                clearSearchResult();
+            }
+            @Override public void afterTextChanged(Editable s) { }
+        });
 
         reload();
     }
@@ -114,23 +148,62 @@ public class FriendsActivity extends Activity {
         });
     }
 
-    private static String profileLabel(SpaceConnectApiClient.PublicProfile p) {
-        if (p == null) return "?";
-        return p.username != null && !p.username.isEmpty() ? "@" + p.username
-                : (p.name != null && !p.name.isEmpty() ? p.name : "Sem nome");
+    private String profileName(SpaceConnectApiClient.PublicProfile p) {
+        if (p == null) return getString(R.string.friends_no_name);
+        if (!TextUtils.isEmpty(p.name)) return p.name.trim();
+        if (!TextUtils.isEmpty(p.username)) return "@" + p.username.trim();
+        return getString(R.string.friends_no_name);
+    }
+
+    private static String profileUsername(SpaceConnectApiClient.PublicProfile p) {
+        return p != null && !TextUtils.isEmpty(p.username) ? "@" + p.username.trim() : "";
+    }
+
+    private static boolean acceptsFriendRequests(SpaceConnectApiClient.PublicProfile profile) {
+        return profile == null || profile.acceptsFriendRequests == null || profile.acceptsFriendRequests;
+    }
+
+    private String profileLabel(SpaceConnectApiClient.PublicProfile p) {
+        String username = profileUsername(p);
+        String name = profileName(p);
+        return !username.isEmpty() && !username.equals(name) ? name + " (" + username + ")" : name;
+    }
+
+    private void bindProfile(View root, SpaceConnectApiClient.PublicProfile profile,
+                             int avatarId, int nameId, int usernameId, int roleId) {
+        AvatarLoader.load((ImageView) root.findViewById(avatarId), profile);
+        String name = profileName(profile);
+        ((TextView) root.findViewById(nameId)).setText(name);
+        TextView username = root.findViewById(usernameId);
+        String value = profileUsername(profile);
+        username.setText(value);
+        username.setVisibility(value.isEmpty() || value.equals(name) ? View.GONE : View.VISIBLE);
+        ((RgbRoleBadgeView) root.findViewById(roleId)).setRole(profile != null ? profile.staffRole : null);
     }
 
     private void renderFriends(SpaceConnectApiClient.FriendsResponse data) {
+        SpaceConnectApiClient.PublicProfile me = data != null ? data.me : null;
+        myNameText.setText(me != null && !TextUtils.isEmpty(me.name)
+                ? me.name.trim()
+                : getString(R.string.friends_your_profile));
         myUsernameText.setText(data != null && data.me != null && data.me.username != null
                 ? "@" + data.me.username
                 : getString(R.string.friends_no_username));
+        AvatarLoader.load(myAvatar, me);
+        ((RgbRoleBadgeView) findViewById(R.id.friendsMyRole)).setRole(me != null ? me.staffRole : null);
+        boolean staff = me != null && !TextUtils.isEmpty(me.staffRole);
+        boolean acceptsRequests = acceptsFriendRequests(me);
+        requestToggle.setVisibility(staff ? View.VISIBLE : View.GONE);
+        requestToggle.setTag(acceptsRequests);
+        requestToggle.setText(acceptsRequests
+                ? R.string.friends_receive_requests_on
+                : R.string.friends_receive_requests_off);
 
         incomingBox.removeAllViews();
         friendsBox.removeAllViews();
 
         int friendCount = data != null && data.friends != null ? data.friends.length : 0;
         int incomingCount = data != null && data.incoming != null ? data.incoming.length : 0;
-        int outgoingCount = data != null && data.outgoing != null ? data.outgoing.length : 0;
         emptyText.setVisibility(friendCount == 0 && incomingCount == 0 ? View.VISIBLE : View.GONE);
 
         LayoutInflater inflater = getLayoutInflater();
@@ -138,7 +211,8 @@ public class FriendsActivity extends Activity {
         if (data != null && data.incoming != null) {
             for (final SpaceConnectApiClient.FriendRequestEntry req : data.incoming) {
                 View row = inflater.inflate(R.layout.item_friend_request, incomingBox, false);
-                ((TextView) row.findViewById(R.id.friendRequestName)).setText(profileLabel(req));
+                bindProfile(row, req, R.id.friendRequestAvatar,
+                        R.id.friendRequestName, R.id.friendRequestUsername, R.id.friendRequestRole);
                 row.findViewById(R.id.friendRequestAccept).setOnClickListener(v -> act(() ->
                         AccountManager.acceptFriendRequest(FriendsActivity.this, req.requestId, simpleCb(getString(R.string.friends_accepted_toast)))));
                 row.findViewById(R.id.friendRequestDecline).setOnClickListener(v -> act(() ->
@@ -150,7 +224,8 @@ public class FriendsActivity extends Activity {
         if (data != null && data.friends != null) {
             for (final SpaceConnectApiClient.FriendEntry friend : data.friends) {
                 View row = inflater.inflate(R.layout.item_friend, friendsBox, false);
-                ((TextView) row.findViewById(R.id.friendName)).setText(profileLabel(friend));
+                bindProfile(row, friend, R.id.friendAvatar, R.id.friendName,
+                        R.id.friendUsername, R.id.friendRole);
 
                 final Button showBtn = row.findViewById(R.id.friendToggleShow);
                 final Button connectBtn = row.findViewById(R.id.friendToggleConnect);
@@ -206,16 +281,18 @@ public class FriendsActivity extends Activity {
         }
 
         if (data != null && data.outgoing != null && data.outgoing.length > 0) {
-            TextView sent = new TextView(this);
-            StringBuilder sb = new StringBuilder(getString(R.string.friends_sent_title) + " ");
-            for (int i = 0; i < data.outgoing.length; i++) {
-                if (i > 0) sb.append(", ");
-                sb.append(profileLabel(data.outgoing[i]));
+            TextView sentTitle = new TextView(this);
+            sentTitle.setText(R.string.friends_sent_title);
+            sentTitle.setTextSize(13);
+            sentTitle.setTextColor(0xFFF8F5FF);
+            sentTitle.setPadding(0, 12, 0, 8);
+            friendsBox.addView(sentTitle);
+            for (SpaceConnectApiClient.FriendRequestEntry outgoing : data.outgoing) {
+                View row = inflater.inflate(R.layout.item_friend_outgoing, friendsBox, false);
+                bindProfile(row, outgoing, R.id.friendOutgoingAvatar,
+                        R.id.friendOutgoingName, R.id.friendOutgoingUsername, R.id.friendOutgoingRole);
+                friendsBox.addView(row);
             }
-            sent.setText(sb.toString());
-            sent.setTextSize(12);
-            sent.setTextColor(0xFF9793AA);
-            friendsBox.addView(sent);
         }
     }
 
@@ -233,6 +310,9 @@ public class FriendsActivity extends Activity {
         LayoutInflater inflater = getLayoutInflater();
         for (final SpaceConnectApiClient.FriendMachine m : machines) {
             View row = inflater.inflate(R.layout.item_friend_machine, machinesBox, false);
+            AvatarLoader.load((ImageView) row.findViewById(R.id.friendMachineAvatar), m.owner);
+            ((RgbRoleBadgeView) row.findViewById(R.id.friendMachineRole))
+                    .setRole(m.owner != null ? m.owner.staffRole : null);
             String displayName = (m.accountName != null && !m.accountName.trim().isEmpty())
                     ? m.accountName : (m.name != null ? m.name : "VM");
             ((TextView) row.findViewById(R.id.friendMachineName)).setText(displayName);
@@ -306,9 +386,122 @@ public class FriendsActivity extends Activity {
         });
     }
 
-    private void addFriend() {
-        final String username = addField.getText().toString().trim().toLowerCase();
+    private String normalizedSearchUsername() {
+        String username = addField.getText().toString().trim().toLowerCase();
+        return username.startsWith("@") ? username.substring(1) : username;
+    }
+
+    private void searchFriend() {
+        final String username = normalizedSearchUsername();
         if (username.length() < 3) {
+            Toast.makeText(this, R.string.friends_username_invalid, Toast.LENGTH_LONG).show();
+            return;
+        }
+        act(() -> AccountManager.searchFriend(FriendsActivity.this, username,
+                new AccountManager.ResultCallback<SpaceConnectApiClient.FriendSearchResponse>() {
+            @Override
+            public void onSuccess(SpaceConnectApiClient.FriendSearchResponse result) {
+                setBusy(false);
+                renderSearchResult(result);
+            }
+
+            @Override
+            public void onError(String message) {
+                setBusy(false);
+                clearSearchResult();
+                Toast.makeText(FriendsActivity.this, message, Toast.LENGTH_LONG).show();
+            }
+        }));
+    }
+
+    private void renderSearchResult(SpaceConnectApiClient.FriendSearchResponse result) {
+        if (result == null || result.profile == null) {
+            clearSearchResult();
+            return;
+        }
+
+        searchResultBox.setVisibility(View.VISIBLE);
+        AvatarLoader.load(searchAvatar, result.profile);
+        String searchName = profileName(result.profile);
+        String searchUsername = profileUsername(result.profile);
+        searchNameText.setText(searchName);
+        searchUsernameText.setText(searchUsername);
+        searchUsernameText.setVisibility(searchUsername.isEmpty() || searchUsername.equals(searchName)
+                ? View.GONE : View.VISIBLE);
+        ((RgbRoleBadgeView) findViewById(R.id.friendsSearchRole)).setRole(result.profile.staffRole);
+
+        String relationship = result.relationship != null ? result.relationship : "none";
+        boolean requestsBlocked = "none".equals(relationship) && !acceptsFriendRequests(result.profile);
+        boolean actionable = ("none".equals(relationship) && !requestsBlocked) || "incoming".equals(relationship);
+        int label;
+        if (requestsBlocked) {
+            label = R.string.friends_search_blocked;
+        } else {
+            switch (relationship) {
+                case "self":
+                    label = R.string.friends_search_self;
+                    break;
+                case "friends":
+                    label = R.string.friends_search_friends;
+                    break;
+                case "outgoing":
+                    label = R.string.friends_search_outgoing;
+                    break;
+                case "incoming":
+                    label = R.string.friends_search_incoming;
+                    break;
+                default:
+                    label = R.string.friends_add;
+                    break;
+            }
+        }
+        searchHintText.setText(requestsBlocked
+                ? R.string.friends_requests_blocked_message
+                : R.string.friends_search_hint);
+        searchAction.setText(label);
+        searchAction.setEnabled(actionable);
+        searchAction.setAlpha(actionable ? 1.0f : 0.55f);
+        searchAction.setOnClickListener(actionable ? v -> addFriend(result.profile.username) : null);
+
+        if (actionable && getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
+            searchAction.requestFocus();
+        }
+    }
+
+    private void updateFriendRequestSettings(boolean enabled) {
+        act(() -> AccountManager.setFriendRequestSettings(
+                FriendsActivity.this,
+                enabled,
+                new AccountManager.ResultCallback<SpaceConnectApiClient.FriendSettingsResponse>() {
+                    @Override
+                    public void onSuccess(SpaceConnectApiClient.FriendSettingsResponse result) {
+                        setBusy(false);
+                        Toast.makeText(
+                                FriendsActivity.this,
+                                enabled
+                                        ? R.string.friends_receive_requests_enabled
+                                        : R.string.friends_receive_requests_disabled,
+                                Toast.LENGTH_LONG
+                        ).show();
+                        reload();
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        setBusy(false);
+                        Toast.makeText(FriendsActivity.this, message, Toast.LENGTH_LONG).show();
+                    }
+                }));
+    }
+
+    private void clearSearchResult() {
+        if (searchResultBox != null) {
+            searchResultBox.setVisibility(View.GONE);
+        }
+    }
+
+    private void addFriend(final String username) {
+        if (TextUtils.isEmpty(username)) {
             Toast.makeText(this, R.string.friends_username_invalid, Toast.LENGTH_LONG).show();
             return;
         }

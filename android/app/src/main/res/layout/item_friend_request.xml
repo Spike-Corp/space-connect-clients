@@ -2,39 +2,88 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="horizontal"
-    android:gravity="center_vertical"
+    android:layout_marginBottom="8dp"
     android:background="@drawable/bg_card"
-    android:padding="12dp"
-    android:layout_marginBottom="8dp">
+    android:orientation="vertical"
+    android:padding="12dp">
 
-    <TextView
-        android:id="@+id/friendRequestName"
-        android:layout_width="0dp"
-        android:layout_weight="1"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textColor="@color/moonlight_foreground"
-        android:textSize="14sp"
-        android:textStyle="bold" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
-    <Button
-        android:id="@+id/friendRequestAccept"
-        android:layout_width="wrap_content"
-        android:layout_height="40dp"
-        android:background="@drawable/bg_button_teal"
-        android:textColor="@color/moonlight_gold_foreground"
-        android:textAllCaps="false"
-        android:textSize="12sp"
-        android:text="@string/friends_accept" />
+        <ImageView
+            android:id="@+id/friendRequestAvatar"
+            android:layout_width="46dp"
+            android:layout_height="46dp"
+            android:importantForAccessibility="yes"
+            android:scaleType="centerCrop" />
 
-    <Button
-        android:id="@+id/friendRequestDecline"
-        android:layout_width="wrap_content"
-        android:layout_height="40dp"
-        android:layout_marginStart="8dp"
-        android:background="@drawable/bg_button_ghost"
-        android:textColor="@color/moonlight_foreground"
-        android:textAllCaps="false"
-        android:textSize="12sp"
-        android:text="@string/friends_decline" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/friendRequestName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/moonlight_foreground"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/friendRequestUsername"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/moonlight_muted_foreground"
+                android:textSize="11sp" />
+
+            <com.limelight.account.RgbRoleBadgeView
+                android:id="@+id/friendRequestRole"
+                android:layout_width="wrap_content"
+                android:layout_height="22dp"
+                android:layout_marginTop="4dp"
+                android:paddingStart="9dp"
+                android:paddingEnd="9dp"
+                android:visibility="gone" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/friendRequestAccept"
+            android:layout_width="0dp"
+            android:layout_height="42dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_button_teal"
+            android:text="@string/friends_accept"
+            android:textAllCaps="false"
+            android:textColor="@color/moonlight_gold_foreground"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/friendRequestDecline"
+            android:layout_width="0dp"
+            android:layout_height="42dp"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_button_ghost"
+            android:text="@string/friends_decline"
+            android:textAllCaps="false"
+            android:textColor="@color/moonlight_foreground"
+            android:textSize="12sp" />
+    </LinearLayout>
 </LinearLayout>

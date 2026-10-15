@@ -64,7 +64,132 @@ Item {
     }
 
     function friendLabel(entry) {
-        return entry.username ? "@" + entry.username : (entry.name || qsTr("No name"))
+        return entry && entry.username ? "@" + entry.username
+             : (entry && entry.name ? entry.name : qsTr("No name"))
+    }
+
+    function profileName(entry) {
+        return entry && entry.name ? entry.name : friendLabel(entry || {})
+    }
+
+    function profileUsername(entry) {
+        return entry && entry.username ? "@" + entry.username : ""
+    }
+
+    function searchActionLabel(relationship, profile) {
+        if (relationship === "none" && profile && profile.acceptsFriendRequests === false)
+            return qsTr("Does not accept friend requests")
+        if (relationship === "self") return qsTr("This is you")
+        if (relationship === "friends") return qsTr("Already friends")
+        if (relationship === "outgoing") return qsTr("Request sent")
+        if (relationship === "incoming") return qsTr("Accept friendship")
+        return qsTr("Add friend")
+    }
+
+    component StaffBadge: Rectangle {
+        id: staffBadge
+        property string role: ""
+        property color badgeColor: "#ff2bd6"
+
+        visible: role.length > 0
+        implicitWidth: staffBadgeLabel.implicitWidth + 18
+        implicitHeight: 22
+        radius: 11
+        color: "#130d1b"
+        border.width: 2
+        border.color: badgeColor
+
+        SequentialAnimation {
+            running: staffBadge.visible
+            loops: Animation.Infinite
+            ColorAnimation { target: staffBadge; property: "badgeColor"; from: "#ff2bd6"; to: "#00e5ff"; duration: 850 }
+            ColorAnimation { target: staffBadge; property: "badgeColor"; from: "#00e5ff"; to: "#7c3aed"; duration: 850 }
+            ColorAnimation { target: staffBadge; property: "badgeColor"; from: "#7c3aed"; to: "#ffea00"; duration: 850 }
+            ColorAnimation { target: staffBadge; property: "badgeColor"; from: "#ffea00"; to: "#00ff85"; duration: 850 }
+            ColorAnimation { target: staffBadge; property: "badgeColor"; from: "#00ff85"; to: "#ff2bd6"; duration: 850 }
+        }
+
+        Label {
+            id: staffBadgeLabel
+            anchors.centerIn: parent
+            text: parent.role.toUpperCase()
+            color: parent.badgeColor
+            font.bold: true
+            font.pixelSize: 9
+            font.letterSpacing: 1
+        }
+    }
+
+    component ProfileAvatar: Item {
+        property var profile
+        property int avatarSize: 44
+
+        width: avatarSize
+        height: avatarSize
+        implicitWidth: avatarSize
+        implicitHeight: avatarSize
+
+        function initials() {
+            var label = profile && profile.name
+                ? String(profile.name)
+                : (profile && profile.username ? String(profile.username) : "?")
+            var parts = label.trim().split(/\s+/)
+            if (!parts.length || !parts[0]) return "?"
+            if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase()
+            return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
+        }
+
+        Image {
+            id: avatarSource
+            anchors.fill: parent
+            source: parent.profile && parent.profile.avatarUrl ? parent.profile.avatarUrl : ""
+            asynchronous: true
+            cache: true
+            fillMode: Image.PreserveAspectCrop
+            visible: false
+            onStatusChanged: avatarCanvas.requestPaint()
+        }
+
+        Canvas {
+            id: avatarCanvas
+            anchors.fill: parent
+            antialiasing: true
+            onPaint: {
+                var ctx = getContext("2d")
+                ctx.clearRect(0, 0, width, height)
+                ctx.save()
+                ctx.beginPath()
+                ctx.arc(width / 2, height / 2, Math.min(width, height) / 2, 0, Math.PI * 2)
+                ctx.closePath()
+                ctx.clip()
+
+                if (avatarSource.status === Image.Ready) {
+                    ctx.drawImage(avatarSource, 0, 0, width, height)
+                } else {
+                    var gradient = ctx.createLinearGradient(0, 0, width, height)
+                    gradient.addColorStop(0, "#5b8cff")
+                    gradient.addColorStop(1, "#9b5cff")
+                    ctx.fillStyle = gradient
+                    ctx.fillRect(0, 0, width, height)
+                    ctx.fillStyle = "#ffffff"
+                    ctx.font = "bold " + Math.max(11, Math.round(width * 0.34)) + "px sans-serif"
+                    ctx.textAlign = "center"
+                    ctx.textBaseline = "middle"
+                    ctx.fillText(parent.initials(), width / 2, height / 2 + 1)
+                }
+                ctx.restore()
+            }
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            radius: width / 2
+            color: "transparent"
+            border.width: 1
+            border.color: "#5c5070"
+        }
+
+        onProfileChanged: avatarCanvas.requestPaint()
     }
 
     // Card de UM amigo — escopo próprio (lê o modelData dele).
@@ -85,11 +210,34 @@ Item {
 
             RowLayout {
                 Layout.fillWidth: true
-                Label {
-                    text: friendsView.friendLabel(card.friend)
-                    color: "#f8f5ff"
-                    font.bold: true
+                spacing: 10
+                ProfileAvatar {
+                    profile: card.friend
+                    avatarSize: 44
+                }
+                ColumnLayout {
                     Layout.fillWidth: true
+                    spacing: 1
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 6
+                        Label {
+                            text: friendsView.profileName(card.friend)
+                            color: "#f8f5ff"
+                            font.bold: true
+                            elide: Text.ElideRight
+                            Layout.fillWidth: true
+                        }
+                        StaffBadge { role: card.friend.staffRole || "" }
+                    }
+                    Label {
+                        text: friendsView.profileUsername(card.friend)
+                        visible: text.length > 0 && text !== friendsView.profileName(card.friend)
+                        color: "#9793aa"
+                        font.pixelSize: 11
+                        elide: Text.ElideRight
+                        Layout.fillWidth: true
+                    }
                 }
                 Button {
                     text: qsTr("Remove")
@@ -203,14 +351,49 @@ Item {
                     anchors.fill: parent
                     anchors.margins: 16
                     spacing: 8
-                    Label {
-                        text: LauncherApi.myUsername
-                              ? qsTr("Your username: @%1").arg(LauncherApi.myUsername)
-                              : qsTr("Create your username so friends can find you")
-                        color: "#f8f5ff"
-                        font.bold: true
-                        wrapMode: Text.WordWrap
+                    RowLayout {
                         Layout.fillWidth: true
+                        spacing: 12
+                        ProfileAvatar {
+                            profile: LauncherApi.myProfile
+                            avatarSize: 52
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+                            Label {
+                                text: LauncherApi.myProfile && LauncherApi.myProfile.name
+                                      ? LauncherApi.myProfile.name
+                                      : qsTr("Your profile")
+                                color: "#f8f5ff"
+                                font.bold: true
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                            }
+                            Label {
+                                text: LauncherApi.myUsername
+                                      ? qsTr("Your username: @%1").arg(LauncherApi.myUsername)
+                                      : qsTr("Create your username so friends can find you")
+                                color: "#9793aa"
+                                font.pixelSize: 12
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                            }
+                            StaffBadge {
+                                role: LauncherApi.myProfile && LauncherApi.myProfile.staffRole
+                                      ? LauncherApi.myProfile.staffRole : ""
+                            }
+                        }
+                    }
+                    Button {
+                        visible: LauncherApi.myProfile && LauncherApi.myProfile.staffRole
+                        text: LauncherApi.myProfile && LauncherApi.myProfile.acceptsFriendRequests === false
+                              ? qsTr("Receive requests: OFF")
+                              : qsTr("Receive requests: ON")
+                        highlighted: LauncherApi.myProfile
+                                     && LauncherApi.myProfile.acceptsFriendRequests !== false
+                        onClicked: LauncherApi.setFriendRequestSettings(
+                            LauncherApi.myProfile.acceptsFriendRequests === false)
                     }
                     RowLayout {
                         Layout.fillWidth: true
@@ -266,15 +449,94 @@ Item {
                             onTextChanged: {
                                 var clean = text.toLowerCase().replace(/[^a-z0-9_]/g, "")
                                 if (clean !== text) text = clean
+                                LauncherApi.clearFriendSearch()
                             }
                             Keys.onReturnPressed: addFriendButton.clicked()
                         }
                         Button {
                             id: addFriendButton
-                            text: qsTr("Add")
+                            text: qsTr("Search")
                             highlighted: true
                             enabled: addFriendField.text.length >= 3 && !LauncherApi.busy
-                            onClicked: { LauncherApi.addFriend(addFriendField.text); addFriendField.text = "" }
+                            onClicked: LauncherApi.searchFriend(addFriendField.text)
+                        }
+                    }
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: searchResultRow.implicitHeight + 24
+                        radius: 12
+                        color: "#1a1426"
+                        border.width: 1
+                        border.color: "#6c54a3"
+                        visible: LauncherApi.friendSearchResult
+                                 && LauncherApi.friendSearchResult.profile !== undefined
+                        RowLayout {
+                            id: searchResultRow
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 12
+                            ProfileAvatar {
+                                profile: LauncherApi.friendSearchResult.profile
+                                avatarSize: 52
+                            }
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 2
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Label {
+                                        text: LauncherApi.friendSearchResult.profile
+                                              ? friendsView.profileName(LauncherApi.friendSearchResult.profile)
+                                              : ""
+                                        color: "#f8f5ff"
+                                        font.bold: true
+                                        elide: Text.ElideRight
+                                        Layout.fillWidth: true
+                                    }
+                                    StaffBadge {
+                                        role: LauncherApi.friendSearchResult.profile
+                                              && LauncherApi.friendSearchResult.profile.staffRole
+                                              ? LauncherApi.friendSearchResult.profile.staffRole : ""
+                                    }
+                                }
+                                Label {
+                                    text: LauncherApi.friendSearchResult.profile
+                                          ? friendsView.profileUsername(LauncherApi.friendSearchResult.profile)
+                                          : ""
+                                    visible: text.length > 0
+                                             && text !== friendsView.profileName(LauncherApi.friendSearchResult.profile)
+                                    color: "#b4adc5"
+                                    font.pixelSize: 11
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
+                                Label {
+                                    text: LauncherApi.friendSearchResult.relationship === "none"
+                                          && LauncherApi.friendSearchResult.profile
+                                          && LauncherApi.friendSearchResult.profile.acceptsFriendRequests === false
+                                          ? qsTr("This user does not accept friend requests.")
+                                          : qsTr("Check the photo and profile before adding.")
+                                    color: "#9793aa"
+                                    font.pixelSize: 11
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                }
+                            }
+                            Button {
+                                text: friendsView.searchActionLabel(
+                                    LauncherApi.friendSearchResult.relationship,
+                                    LauncherApi.friendSearchResult.profile)
+                                highlighted: (LauncherApi.friendSearchResult.relationship === "none"
+                                              && LauncherApi.friendSearchResult.profile
+                                              && LauncherApi.friendSearchResult.profile.acceptsFriendRequests !== false)
+                                             || LauncherApi.friendSearchResult.relationship === "incoming"
+                                enabled: highlighted && !LauncherApi.busy
+                                onClicked: {
+                                    LauncherApi.addFriend(LauncherApi.friendSearchResult.profile.username)
+                                    addFriendField.text = ""
+                                }
+                            }
                         }
                     }
                 }
@@ -290,16 +552,41 @@ Item {
                     model: LauncherApi.incomingRequests
                     delegate: Rectangle {
                         Layout.fillWidth: true
-                        implicitHeight: 56
+                        implicitHeight: modelData.staffRole ? 84 : 70
                         radius: 10
                         color: "#1a1426"
                         RowLayout {
                             anchors.fill: parent
                             anchors.margins: 10
-                            Label {
-                                text: friendsView.friendLabel(modelData)
-                                color: "#f8f5ff"
+                            spacing: 10
+                            ProfileAvatar {
+                                profile: modelData
+                                avatarSize: 44
+                            }
+                            ColumnLayout {
                                 Layout.fillWidth: true
+                                spacing: 1
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Label {
+                                        text: friendsView.profileName(modelData)
+                                        color: "#f8f5ff"
+                                        font.bold: true
+                                        elide: Text.ElideRight
+                                        Layout.fillWidth: true
+                                    }
+                                    StaffBadge { role: modelData.staffRole || "" }
+                                }
+                                Label {
+                                    text: friendsView.profileUsername(modelData)
+                                    visible: text.length > 0
+                                             && text !== friendsView.profileName(modelData)
+                                    color: "#9793aa"
+                                    font.pixelSize: 11
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
                             }
                             Button { text: qsTr("Accept"); highlighted: true; onClicked: LauncherApi.acceptFriendRequest(modelData.requestId) }
                             Button { text: qsTr("Decline"); onClicked: LauncherApi.declineFriendRequest(modelData.requestId) }
@@ -316,10 +603,46 @@ Item {
                 Label { text: qsTr("Sent requests"); color: "#f8f5ff"; font.bold: true }
                 Repeater {
                     model: LauncherApi.outgoingRequests
-                    delegate: Label {
-                        text: friendsView.friendLabel(modelData) + " — " + qsTr("waiting")
-                        color: "#9793aa"
+                    delegate: Rectangle {
                         Layout.fillWidth: true
+                        implicitHeight: modelData.staffRole ? 74 : 58
+                        radius: 10
+                        color: "#1a1426"
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            spacing: 10
+                            ProfileAvatar {
+                                profile: modelData
+                                avatarSize: 40
+                            }
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 1
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Label {
+                                        text: friendsView.profileName(modelData)
+                                        color: "#f8f5ff"
+                                        font.bold: true
+                                        elide: Text.ElideRight
+                                        Layout.fillWidth: true
+                                    }
+                                    StaffBadge { role: modelData.staffRole || "" }
+                                }
+                                Label {
+                                    text: (friendsView.profileUsername(modelData)
+                                           && friendsView.profileUsername(modelData) !== friendsView.profileName(modelData)
+                                           ? friendsView.profileUsername(modelData) + " · "
+                                           : "") + qsTr("waiting")
+                                    color: "#9793aa"
+                                    font.pixelSize: 11
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -351,12 +674,17 @@ Item {
                     model: LauncherApi.friendMachines
                     delegate: Rectangle {
                         Layout.fillWidth: true
-                        implicitHeight: 64
+                        implicitHeight: modelData.owner && modelData.owner.staffRole ? 92 : 72
                         radius: 10
                         color: "#1a1426"
                         RowLayout {
                             anchors.fill: parent
                             anchors.margins: 12
+                            spacing: 10
+                            ProfileAvatar {
+                                profile: modelData.owner
+                                avatarSize: 46
+                            }
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 spacing: 2
@@ -367,6 +695,10 @@ Item {
                                         .arg(modelData.running ? qsTr("on") : qsTr("off"))
                                     color: "#9793aa"
                                     font.pixelSize: 11
+                                }
+                                StaffBadge {
+                                    role: modelData.owner && modelData.owner.staffRole
+                                          ? modelData.owner.staffRole : ""
                                 }
                             }
                             Button {

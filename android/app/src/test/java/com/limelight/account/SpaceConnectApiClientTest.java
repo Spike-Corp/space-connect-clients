@@ -295,6 +295,54 @@ public class SpaceConnectApiClientTest {
     }
 
     @Test
+    public void searchFriendEncodesUsernameAndParsesAvatarPreview() throws Exception {
+        server.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("{"
+                        + "\"profile\":{"
+                        + "\"userId\":\"user-2\","
+                        + "\"username\":\"amigo_teste\","
+                        + "\"name\":\"Amigo Teste\","
+                        + "\"avatarUrl\":\"https://cdn.example/avatar.png?token=signed\","
+                        + "\"staffRole\":\"master\","
+                        + "\"acceptsFriendRequests\":false"
+                        + "},"
+                        + "\"relationship\":\"incoming\""
+                        + "}"));
+
+        SpaceConnectApiClient.FriendSearchResponse response =
+                client.searchFriend("access-1", "@amigo_teste");
+
+        assertEquals("incoming", response.relationship);
+        assertEquals("amigo_teste", response.profile.username);
+        assertEquals("https://cdn.example/avatar.png?token=signed", response.profile.avatarUrl);
+        assertEquals("master", response.profile.staffRole);
+        assertEquals(Boolean.FALSE, response.profile.acceptsFriendRequests);
+        RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
+        assertNotNull(request);
+        assertEquals("/api/launcher/v1/friends/search?u=%40amigo_teste", request.getPath());
+    }
+
+    @Test
+    public void staffCanDisableIncomingFriendRequests() throws Exception {
+        server.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("{\"acceptFriendRequests\":false}"));
+
+        SpaceConnectApiClient.FriendSettingsResponse response =
+                client.setFriendRequestSettings("access-1", false);
+
+        assertEquals(false, response.acceptFriendRequests);
+        RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
+        assertNotNull(request);
+        assertEquals("PATCH", request.getMethod());
+        assertEquals("/api/launcher/v1/friends/settings", request.getPath());
+        assertEquals(true, request.getBody().readUtf8().contains("\"acceptFriendRequests\":false"));
+    }
+
+    @Test
     public void endSessionUsesTheAuthenticatedLauncherEndpoint() throws Exception {
         server.enqueue(new MockResponse()
                 .setResponseCode(202)

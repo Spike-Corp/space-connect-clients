@@ -13,14 +13,48 @@
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
-        <TextView
-            android:id="@+id/friendName"
+        <ImageView
+            android:id="@+id/friendAvatar"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:importantForAccessibility="yes"
+            android:scaleType="centerCrop" />
+
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_weight="1"
             android:layout_height="wrap_content"
-            android:textColor="@color/moonlight_foreground"
-            android:textSize="15sp"
-            android:textStyle="bold" />
+            android:layout_marginStart="12dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/friendName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/moonlight_foreground"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/friendUsername"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/moonlight_muted_foreground"
+                android:textSize="12sp" />
+
+            <com.limelight.account.RgbRoleBadgeView
+                android:id="@+id/friendRole"
+                android:layout_width="wrap_content"
+                android:layout_height="22dp"
+                android:layout_marginTop="4dp"
+                android:paddingStart="9dp"
+                android:paddingEnd="9dp"
+                android:visibility="gone" />
+        </LinearLayout>
 
         <Button
             android:id="@+id/friendRemove"

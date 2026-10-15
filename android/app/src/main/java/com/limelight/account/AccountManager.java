@@ -448,6 +448,14 @@ public final class AccountManager {
         executeAuthenticated(context, API::getFriendMachines, callback);
     }
 
+    public static void searchFriend(Context context, String username, ResultCallback<SpaceConnectApiClient.FriendSearchResponse> callback) {
+        executeAuthenticated(context, token -> API.searchFriend(token, username), callback);
+    }
+
+    public static void setFriendRequestSettings(Context context, boolean enabled, ResultCallback<SpaceConnectApiClient.FriendSettingsResponse> callback) {
+        executeAuthenticated(context, token -> API.setFriendRequestSettings(token, enabled), callback);
+    }
+
     public static void addFriend(Context context, String username, ResultCallback<SpaceConnectApiClient.FriendActionResponse> callback) {
         executeAuthenticated(context, token -> API.addFriend(token, username), callback);
     }

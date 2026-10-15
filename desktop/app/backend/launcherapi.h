@@ -8,6 +8,7 @@
 #include <QObject>
 #include <QTimer>
 #include <QVariantList>
+#include <QVariantMap>
 
 #include <functional>
 
@@ -44,6 +45,8 @@ class LauncherApi : public QObject
     Q_PROPERTY(QVariantList outgoingRequests READ outgoingRequests NOTIFY friendsChanged)
     Q_PROPERTY(QVariantList friendMachines READ friendMachines NOTIFY friendsChanged)
     Q_PROPERTY(QString myUsername READ myUsername NOTIFY friendsChanged)
+    Q_PROPERTY(QVariantMap myProfile READ myProfile NOTIFY friendsChanged)
+    Q_PROPERTY(QVariantMap friendSearchResult READ friendSearchResult NOTIFY friendSearchChanged)
     // Emuladores: [{id, name, tagline, systems, sizeBytes, version, icon, installed}]
     Q_PROPERTY(QVariantList emulators READ emulators NOTIFY emulatorsChanged)
     // Biblioteca de downloads gerenciada pelo admin (aba Downloads do app)
@@ -97,6 +100,8 @@ public:
     QVariantList outgoingRequests() const { return m_Outgoing; }
     QVariantList friendMachines() const { return m_FriendMachines; }
     QString myUsername() const { return m_MyUsername; }
+    QVariantMap myProfile() const { return m_MyProfile; }
+    QVariantMap friendSearchResult() const { return m_FriendSearchResult; }
     QVariantList myMachines() const { return m_MyMachines; }
     QVariantList emulators() const { return m_Emulators; }
     QVariantList downloads() const { return m_Downloads; }
@@ -168,6 +173,9 @@ public:
     Q_INVOKABLE void startUsbPassthrough();
     // Amigos
     Q_INVOKABLE void refreshFriends();
+    Q_INVOKABLE void searchFriend(const QString& username);
+    Q_INVOKABLE void clearFriendSearch();
+    Q_INVOKABLE void setFriendRequestSettings(bool enabled);
     Q_INVOKABLE void addFriend(const QString& username);
     Q_INVOKABLE void acceptFriendRequest(const QString& requestId);
     Q_INVOKABLE void declineFriendRequest(const QString& requestId);
@@ -209,6 +217,7 @@ signals:
     void usbHelperMissing();
     void usbSessionStarted(QString machineName);
     void friendsChanged();
+    void friendSearchChanged();
     void friendActionResult(bool success, QString message);
     void usernameCheckResult(bool available, QString reason);
     // Emuladores
@@ -285,6 +294,8 @@ private:
     QVariantList m_Incoming;
     QVariantList m_Outgoing;
     QVariantList m_FriendMachines;
+    QVariantMap m_MyProfile;
+    QVariantMap m_FriendSearchResult;
     // Emuladores (catalogo + flag installed)
     QVariantList m_Emulators;
     QVariantList m_Downloads;

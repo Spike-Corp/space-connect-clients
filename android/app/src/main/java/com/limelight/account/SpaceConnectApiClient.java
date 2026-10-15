@@ -5,6 +5,7 @@ import com.google.gson.JsonSyntaxException;
 import com.limelight.BuildConfig;
 
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.MediaType;
@@ -214,6 +215,17 @@ public final class SpaceConnectApiClient {
 
     public FriendMachinesResponse getFriendMachines(String accessToken) throws IOException, ApiException {
         return get("friends/machines", accessToken, FriendMachinesResponse.class);
+    }
+
+    public FriendSearchResponse searchFriend(String accessToken, String username) throws IOException, ApiException {
+        return get("friends/search?u=" + URLEncoder.encode(username, "UTF-8"), accessToken, FriendSearchResponse.class);
+    }
+
+    public FriendSettingsResponse setFriendRequestSettings(String accessToken, boolean enabled)
+            throws IOException, ApiException {
+        FriendSettingsRequest input = new FriendSettingsRequest();
+        input.acceptFriendRequests = enabled;
+        return patch("friends/settings", input, accessToken, FriendSettingsResponse.class);
     }
 
     public FriendActionResponse addFriend(String accessToken, String username) throws IOException, ApiException {
@@ -623,6 +635,8 @@ public final class SpaceConnectApiClient {
         public String username;
         public String name;
         public String avatarUrl;
+        public String staffRole;
+        public Boolean acceptsFriendRequests;
     }
 
     public static final class FriendEntry extends PublicProfile {
@@ -674,6 +688,15 @@ public final class SpaceConnectApiClient {
         public String serverNow;
     }
 
+    public static final class FriendSearchResponse {
+        public PublicProfile profile;
+        public String relationship;
+    }
+
+    public static final class FriendSettingsResponse {
+        public boolean acceptFriendRequests;
+    }
+
     public static final class FriendActionResponse {
         public String status;
         public boolean changed;
@@ -690,6 +713,10 @@ public final class SpaceConnectApiClient {
 
     private static final class UsernameRequest {
         String username;
+    }
+
+    private static final class FriendSettingsRequest {
+        boolean acceptFriendRequests;
     }
 
     private static final class FriendPermissionsRequest {

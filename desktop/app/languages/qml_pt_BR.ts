@@ -500,6 +500,54 @@
         <source>The Moonlight host is not ready yet. Try again in a few seconds.</source>
         <translation>O host do Moonlight ainda não está pronto. Tente novamente em alguns segundos.</translation>
     </message>
+    <message>
+        <source>This is you</source>
+        <translation>Este perfil é você</translation>
+    </message>
+    <message>
+        <source>Already friends</source>
+        <translation>Já são amigos</translation>
+    </message>
+    <message>
+        <source>Request sent</source>
+        <translation>Pedido enviado</translation>
+    </message>
+    <message>
+        <source>Accept friendship</source>
+        <translation>Aceitar amizade</translation>
+    </message>
+    <message>
+        <source>Add friend</source>
+        <translation>Adicionar amigo</translation>
+    </message>
+    <message>
+        <source>Your profile</source>
+        <translation>Seu perfil</translation>
+    </message>
+    <message>
+        <source>Search</source>
+        <translation>Buscar</translation>
+    </message>
+    <message>
+        <source>Check the photo and profile before adding.</source>
+        <translation>Confira a foto e o perfil antes de adicionar.</translation>
+    </message>
+    <message>
+        <source>Does not accept friend requests</source>
+        <translation>Não aceita pedidos</translation>
+    </message>
+    <message>
+        <source>This user does not accept friend requests.</source>
+        <translation>Este usuário não aceita pedidos de amizade.</translation>
+    </message>
+    <message>
+        <source>Receive requests: ON</source>
+        <translation>Receber pedidos: ON</translation>
+    </message>
+    <message>
+        <source>Receive requests: OFF</source>
+        <translation>Receber pedidos: OFF</translation>
+    </message>
 </context>
 <context>
     <name>GamepadMapper</name>
