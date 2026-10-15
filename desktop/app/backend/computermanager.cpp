@@ -963,6 +963,17 @@ private:
             else {
                 // Update the polled computer with the HTTPS information
                 NvComputer httpsComputer(http, serverInfo);
+                if (trustedLauncherHost && httpsComputer.pairState != NvComputer::PS_PAIRED) {
+                    // NvHTTP falls back to HTTP when the pinned server certificate
+                    // no longer matches. That fallback is useful for discovery, but
+                    // it must not carry the stale certificate back into the stored
+                    // host or the next HTTPS poll fails again.
+                    qWarning() << "Clearing stale pairing for SpaceCloud machine"
+                               << m_ScMachineId << "at" << m_Address.toString();
+                    httpsComputer.serverCert = QSslCertificate();
+                    http.setServerCert(QSslCertificate());
+                    resetStaleLauncherPairing = true;
+                }
                 newComputer->update(httpsComputer);
             }
         }
