@@ -14,6 +14,11 @@ on:
       - 'desktop/**'
       - '.github/workflows/build-desktop.yml'
   workflow_dispatch:
+    inputs:
+      only:
+        description: 'Plataforma a construir: all, windows, windows-xd, windows-legacy, macos, linux'
+        required: false
+        default: 'all'
 
 permissions:
   contents: read
@@ -21,6 +26,7 @@ permissions:
 jobs:
   windows:
     name: Windows x64
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.only == 'all' || inputs.only == 'windows' }}
     runs-on: [self-hosted, Windows, x64]
     defaults:
       run:
@@ -197,6 +203,7 @@ jobs:
 
   windows-xd:
     name: XD Console (staff, Windows x64)
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.only == 'all' || inputs.only == 'windows-xd' }}
     # App da EQUIPE: mesmo codigo, qmake CONFIG+=xdconsole (TARGET=XDConsole,
     # DEFINES+=XD_CONSOLE) — login admin do site + console de VMs (/admin/xd).
     runs-on: [self-hosted, Windows, x64]
@@ -317,6 +324,7 @@ jobs:
 
   windows-legacy:
     name: Windows x64 (legacy, Win7/8/8.1)
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.only == 'all' || inputs.only == 'windows-legacy' }}
     # Qt 6 dropped support for Windows 7/8/8.1 (requires Windows 10+), which is
     # why users on those OSes can't run the regular Space Connect build. This
     # job builds a second client with Qt 5.15 (last LTS supporting Win7 SP1+
@@ -465,6 +473,7 @@ jobs:
 
   macos:
     name: macOS universal
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.only == 'all' || inputs.only == 'macos' }}
     runs-on: macos-latest
     defaults:
       run:
@@ -501,6 +510,7 @@ jobs:
 
   linux:
     name: Linux AppImage (x86_64)
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.only == 'all' || inputs.only == 'linux' }}
     # Self-hosted: GitHub-hosted minutes for private repos hit the org spending
     # limit; the kvm-builder runner builds this for free. It runs AlmaLinux, so
     # the job goes inside an ubuntu:22.04 container to keep apt as the
@@ -551,6 +561,9 @@ jobs:
         env:
           # CI runners have no FUSE; make bundled AppImage tools extract-and-run.
           APPIMAGE_EXTRACT_AND_RUN: 1
+          # Self-hosted runner shares RAM with production; full -j$(nproc) is
+          # OOM-killed (exit 137).
+          MAKE_JOBS: 2
         run: bash scripts/build-appimage.sh
 
       - name: Package AppImage

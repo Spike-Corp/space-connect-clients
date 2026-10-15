@@ -39,7 +39,9 @@ popd
 
 echo Compiling Moonlight in $BUILD_CONFIG configuration
 pushd $BUILD_FOLDER
-make -j$(nproc) $(echo "$BUILD_CONFIG" | tr '[:upper:]' '[:lower:]') || fail "Make failed!"
+# MAKE_JOBS caps the parallelism: the self-hosted runner shares memory with
+# production and 8 parallel g++ jobs get OOM-killed (exit 137).
+make -j${MAKE_JOBS:-$(nproc)} $(echo "$BUILD_CONFIG" | tr '[:upper:]' '[:lower:]') || fail "Make failed!"
 popd
 
 echo Deploying to staging directory
