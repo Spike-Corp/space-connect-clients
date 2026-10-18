@@ -2713,5 +2713,80 @@
         <source>Your machine shuts down in ~5 minutes. Save your progress!</source>
         <translation>Sua máquina desliga em ~5 minutos. Salve seu progresso!</translation>
     </message>
+    <message>
+        <location filename="../gui/main.qml" line="483"/>
+        <source>Shortcuts &amp; how to use (keys, mic, exit)</source>
+        <translation>Atalhos e como usar (teclas, mic, sair)</translation>
+    </message>
+    <message>
+        <location filename="../gui/main.qml" line="651"/>
+        <source>Shortcuts &amp; how to use</source>
+        <translation>Atalhos e como usar</translation>
+    </message>
+    <message>
+        <location filename="../gui/main.qml" line="664"/>
+        <source>Essentials</source>
+        <translation>Essenciais</translation>
+    </message>
+    <message>
+        <location filename="../gui/main.qml" line="669"/>
+        <source>• Disconnect from the VM: %1</source>
+        <translation>• Desconectar da VM: %1</translation>
+    </message>
+    <message>
+        <location filename="../gui/main.qml" line="670"/>
+        <source>• Fullscreen on/off: %1</source>
+        <translation>• Tela cheia ligar/desligar: %1</translation>
+    </message>
+    <message>
+        <location filename="../gui/main.qml" line="671"/>
+        <source>• Mouse capture on/off: %1</source>
+        <translation>• Captura do mouse ligar/desligar: %1</translation>
+    </message>
+    <message>
+        <location filename="../gui/main.qml" line="672"/>
+        <source>• Show performance stats: %1</source>
+        <translation>• Mostrar estatísticas de desempenho: %1</translation>
+    </message>
+    <message>
+        <location filename="../gui/main.qml" line="673"/>
+        <source>• Gamepad: %1</source>
+        <translation>• Controle: %1</translation>
+    </message>
+    <message>
+        <location filename="../gui/main.qml" line="673"/>
+        <source>(disconnect)</source>
+        <translation>(desconectar)</translation>
+    </message>
+    <message>
+        <location filename="../gui/main.qml" line="682"/>
+        <source>Microphone</source>
+        <translation>Microfone</translation>
+    </message>
+    <message>
+        <location filename="../gui/main.qml" line="689"/>
+        <source>Your mic is forwarded to the VM (for Discord, games, etc.). Test it here before connecting:</source>
+        <translation>Seu microfone é enviado para a VM (para Discord, jogos etc.). Teste aqui antes de conectar:</translation>
+    </message>
+    <message>
+        <location filename="../gui/main.qml" line="701"/>
+        <source>Test microphone</source>
+        <translation>Testar microfone</translation>
+    </message>
+    <message>
+        <location filename="../gui/main.qml" line="701"/>
+        <source>Stop test</source>
+        <translation>Parar teste</translation>
+    </message>
+    <message>
+        <location filename="../gui/main.qml" line="734"/>
+        <source>Streaming quality</source>
+        <translation>Qualidade do streaming</translation>
+    </message>
+    <message>
+        <location filename="../gui/main.qml" line="742"/>
+        <source>Adjust resolution, FPS and bitrate in Settings before connecting. The VM applies them on the next session.</source>
+        <translation>Ajuste resolução, FPS e bitrate nas Configurações antes de conectar. A VM aplica na próxima sessão.</translation>
+    </message>
 </context>
 </TS>
