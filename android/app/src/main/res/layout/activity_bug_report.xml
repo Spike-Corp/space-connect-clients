@@ -4,7 +4,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:padding="28dp"
-    android:background="@drawable/bg_app_gradient">
+    android:background="?attr/appBackgroundDrawable">
 
     <TextView
         android:id="@+id/bugReportTitle"
@@ -13,7 +13,7 @@
         android:text="@string/bug_report_title"
         android:textSize="22sp"
         android:textStyle="bold"
-        android:textColor="@color/moonlight_foreground" />
+        android:textColor="?attr/appForegroundColor" />
 
     <TextView
         android:id="@+id/bugReportHint"
@@ -21,7 +21,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
         android:textSize="13sp"
-        android:textColor="@color/moonlight_muted_foreground"
+        android:textColor="?attr/appMutedForegroundColor"
         android:text="@string/bug_report_hint" />
 
     <TextView
@@ -30,7 +30,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
         android:textSize="12sp"
-        android:textColor="@color/moonlight_muted_foreground" />
+        android:textColor="?attr/appMutedForegroundColor" />
 
     <EditText
         android:id="@+id/bugReportEmail"
@@ -41,8 +41,8 @@
         android:inputType="textEmailAddress"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
-        android:textColor="@color/moonlight_foreground"
-        android:textColorHint="@color/moonlight_muted_foreground"
+        android:textColor="?attr/appForegroundColor"
+        android:textColorHint="?attr/appMutedForegroundColor"
         android:background="@drawable/bg_input_field" />
 
     <EditText
@@ -56,8 +56,8 @@
         android:gravity="top"
         android:minLines="6"
         android:padding="16dp"
-        android:textColor="@color/moonlight_foreground"
-        android:textColorHint="@color/moonlight_muted_foreground"
+        android:textColor="?attr/appForegroundColor"
+        android:textColorHint="?attr/appMutedForegroundColor"
         android:background="@drawable/bg_input_field" />
 
     <Button

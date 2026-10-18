@@ -5,7 +5,7 @@
     android:orientation="vertical"
     android:gravity="center"
     android:padding="28dp"
-    android:background="@drawable/bg_app_gradient">
+    android:background="?attr/appBackgroundDrawable">
 
     <TextView
         android:id="@+id/latencyTitle"
@@ -14,7 +14,7 @@
         android:text="@string/latency_title"
         android:textSize="22sp"
         android:textStyle="bold"
-        android:textColor="@color/moonlight_foreground" />
+        android:textColor="?attr/appForegroundColor" />
 
     <TextView
         android:id="@+id/latencyResult"
@@ -42,7 +42,7 @@
         android:layout_marginTop="12dp"
         android:gravity="center"
         android:textSize="13sp"
-        android:textColor="@color/moonlight_muted_foreground"
+        android:textColor="?attr/appMutedForegroundColor"
         android:text="@string/latency_hint" />
 
     <ProgressBar

@@ -2,7 +2,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_app_gradient"
+    android:background="?attr/appBackgroundDrawable"
     android:orientation="vertical"
     tools:context=".AppView">
 
@@ -11,7 +11,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:minHeight="60dp"
-        android:background="@color/moonlight_surface"
+        android:background="?attr/appSurfaceColor"
         android:gravity="center_vertical"
         android:paddingStart="16dp"
         android:paddingEnd="12dp"

@@ -33,7 +33,7 @@
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:textColor="@color/moonlight_foreground"
+                android:textColor="?attr/appForegroundColor"
                 android:textSize="14sp"
                 android:textStyle="bold" />
 
@@ -43,7 +43,7 @@
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:textColor="@color/moonlight_muted_foreground"
+                android:textColor="?attr/appMutedForegroundColor"
                 android:textSize="11sp" />
 
             <com.limelight.account.RgbRoleBadgeView
@@ -83,7 +83,7 @@
             android:background="@drawable/bg_button_ghost"
             android:text="@string/friends_decline"
             android:textAllCaps="false"
-            android:textColor="@color/moonlight_foreground"
+            android:textColor="?attr/appForegroundColor"
             android:textSize="12sp" />
     </LinearLayout>
 </LinearLayout>

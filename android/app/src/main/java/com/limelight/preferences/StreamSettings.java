@@ -471,6 +471,29 @@ public class StreamSettings extends Activity {
             addPreferencesFromResource(R.xml.preferences);
             PreferenceScreen screen = getPreferenceScreen();
 
+            // Trocar o tema (claro/escuro) precisa reiniciar a task inteira: sem isso,
+            // só a tela de Settings mudava e o resto do app ficava no tema velho até
+            // fechar e reabrir — o "tema não funciona" reportado pelos usuários.
+            // O pequeno delay garante que a SharedPreferences grave antes do restart.
+            Preference themePref = findPreference("list_app_theme");
+            if (themePref != null) {
+                themePref.setOnPreferenceChangeListener((preference, newValue) -> {
+                    final android.app.Activity activity = getActivity();
+                    if (activity != null) {
+                        activity.getWindow().setWindowAnimations(0);
+                        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                            android.content.Intent restartIntent =
+                                    new android.content.Intent(activity, com.limelight.account.LauncherActivity.class);
+                            restartIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                                    | android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                            activity.startActivity(restartIntent);
+                            Runtime.getRuntime().exit(0);
+                        }, 150);
+                    }
+                    return true;
+                });
+            }
+
             // Wire up the account status/logout entries
             Preference accountStatusPref = findPreference("pref_account_status");
             String loggedInEmail = com.limelight.account.AccountManager.getLoggedInEmail(getActivity());

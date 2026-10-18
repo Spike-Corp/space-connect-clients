@@ -56,6 +56,10 @@ jobs:
           host: windows
           target: desktop
           arch: win64_msvc2019_64
+          # qtimageformats = plugin qwebp (avatares webp dos perfis) + jepg2000 etc.
+          # Sem esse módulo o windeployqt não tem qwebp.dll pra empacotar e as
+          # fotos de perfil falham em silêncio no Windows (bug 0.3.25).
+          modules: 'qtimageformats'
           cache: true
 
       - name: Build (Release, x64)
@@ -226,6 +230,10 @@ jobs:
           host: windows
           target: desktop
           arch: win64_msvc2019_64
+          # qtimageformats = plugin qwebp (avatares webp dos perfis) + jepg2000 etc.
+          # Sem esse módulo o windeployqt não tem qwebp.dll pra empacotar e as
+          # fotos de perfil falham em silêncio no Windows (bug 0.3.25).
+          modules: 'qtimageformats'
           cache: true
 
       - name: Build XD Console (Release, x64)
@@ -358,6 +366,10 @@ jobs:
           host: windows
           target: desktop
           arch: win64_msvc2019_64
+          # qtimageformats = plugin qwebp (avatares webp dos perfis) + jepg2000 etc.
+          # Sem esse módulo o windeployqt não tem qwebp.dll pra empacotar e as
+          # fotos de perfil falham em silêncio no Windows (bug 0.3.25).
+          modules: 'qtimageformats'
           cache: true
 
       - name: Build (Release, x64, Qt5)
@@ -494,6 +506,7 @@ jobs:
           host: mac
           target: desktop
           arch: clang_64
+          modules: 'qtimageformats'
           cache: true
 
       - name: Build universal DMG (Release)
@@ -547,6 +560,7 @@ jobs:
           host: linux
           target: desktop
           arch: linux_gcc_64
+          modules: 'qtimageformats'
           cache: true
 
       - name: Install linuxdeploy

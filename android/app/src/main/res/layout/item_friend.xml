@@ -33,7 +33,7 @@
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:textColor="@color/moonlight_foreground"
+                android:textColor="?attr/appForegroundColor"
                 android:textSize="15sp"
                 android:textStyle="bold" />
 
@@ -43,7 +43,7 @@
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:textColor="@color/moonlight_muted_foreground"
+                android:textColor="?attr/appMutedForegroundColor"
                 android:textSize="12sp" />
 
             <com.limelight.account.RgbRoleBadgeView
@@ -79,7 +79,7 @@
             android:layout_weight="1"
             android:layout_height="44dp"
             android:background="@drawable/bg_button_ghost"
-            android:textColor="@color/moonlight_foreground"
+            android:textColor="?attr/appForegroundColor"
             android:textAllCaps="false"
             android:textSize="12sp" />
 
@@ -90,7 +90,7 @@
             android:layout_height="44dp"
             android:layout_marginStart="8dp"
             android:background="@drawable/bg_button_ghost"
-            android:textColor="@color/moonlight_foreground"
+            android:textColor="?attr/appForegroundColor"
             android:textAllCaps="false"
             android:textSize="12sp" />
     </LinearLayout>

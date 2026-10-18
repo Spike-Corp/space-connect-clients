@@ -3,14 +3,14 @@
     android:id="@+id/downloadsRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_app_gradient"
+    android:background="?attr/appBackgroundDrawable"
     android:orientation="vertical">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:minHeight="60dp"
-        android:background="@color/moonlight_surface"
+        android:background="?attr/appSurfaceColor"
         android:gravity="center_vertical"
         android:paddingStart="16dp"
         android:paddingEnd="12dp"
@@ -25,7 +25,7 @@
             android:contentDescription="@string/back"
             android:padding="11dp"
             android:src="@drawable/ic_back"
-            android:tint="@color/moonlight_foreground" />
+            android:tint="?attr/appForegroundColor" />
 
         <TextView
             android:layout_width="0dp"
@@ -33,7 +33,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"
             android:text="@string/downloads_title"
-            android:textColor="@color/moonlight_foreground"
+            android:textColor="?attr/appForegroundColor"
             android:textSize="18sp"
             android:textStyle="bold" />
 
@@ -45,7 +45,7 @@
             android:contentDescription="@string/refresh"
             android:padding="11dp"
             android:src="@drawable/ic_games"
-            android:tint="@color/moonlight_foreground" />
+            android:tint="?attr/appForegroundColor" />
 
         <ProgressBar
             android:id="@+id/downloadsProgress"
@@ -73,7 +73,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="14dp"
                 android:text="@string/downloads_hint"
-                android:textColor="@color/moonlight_muted_foreground"
+                android:textColor="?attr/appMutedForegroundColor"
                 android:textSize="12sp" />
 
             <!-- Card da licença NVIDIA vGPU — aparece quando o admin configurou
@@ -93,7 +93,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/gpu_license_title"
-                    android:textColor="@color/moonlight_foreground"
+                    android:textColor="?attr/appForegroundColor"
                     android:textSize="16sp"
                     android:textStyle="bold" />
 
@@ -102,7 +102,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:text="@string/gpu_license_hint"
-                    android:textColor="@color/moonlight_foreground"
+                    android:textColor="?attr/appForegroundColor"
                     android:alpha="0.85"
                     android:textSize="13sp" />
 
@@ -132,7 +132,7 @@
                 android:layout_marginTop="30dp"
                 android:gravity="center"
                 android:text="@string/downloads_empty"
-                android:textColor="@color/moonlight_muted_foreground"
+                android:textColor="?attr/appMutedForegroundColor"
                 android:textSize="13sp"
                 android:visibility="gone" />
         </LinearLayout>

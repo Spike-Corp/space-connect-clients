@@ -7,6 +7,8 @@ import android.os.Bundle;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.window.OnBackInvokedCallback;
+
+import com.limelight.utils.UiHelper;
 import android.window.OnBackInvokedDispatcher;
 
 import com.limelight.utils.SpinnerDialog;
@@ -21,6 +23,7 @@ public class HelpActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        UiHelper.applyPreferredTheme(this);
         super.onCreate(savedInstanceState);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

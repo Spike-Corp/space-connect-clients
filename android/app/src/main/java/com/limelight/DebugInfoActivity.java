@@ -1,5 +1,7 @@
 package com.limelight;
 
+import com.limelight.utils.UiHelper;
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
@@ -39,6 +41,7 @@ public class DebugInfoActivity extends Activity implements View.OnClickListener 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        UiHelper.applyPreferredTheme(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_debug_info);
 

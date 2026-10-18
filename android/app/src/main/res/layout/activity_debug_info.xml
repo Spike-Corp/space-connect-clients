@@ -49,7 +49,7 @@
         android:id="@+id/tx_content"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textColor="@color/moonlight_foreground"
+        android:textColor="?attr/appForegroundColor"
         android:paddingTop="8dp" />
 
     <ScrollView
@@ -61,7 +61,7 @@
             android:id="@+id/tx_game_pad_info"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@color/moonlight_foreground" />
+            android:textColor="?attr/appForegroundColor" />
     </ScrollView>
 
 </LinearLayout>

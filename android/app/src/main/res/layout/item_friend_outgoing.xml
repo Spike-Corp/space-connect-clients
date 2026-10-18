@@ -28,7 +28,7 @@
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:maxLines="1"
-            android:textColor="@color/moonlight_foreground"
+            android:textColor="?attr/appForegroundColor"
             android:textSize="14sp"
             android:textStyle="bold" />
 
@@ -38,7 +38,7 @@
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:maxLines="1"
-            android:textColor="@color/moonlight_muted_foreground"
+            android:textColor="?attr/appMutedForegroundColor"
             android:textSize="11sp" />
 
         <com.limelight.account.RgbRoleBadgeView
@@ -55,6 +55,6 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/friends_waiting"
-        android:textColor="@color/moonlight_muted_foreground"
+        android:textColor="?attr/appMutedForegroundColor"
         android:textSize="12sp" />
 </LinearLayout>

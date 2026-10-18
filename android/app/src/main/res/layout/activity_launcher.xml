@@ -2,7 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_app_gradient"
+    android:background="?attr/appBackgroundDrawable"
     android:orientation="vertical">
 
     <LinearLayout
@@ -10,7 +10,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:minHeight="60dp"
-        android:background="@color/moonlight_surface"
+        android:background="?attr/appSurfaceColor"
         android:gravity="center_vertical"
         android:paddingStart="16dp"
         android:paddingEnd="12dp"
@@ -45,7 +45,7 @@
             android:contentDescription="@string/launcher_latency_test"
             android:padding="11dp"
             android:src="@drawable/ic_network"
-            android:tint="@color/moonlight_foreground" />
+            android:tint="?attr/appForegroundColor" />
 
         <ImageButton
             android:id="@+id/launcherHelpButton"
@@ -56,7 +56,7 @@
             android:contentDescription="@string/launcher_help"
             android:padding="11dp"
             android:src="@drawable/ic_help"
-            android:tint="@color/moonlight_foreground" />
+            android:tint="?attr/appForegroundColor" />
 
         <ImageButton
             android:id="@+id/launcherBugButton"
@@ -67,7 +67,7 @@
             android:contentDescription="@string/bug_report_title"
             android:padding="11dp"
             android:src="@drawable/ic_bug"
-            android:tint="@color/moonlight_foreground" />
+            android:tint="?attr/appForegroundColor" />
 
         <ImageButton
             android:id="@+id/launcherSettingsHeaderButton"
@@ -78,7 +78,7 @@
             android:contentDescription="@string/launcher_shortcut_settings"
             android:padding="11dp"
             android:src="@drawable/ic_settings"
-            android:tint="@color/moonlight_foreground" />
+            android:tint="?attr/appForegroundColor" />
     </LinearLayout>
 
     <ScrollView

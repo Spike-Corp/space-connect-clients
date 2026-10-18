@@ -26,7 +26,7 @@
             android:id="@+id/friendMachineName"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="@color/moonlight_foreground"
+            android:textColor="?attr/appForegroundColor"
             android:textSize="14sp"
             android:textStyle="bold" />
 
@@ -34,7 +34,7 @@
             android:id="@+id/friendMachineMeta"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="@color/moonlight_muted_foreground"
+            android:textColor="?attr/appMutedForegroundColor"
             android:textSize="12sp" />
 
         <com.limelight.account.RgbRoleBadgeView

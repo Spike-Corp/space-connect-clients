@@ -5,6 +5,8 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.view.View;
 import android.view.WindowManager;
+
+import com.limelight.utils.UiHelper;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -42,6 +44,7 @@ public class LatencyTestActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        UiHelper.applyPreferredTheme(this);
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setContentView(R.layout.activity_latency_test);

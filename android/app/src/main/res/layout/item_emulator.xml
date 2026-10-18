@@ -18,7 +18,7 @@
             android:layout_width="0dp"
             android:layout_weight="1"
             android:layout_height="wrap_content"
-            android:textColor="@color/moonlight_foreground"
+            android:textColor="?attr/appForegroundColor"
             android:textSize="16sp"
             android:textStyle="bold" />
 
@@ -38,7 +38,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:textColor="@color/moonlight_foreground"
+        android:textColor="?attr/appForegroundColor"
         android:alpha="0.85"
         android:textSize="13sp" />
 
@@ -47,7 +47,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
-        android:textColor="@color/moonlight_muted_foreground"
+        android:textColor="?attr/appMutedForegroundColor"
         android:textSize="11sp" />
 
     <ProgressBar
@@ -65,7 +65,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:textColor="@color/moonlight_muted_foreground"
+        android:textColor="?attr/appMutedForegroundColor"
         android:textSize="11sp"
         android:visibility="gone" />
 
