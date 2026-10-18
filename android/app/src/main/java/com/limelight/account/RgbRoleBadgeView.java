@@ -9,9 +9,10 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.Typeface;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemClock;
 import android.util.AttributeSet;
-import android.view.Choreographer;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.TextView;
@@ -29,31 +30,34 @@ public final class RgbRoleBadgeView extends TextView {
     };
 
     private static final long PERIOD_MS = 3200;
+    private static final long FRAME_MS = 33; // ~30fps — suave pra um gradiente deslizante
 
     private final Paint surfacePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF bounds = new RectF();
     private final Matrix shaderMatrix = new Matrix();
+    private final Handler animHandler = new Handler(Looper.getMainLooper());
     private LinearGradient gradient;
     private float phase;
     private boolean animating;
     private long animStartMs;
 
-    // Choreographer em vez de ValueAnimator: ValueAnimator respeita a escala global
-    // de animações do Android (quem desativa em "opções do desenvolvedor" ou no modo
-    // economia da MIUI fica com o selo congelado, sem o efeito RGB — foi o que o
-    // Davi viu no celular dele). O selo é identidade de marca (igual ao desktop,
-    // que pulsa sempre), então animamos pelo vsync real, imune a essa config.
-    private final Choreographer.FrameCallback frameCallback = new Choreographer.FrameCallback() {
+    // Handler.postDelayed como motor da animação. NÃO usar ValueAnimator nem
+    // Choreographer aqui: os dois são afetados pela escala global de animações
+    // do aparelho (opções do desenvolvedor / "remover animações" da MIUI), e o
+    // selo congelava — foi o que o Davi viu no Xiaomi dele em 0.3.25. O selo é
+    // identidade de marca (no desktop o QML pulsa sempre), então animamos pelo
+    // relógio real do main looper, imune a qualquer config de animação.
+    private final Runnable animTick = new Runnable() {
         @Override
-        public void doFrame(long frameTimeNanos) {
+        public void run() {
             if (!animating) {
                 return;
             }
-            long elapsedMs = (frameTimeNanos / 1_000_000L) - animStartMs;
-            phase = ((elapsedMs % PERIOD_MS) + PERIOD_MS) % PERIOD_MS / (float) PERIOD_MS;
+            long elapsed = SystemClock.uptimeMillis() - animStartMs;
+            phase = (float) ((elapsed % PERIOD_MS) / (double) PERIOD_MS);
             invalidate();
-            Choreographer.getInstance().postFrameCallback(this);
+            animHandler.postDelayed(this, FRAME_MS);
         }
     };
 
@@ -143,11 +147,11 @@ public final class RgbRoleBadgeView extends TextView {
         }
         animating = true;
         animStartMs = SystemClock.uptimeMillis();
-        Choreographer.getInstance().postFrameCallback(frameCallback);
+        animHandler.post(animTick);
     }
 
     private void stopAnimator() {
         animating = false;
-        Choreographer.getInstance().removeFrameCallback(frameCallback);
+        animHandler.removeCallbacks(animTick);
     }
 }
