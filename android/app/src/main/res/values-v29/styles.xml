@@ -12,6 +12,10 @@
         <item name="appBorderColor">@color/moonlight_border</item>
         <item name="appLightSystemBars">false</item>
         <item name="appBackgroundDrawable">@drawable/bg_app_gradient</item>
+        <!-- O bucket substitui o AppBaseTheme inteiro — TODo attr custom novo
+             (ex.: appLogoDrawable, 0.3.28) precisa entrar aqui tambem ou o app
+             crasha ao inflar ("Failed to resolve attribute"). -->
+        <item name="appLogoDrawable">@drawable/logo_spacecloud_brandbook</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <!-- API29+ only (safe: always >=API23/27), so status/nav bar icons flip dark-on-light
