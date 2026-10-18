@@ -23,7 +23,12 @@ public:
     // 0.0 (silêncio) a 1.0 (alto) — mesma curva RMS do MicForwarder pra o
     // medidor das configurações bater com o que a VM vai receber.
     Q_INVOKABLE float currentLevel() const { return m_CurrentLevel.load(); }
-    Q_INVOKABLE bool isTesting() { emit testingChanged(); return m_Running.load(); }
+    // Getter PURO: não emitir sinal aqui dentro! Antes ele emitia
+    // testingChanged() a cada chamada, e o QML (que chama isTesting() dentro do
+    // handler onTestingChanged) caía num loop síncrono infinito sinal→getter→
+    // sinal→getter — congelando a UI inteira ("Aplicativo não está respondendo")
+    // ao clicar em "Testar microfone". Quem emite é start/stop/falha no run().
+    Q_INVOKABLE bool isTesting() { return m_Running.load(); }
 
 signals:
     // Passa o nível junto (0.0-1.0) — o QML atualiza a barra direto do sinal,

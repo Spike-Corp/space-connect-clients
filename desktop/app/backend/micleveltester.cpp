@@ -1,6 +1,7 @@
 #include "micleveltester.h"
 
 #include <SDL.h>
+#include <QCoreApplication>
 #include <QtDebug>
 
 #include <cmath>
@@ -21,7 +22,9 @@ MicLevelTester::MicLevelTester(QObject* parent)
 
 MicLevelTester::~MicLevelTester()
 {
-    stopTesting();
+    // Destrutor: aqui o wait é obrigatório (destruir QThread viva crasheia).
+    m_Running.store(false);
+    wait(2000);
 }
 
 void MicLevelTester::startTesting(const QString& captureDeviceName)
@@ -41,7 +44,13 @@ void MicLevelTester::stopTesting()
         return;
     }
     m_Running.store(false);
-    wait(1000);
+    // wait() na GUI thread congela a UI por até 1s. A thread do run() sai do
+    // loop sozinha em ≤30ms (poll do SDL) e fecha o device — só quem chama de
+    // fora da UI precisa esperar o fim de verdade.
+    if (QCoreApplication::instance()
+            && QThread::currentThread() != QCoreApplication::instance()->thread()) {
+        wait(1000);
+    }
     emit testingChanged();
 }
 
