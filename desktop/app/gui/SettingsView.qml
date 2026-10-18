@@ -14,11 +14,19 @@ import MicLevelTester 1.0
 Flickable {
     // Nível atual do mic (0.0-1.0) — atualizado pelo sinal do MicLevelTester
     property real micLevelValue: 0.0
+    // Estado "testando" alimentado pelo sinal testingChanged — binding direto em
+    // MicLevelTester.isTesting() não reavalia (método C++ sem NOTIFY), então a
+    // barra e o texto do botão nunca mudavam (bug "testar microfone não faz nada").
+    property bool micTesting: false
 
     Connections {
         target: MicLevelTester
         function onLevelChanged(level) {
             micLevelValue = level
+        }
+        function onTestingChanged() {
+            micTesting = MicLevelTester.isTesting()
+            if (!micTesting) micLevelValue = 0.0
         }
     }
 
@@ -1189,10 +1197,10 @@ Flickable {
 
                     Button {
                         id: micTestButton
-                        text: MicLevelTester.isTesting() ? qsTr("Parar teste") : qsTr("Testar microfone")
+                        text: micTesting ? qsTr("Parar teste") : qsTr("Testar microfone")
                         font.pointSize: 11
                         onClicked: {
-                            if (MicLevelTester.isTesting()) {
+                            if (micTesting) {
                                 MicLevelTester.stopTesting()
                             } else {
                                 var idx = micDeviceComboBox.currentIndex
@@ -1210,7 +1218,7 @@ Flickable {
                         color: "#272133"
                         border.color: "#3a2d52"
                         border.width: 1
-                        visible: MicLevelTester.isTesting()
+                        visible: micTesting
 
                         Rectangle {
                             id: micLevelFill
@@ -1229,7 +1237,7 @@ Flickable {
                 }
 
                 Label {
-                    visible: MicLevelTester.isTesting()
+                    visible: micTesting
                     text: qsTr("Fale algo — a barra deve se mexer. Se não mexer, troque o dispositivo acima.")
                     color: "#9793aa"
                     font.pixelSize: 11

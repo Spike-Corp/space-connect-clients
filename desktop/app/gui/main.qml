@@ -16,6 +16,11 @@ ApplicationWindow {
     property bool pollingActive: false
     // Nível do mic pro medidor do dialog de atalhos (atualizado pelo sinal)
     property real shortcutsMicLevel: 0.0
+    // Estado "testando" alimentado pelo SINAL testingChanged — binding direto em
+    // MicLevelTester.isTesting() não reavalia (método C++ sem property NOTIFY),
+    // então a barra nunca aparecia e o botão nunca mudava de texto: o mic até
+    // capturava, mas pra quem via "nada acontecia".
+    property bool shortcutsMicTesting: false
 
     // Set by SettingsView to force the back operation to pop all
     // pages except the initial view. This is required when doing
@@ -698,10 +703,10 @@ ApplicationWindow {
                 spacing: 10
 
                 Button {
-                    text: MicLevelTester.isTesting() ? qsTr("Stop test") : qsTr("Test microphone")
+                    text: shortcutsMicTesting ? qsTr("Stop test") : qsTr("Test microphone")
                     font.pointSize: 11
                     onClicked: {
-                        if (MicLevelTester.isTesting()) {
+                        if (shortcutsMicTesting) {
                             MicLevelTester.stopTesting()
                         } else {
                             MicLevelTester.startTesting("")
@@ -715,7 +720,7 @@ ApplicationWindow {
                     color: "#272133"
                     border.color: "#3a2d52"
                     border.width: 1
-                    visible: MicLevelTester.isTesting()
+                    visible: shortcutsMicTesting
 
                     Rectangle {
                         anchors.left: parent.left
@@ -754,6 +759,10 @@ ApplicationWindow {
         target: MicLevelTester
         function onLevelChanged(level) {
             shortcutsMicLevel = level
+        }
+        function onTestingChanged() {
+            shortcutsMicTesting = MicLevelTester.isTesting()
+            if (!shortcutsMicTesting) shortcutsMicLevel = 0.0
         }
     }
 

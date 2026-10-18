@@ -284,7 +284,7 @@ public class FriendsActivity extends Activity {
             TextView sentTitle = new TextView(this);
             sentTitle.setText(R.string.friends_sent_title);
             sentTitle.setTextSize(13);
-            sentTitle.setTextColor(0xFFF8F5FF);
+            sentTitle.setTextColor(UiHelper.resolveThemeColor(this, R.attr.appForegroundColor));
             sentTitle.setPadding(0, 12, 0, 8);
             friendsBox.addView(sentTitle);
             for (SpaceConnectApiClient.FriendRequestEntry outgoing : data.outgoing) {

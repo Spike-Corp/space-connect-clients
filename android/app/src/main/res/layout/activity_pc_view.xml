@@ -23,7 +23,7 @@
             android:layout_height="40dp"
             android:contentDescription="@string/launcher_toolbar_title"
             android:scaleType="centerInside"
-            android:src="@drawable/logo_spacecloud_brandbook" />
+            android:src="?attr/appLogoDrawable" />
 
         <TextView
             android:layout_width="0dp"
@@ -53,7 +53,8 @@
             android:background="@drawable/bg_button_ghost"
             android:contentDescription="@string/launcher_shortcut_settings"
             android:padding="10dp"
-            android:src="@drawable/ic_settings" />
+            android:tint="?attr/appForegroundColor"
+                android:src="@drawable/ic_settings" />
 
         <ImageButton
             android:id="@+id/gamesButton"
@@ -63,7 +64,8 @@
             android:background="@drawable/bg_button_ghost"
             android:contentDescription="@string/games_button_description"
             android:padding="10dp"
-            android:src="@drawable/ic_games" />
+            android:tint="?attr/appForegroundColor"
+                android:src="@drawable/ic_games" />
     </LinearLayout>
 
     <FrameLayout

@@ -121,8 +121,10 @@ Item {
     }
 
     component ProfileAvatar: Item {
+        id: avatarRoot
         property var profile
         property int avatarSize: 44
+        property string avatarUrl: (profile && profile.avatarUrl) ? String(profile.avatarUrl) : ""
 
         width: avatarSize
         height: avatarSize
@@ -139,21 +141,20 @@ Item {
             return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
         }
 
-        Image {
-            id: avatarSource
-            anchors.fill: parent
-            source: parent.profile && parent.profile.avatarUrl ? parent.profile.avatarUrl : ""
-            asynchronous: true
-            cache: true
-            fillMode: Image.PreserveAspectCrop
-            visible: false
-            onStatusChanged: avatarCanvas.requestPaint()
-        }
-
         Canvas {
             id: avatarCanvas
             anchors.fill: parent
             antialiasing: true
+
+            // Carrega a foto pela API nativa do Canvas (download próprio, sem
+            // depender de um item Image invisível — que no Qt 6 podia desenhar
+            // preto/vazio no drawImage). Funciona igual no Qt 5.15 e 6.7.
+            onImageLoaded: {
+                if (avatarRoot.avatarUrl && isImageLoaded(avatarRoot.avatarUrl)) {
+                    requestPaint()
+                }
+            }
+
             onPaint: {
                 var ctx = getContext("2d")
                 ctx.clearRect(0, 0, width, height)
@@ -163,8 +164,8 @@ Item {
                 ctx.closePath()
                 ctx.clip()
 
-                if (avatarSource.status === Image.Ready) {
-                    ctx.drawImage(avatarSource, 0, 0, width, height)
+                if (avatarRoot.avatarUrl && isImageLoaded(avatarRoot.avatarUrl)) {
+                    ctx.drawImage(avatarRoot.avatarUrl, 0, 0, width, height)
                 } else {
                     var gradient = ctx.createLinearGradient(0, 0, width, height)
                     gradient.addColorStop(0, "#5b8cff")
@@ -175,11 +176,21 @@ Item {
                     ctx.font = "bold " + Math.max(11, Math.round(width * 0.34)) + "px sans-serif"
                     ctx.textAlign = "center"
                     ctx.textBaseline = "middle"
-                    ctx.fillText(parent.initials(), width / 2, height / 2 + 1)
+                    ctx.fillText(avatarRoot.initials(), width / 2, height / 2 + 1)
                 }
                 ctx.restore()
             }
         }
+
+        function loadAvatar() {
+            if (avatarUrl) {
+                avatarCanvas.loadImage(avatarUrl)
+            }
+            avatarCanvas.requestPaint()
+        }
+
+        onAvatarUrlChanged: loadAvatar()
+        Component.onCompleted: loadAvatar()
 
         Rectangle {
             anchors.fill: parent
@@ -188,8 +199,6 @@ Item {
             border.width: 1
             border.color: "#5c5070"
         }
-
-        onProfileChanged: avatarCanvas.requestPaint()
     }
 
     // Card de UM amigo — escopo próprio (lê o modelData dele).

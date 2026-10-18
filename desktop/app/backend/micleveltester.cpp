@@ -61,6 +61,9 @@ void MicLevelTester::run()
     if (device == 0) {
         qWarning() << "MicLevelTester: failed to open capture device:" << SDL_GetError();
         m_Running.store(false);
+        // Avisa a UI que o teste NÃO começou — sem isso o QML ficava achando
+        // que estava testando pra sempre (botão travado em "Parar teste").
+        emit testingChanged();
         return;
     }
 

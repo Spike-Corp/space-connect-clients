@@ -22,7 +22,7 @@
             android:adjustViewBounds="true"
             android:contentDescription="@string/login_app_name"
             android:scaleType="fitCenter"
-            android:src="@drawable/logo_spacecloud_brandbook" />
+            android:src="?attr/appLogoDrawable" />
 
         <TextView
             android:id="@+id/loginSubtitle"
