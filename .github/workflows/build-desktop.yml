@@ -369,7 +369,8 @@ jobs:
           # qtimageformats = plugin qwebp (avatares webp dos perfis) + jepg2000 etc.
           # Sem esse módulo o windeployqt não tem qwebp.dll pra empacotar e as
           # fotos de perfil falham em silêncio no Windows (bug 0.3.25).
-          modules: 'qtimageformats'
+          # (sem modules: qtimageformats nao existe pra Qt 5.15.2 no repo online —
+          #  o legacy Win7/8 fica com o fallback de iniciais nos avatares, sem quebrar o build)
           cache: true
 
       - name: Build (Release, x64, Qt5)
