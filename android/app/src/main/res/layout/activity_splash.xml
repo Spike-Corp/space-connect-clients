@@ -62,7 +62,7 @@
             android:layout_height="150dp"
             android:adjustViewBounds="true"
             android:scaleType="fitCenter"
-            android:src="?attr/appLogoDrawable"
+            android:src="@drawable/logo_spacecloud_brandbook"
             android:contentDescription="@null"/>
 
         <TextView

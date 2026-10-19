@@ -4,7 +4,6 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
-import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.Shader;
@@ -35,9 +34,7 @@ public final class RgbRoleBadgeView extends TextView {
     private final Paint surfacePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF bounds = new RectF();
-    private final Matrix shaderMatrix = new Matrix();
     private final Handler animHandler = new Handler(Looper.getMainLooper());
-    private LinearGradient gradient;
     private float phase;
     private boolean animating;
     private long animStartMs;
@@ -56,11 +53,13 @@ public final class RgbRoleBadgeView extends TextView {
             }
             long elapsed = SystemClock.uptimeMillis() - animStartMs;
             phase = (float) ((elapsed % PERIOD_MS) / (double) PERIOD_MS);
-            // invalidate() pode ser engolido em TextView quando o bounds não muda
-            // (otimização de layout). postInvalidateOnAnimation força o frame de
-            // verdade na próxima vsync — é o que o Android usa pra animação de
-            // View customizada que precisa repintar todo frame.
-            postInvalidateOnAnimation();
+            // invalidate() direto (o tick já roda no main looper) força o onDraw na
+            // próxima traversal. NÃO usar postInvalidateOnAnimation: além do custo,
+            // o que travava o selo no Xiaomi do Davi era o canvas acelerado por
+            // hardware reaproveitar o MESMO Shader em cache — por isso agora o
+            // onDraw recria o LinearGradient a cada frame (shader novo = redesenho
+            // de verdade), imune a config de animação do aparelho.
+            invalidate();
             animHandler.postDelayed(this, FRAME_MS);
         }
     };
@@ -105,27 +104,24 @@ public final class RgbRoleBadgeView extends TextView {
     }
 
     @Override
-    protected void onSizeChanged(int width, int height, int oldWidth, int oldHeight) {
-        super.onSizeChanged(width, height, oldWidth, oldHeight);
-        if (width > 0) {
-            gradient = new LinearGradient(0, 0, width * 2f, 0,
-                    RGB_COLORS, null, Shader.TileMode.REPEAT);
-            borderPaint.setShader(gradient);
-        }
-    }
-
-    @Override
     protected void onDraw(Canvas canvas) {
         float inset = borderPaint.getStrokeWidth();
         bounds.set(inset, inset, getWidth() - inset, getHeight() - inset);
         float radius = getHeight() / 2f;
         canvas.drawRoundRect(bounds, radius, radius, surfacePaint);
 
-        if (gradient != null) {
-            shaderMatrix.setTranslate(-getWidth() * 2f * phase, 0);
-            gradient.setLocalMatrix(shaderMatrix);
+        int w = getWidth();
+        if (w > 0) {
+            // Recria o gradiente a cada frame com o deslocamento do phase embutido
+            // nas coordenadas. Shader NOVO toda vez → o renderer por hardware não
+            // reaproveita cache (causa do selo estático no Android) e a animação
+            // aparece de verdade. REPEAT faz o loop ficar sem emenda.
+            float shift = w * 2f * phase;
+            LinearGradient g = new LinearGradient(-shift, 0, w * 2f - shift, 0,
+                    RGB_COLORS, null, Shader.TileMode.REPEAT);
+            borderPaint.setShader(g);
             canvas.drawRoundRect(bounds, radius, radius, borderPaint);
-            getPaint().setShader(gradient);
+            getPaint().setShader(g);
         }
         super.onDraw(canvas);
         getPaint().setShader(null);

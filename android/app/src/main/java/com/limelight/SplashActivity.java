@@ -12,6 +12,7 @@ import android.os.Looper;
 import android.view.View;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.LinearInterpolator;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 // First screen shown on launch. Purely presentational (no initialization work depends on it) -
@@ -36,6 +37,10 @@ public class SplashActivity extends Activity {
 
         View logo = findViewById(R.id.splashLogo);
         View wordmark = findViewById(R.id.splashWordmark);
+
+        if (UiHelper.isLightTheme(this)) {
+            ((ImageView) logo).setImageResource(R.drawable.logo_spacecloud_light);
+        }
 
         ((TextView) wordmark).setTypeface(UiHelper.getDisplayTypeface(this));
 

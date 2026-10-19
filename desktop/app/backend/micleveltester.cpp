@@ -59,6 +59,22 @@ void MicLevelTester::stopTesting()
 
 void MicLevelTester::run()
 {
+    // O subsistema de áudio do SDL NÃO é ligado no boot (main.cpp só inicializa
+    // TIMER+VIDEO). Sem isto, SDL_OpenAudioDevice falha na hora e a barrinha
+    // "aparecia e sumia" ao clicar em Testar microfone. Ligamos aqui (o refcount
+    // interno do SDL deixa seguro conviver com outros subsistemas) e liberamos no
+    // fim. O motivo de qualquer falha vai pro log em arquivo (SpaceConnect-*.log).
+    bool ownAudioSubsystem = false;
+    if (!SDL_WasInit(SDL_INIT_AUDIO)) {
+        if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) {
+            qWarning() << "MicLevelTester: SDL_InitSubSystem(AUDIO) falhou:" << SDL_GetError();
+            m_Running.store(false);
+            emit testingChanged();
+            return;
+        }
+        ownAudioSubsystem = true;
+    }
+
     SDL_AudioSpec desired;
     SDL_zero(desired);
     desired.freq = MIC_SAMPLE_RATE;
@@ -72,6 +88,9 @@ void MicLevelTester::run()
     SDL_AudioDeviceID device = SDL_OpenAudioDevice(deviceName, SDL_TRUE, &desired, &obtained, 0);
     if (device == 0) {
         qWarning() << "MicLevelTester: failed to open capture device:" << SDL_GetError();
+        if (ownAudioSubsystem) {
+            SDL_QuitSubSystem(SDL_INIT_AUDIO);
+        }
         m_Running.store(false);
         // Avisa a UI que o teste NÃO começou — sem isso o QML ficava achando
         // que estava testando pra sempre (botão travado em "Parar teste").
@@ -112,5 +131,8 @@ void MicLevelTester::run()
     }
 
     SDL_CloseAudioDevice(device);
+    if (ownAudioSubsystem) {
+        SDL_QuitSubSystem(SDL_INIT_AUDIO);
+    }
     m_CurrentLevel.store(0.0f);
 }

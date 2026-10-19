@@ -44,6 +44,11 @@ public class UiHelper {
         }
     }
 
+    public static boolean isLightTheme(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        return "light".equals(prefs.getString(THEME_PREF_STRING, "dark"));
+    }
+
     private static Typeface displayTypeface;
     private static Typeface bodyTypeface;
 
