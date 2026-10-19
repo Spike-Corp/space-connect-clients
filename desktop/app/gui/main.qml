@@ -752,6 +752,12 @@ ApplicationWindow {
         }
 
         onOpened: shortcutsMicLevel = 0.0
+
+        // Se o dialog fechar com o teste rodando, para a captura (o dialog morre
+        // e o mic ficaria aberto pra sempre).
+        onClosed: {
+            if (shortcutsMicTesting) MicLevelTester.stopTesting()
+        }
     }
 
     // Atualiza o medidor do dialog de atalhos quando o MicLevelTester emite
@@ -762,6 +768,7 @@ ApplicationWindow {
         }
         function onTestingChanged() {
             shortcutsMicTesting = MicLevelTester.isTesting()
+            console.log("[MicTest] testingChanged -> isTesting=" + shortcutsMicTesting + " dialogAberto=" + shortcutsDialog.opened)
             if (!shortcutsMicTesting) shortcutsMicLevel = 0.0
         }
     }

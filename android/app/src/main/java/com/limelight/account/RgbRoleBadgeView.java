@@ -56,7 +56,11 @@ public final class RgbRoleBadgeView extends TextView {
             }
             long elapsed = SystemClock.uptimeMillis() - animStartMs;
             phase = (float) ((elapsed % PERIOD_MS) / (double) PERIOD_MS);
-            invalidate();
+            // invalidate() pode ser engolido em TextView quando o bounds não muda
+            // (otimização de layout). postInvalidateOnAnimation força o frame de
+            // verdade na próxima vsync — é o que o Android usa pra animação de
+            // View customizada que precisa repintar todo frame.
+            postInvalidateOnAnimation();
             animHandler.postDelayed(this, FRAME_MS);
         }
     };

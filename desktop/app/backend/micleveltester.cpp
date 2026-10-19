@@ -30,8 +30,10 @@ MicLevelTester::~MicLevelTester()
 void MicLevelTester::startTesting(const QString& captureDeviceName)
 {
     if (m_Running.load()) {
+        qInfo() << "MicLevelTester: startTesting ignorado (ja rodando)";
         return;
     }
+    qInfo() << "MicLevelTester: startTesting disparado (device:" << (captureDeviceName.isEmpty()?"padrao":captureDeviceName) << ")";
     m_CaptureDeviceName = captureDeviceName;
     m_Running.store(true);
     emit testingChanged();
@@ -43,6 +45,7 @@ void MicLevelTester::stopTesting()
     if (!m_Running.load()) {
         return;
     }
+    qInfo() << "MicLevelTester: stopTesting disparado";
     m_Running.store(false);
     // wait() na GUI thread congela a UI por até 1s. A thread do run() sai do
     // loop sozinha em ≤30ms (poll do SDL) e fecha o device — só quem chama de
@@ -77,6 +80,7 @@ void MicLevelTester::run()
     }
 
     SDL_PauseAudioDevice(device, 0);
+    qInfo() << "MicLevelTester: captura ABERTA com sucesso (device id" << device << ") — loop iniciado";
 
     const Uint32 k_MaxChunkBytes = 8192;
     while (m_Running.load()) {

@@ -33,7 +33,10 @@ Flickable {
     // Para de capturar ao sair das configurações (não vaza o microfone aberto).
     // O stop no Component.onDestruction fica no handler que já existe abaixo
     // (QML não aceita dois Component.onDestruction — quebrava o build Qt5).
-    StackView.onDeactivated: MicLevelTester.stopTesting()
+    StackView.onDeactivated: {
+        console.log("[MicTest] SettingsView deactivated — parando teste")
+        MicLevelTester.stopTesting()
+    }
 
     id: settingsPage
     objectName: qsTr("Settings")
