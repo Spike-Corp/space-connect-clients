@@ -30,5 +30,10 @@
         <file>gui/SpaceCheckBox.qml</file>
         <file>gui/SpaceComboBox.qml</file>
         <file>gui/SpaceSpinBox.qml</file>
+        <file>gui/styles/qmldir</file>
+        <file>gui/styles/SpaceTheme.qml</file>
+        <file>gui/styles/SpaceButton.qml</file>
+        <file>gui/styles/SpaceCard.qml</file>
+        <file>gui/styles/SpaceKicker.qml</file>
     </qresource>
 </RCC>

@@ -39,14 +39,17 @@ ApplicationWindow {
     Material.accent: "#a482fa"
     Material.primary: "#4572fa"
 
-    // "Space Connect" GTA VI-inspired sunset gradient window background - same original
-    // indigo -> purple -> coral horizon palette used on the Android client's bg_app_gradient.
-    // Not sampled from any copyrighted artwork.
+    // Fundo do site (Brandbook v1.1): black-space #0d0816 com um brilho sutil
+    // azul no topo, igual ao hero do nosso front (frontend-v2). Nada sampleado.
     background: Rectangle {
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: "#0d0816" }
-            GradientStop { position: 0.55; color: "#a482fa" }
-            GradientStop { position: 1.0; color: "#4572fa" }
+        color: "#0d0816"
+        Rectangle {
+            anchors.fill: parent
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: Qt.rgba(0.27, 0.45, 0.98, 0.10) }
+                GradientStop { position: 0.35; color: "#0d0816" }
+                GradientStop { position: 1.0; color: "#0d0816" }
+            }
         }
     }
 
@@ -369,11 +372,22 @@ ApplicationWindow {
         anchors.topMargin: 5
         anchors.bottomMargin: 5
 
-        // "Space Connect" display font for the toolbar title - same Orbitron
-        // typeface used for headings/wordmarks on the Android client.
+        // Header do site: dark translúcido com borda inferior sutil (border-white/10).
+        background: Rectangle {
+            color: Qt.rgba(0.07, 0.05, 0.09, 0.72)
+            Rectangle {
+                anchors.bottom: parent.bottom
+                width: parent.width
+                height: 1
+                color: Qt.rgba(1, 1, 1, 0.10)
+            }
+        }
+
+        // Fonte de título do site (Brandbook v1.1): Bai Jamjuree, a mesma usada
+        // nos headings/wordmark do nosso front (frontend-v2).
         FontLoader {
             id: displayFontLoader
-            source: "qrc:/fonts/orbitron_bold.ttf"
+            source: "qrc:/res/fonts/bai-jamjuree-700-normal.ttf"
         }
 
         Label {

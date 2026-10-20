@@ -3,6 +3,7 @@ import QtQuick.Controls 2.3
 import QtQuick.Controls.Material 2.2
 import QtQuick.Layouts 1.3
 import LauncherApi 1.0
+import "styles"
 
 Item {
     id: loginView
@@ -10,7 +11,7 @@ Item {
 
     FontLoader {
         id: displayFontLoader
-        source: "qrc:/fonts/orbitron_bold.ttf"
+        source: "qrc:/res/fonts/bai-jamjuree-700-normal.ttf"
     }
 
     function attemptLogin() {
@@ -97,10 +98,10 @@ Item {
             Rectangle {
                 Layout.fillWidth: true
                 implicitHeight: fieldsColumn.implicitHeight + 48
-                radius: 14
-                color: "#110d17"
+                radius: 16
+                color: SpaceTheme.bgRaised
                 border.width: 1
-                border.color: "#e8e2ff"
+                border.color: SpaceTheme.border
 
                 ColumnLayout {
                     id: fieldsColumn
@@ -200,9 +201,9 @@ Item {
                         Layout.alignment: Qt.AlignHCenter
                     }
 
-                    Button {
+                    SpaceButton {
                         text: qsTr("Sign In")
-                        highlighted: true
+                        variant: "primary"
                         enabled: !LauncherApi.busy
                         Layout.fillWidth: true
                         Layout.preferredHeight: 44

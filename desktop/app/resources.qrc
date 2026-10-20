@@ -36,6 +36,13 @@
         <file alias="fonts/orbitron_bold.ttf">res/fonts/orbitron_bold.ttf</file>
         <file alias="fonts/rajdhani_medium.ttf">res/fonts/rajdhani_medium.ttf</file>
         <file alias="fonts/rajdhani_semibold.ttf">res/fonts/rajdhani_semibold.ttf</file>
+        <file>res/fonts/bai-jamjuree-500-normal.ttf</file>
+        <file>res/fonts/bai-jamjuree-600-normal.ttf</file>
+        <file>res/fonts/bai-jamjuree-700-normal.ttf</file>
+        <file>res/fonts/inter-400-normal.ttf</file>
+        <file>res/fonts/inter-500-normal.ttf</file>
+        <file>res/fonts/inter-600-normal.ttf</file>
+        <file>res/fonts/inter-700-normal.ttf</file>
         <file>languages/qml_de.ts</file>
         <file>languages/qml_de.qm</file>
         <file>languages/qml_fr.ts</file>

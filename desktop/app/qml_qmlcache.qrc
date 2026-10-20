@@ -25,5 +25,9 @@
         <file alias="gui/SpaceCheckBox.qml">gui/SpaceCheckBox.qml</file>
         <file alias="gui/SpaceComboBox.qml">gui/SpaceComboBox.qml</file>
         <file alias="gui/SpaceSpinBox.qml">gui/SpaceSpinBox.qml</file>
+        <file alias="gui/styles/SpaceTheme.qml">gui/styles/SpaceTheme.qml</file>
+        <file alias="gui/styles/SpaceButton.qml">gui/styles/SpaceButton.qml</file>
+        <file alias="gui/styles/SpaceCard.qml">gui/styles/SpaceCard.qml</file>
+        <file alias="gui/styles/SpaceKicker.qml">gui/styles/SpaceKicker.qml</file>
     </qresource>
 </RCC>
