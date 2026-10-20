@@ -55,6 +55,9 @@ public class LauncherActivity extends Activity {
     private String pendingMachineId;
     private Boolean hasMachine;
     private SpaceConnectApiClient.MachineListItem[] machines;
+    // Planos ativos ainda sem VM — alimenta o "Criar nova VM" mesmo quando o
+    // usuário já tem máquinas (paridade com o desktop).
+    private SpaceConnectApiClient.CreatablePlan[] creatable;
     private String selectedMachineId;
     private SpaceConnectApiClient.StatusResponse lastStatus;
     private boolean planLocked;
@@ -143,6 +146,10 @@ public class LauncherActivity extends Activity {
         // USB passthrough: o helper é Windows-only (roda no PC do cliente). No
         // Android o botão vira um how-to + link de download, visível com a VM pronta.
         findViewById(R.id.launcherUsbButton).setOnClickListener(v -> showUsbPassthroughInfo());
+        // "Minhas VMs": gestão de máquinas disponível em QUALQUER estado (idle,
+        // na fila, em sessão) — seletor/troca de VM + "Criar nova VM", como no
+        // desktop. Antes a gestão sumia ao ligar uma VM (só sobrava Conectar/Encerrar).
+        findViewById(R.id.launcherMachinesButton).setOnClickListener(v -> showMachinesDialog());
     }
 
     private void showUsbPassthroughInfo() {
@@ -432,6 +439,7 @@ public class LauncherActivity extends Activity {
                 upcomingEntitlements = result.upcomingEntitlements;
                 upcomingEntitlement = firstUpcomingEntitlement();
                 machines = result.machines;
+                creatable = result.creatable;
                 hasMachine = machines != null && machines.length > 0;
                 if (machines != null && machines.length == 1) {
                     selectedMachineId = machines[0].id;
@@ -441,6 +449,7 @@ public class LauncherActivity extends Activity {
                 renderPlanHours();
                 render(lastStatus);
                 updateTransferDiskButton();
+                updateMachinesButton();
             }
 
             @Override
@@ -450,7 +459,33 @@ public class LauncherActivity extends Activity {
         });
     }
 
+    // Entrada única da criação de VM. Com vários planos criáveis, deixa o
+    // usuário escolher de qual plano criar (demo, pacote, etc.); com um só, usa
+    // ele direto; sem info (lista ainda não carregada) cai no modo antigo em que
+    // o backend escolhe o plano.
+    private void startCreateMachineFlow() {
+        if (creatable != null && creatable.length > 1) {
+            String[] labels = new String[creatable.length];
+            for (int i = 0; i < creatable.length; i++) {
+                labels[i] = creatablePlanLabel(creatable[i]);
+            }
+            new AlertDialog.Builder(this)
+                    .setTitle(R.string.launcher_select_plan_title)
+                    .setItems(labels, (dialog, which) ->
+                            promptCreateMachine(creatable[which].balanceId))
+                    .setNegativeButton(R.string.game_menu_cancel, null)
+                    .show();
+            return;
+        }
+        String balanceId = (creatable != null && creatable.length == 1) ? creatable[0].balanceId : null;
+        promptCreateMachine(balanceId);
+    }
+
     private void promptCreateMachine() {
+        startCreateMachineFlow();
+    }
+
+    private void promptCreateMachine(String balanceId) {
         final EditText passwordField = new EditText(this);
         passwordField.setHint(R.string.launcher_create_machine_password_hint);
         passwordField.setInputType(
@@ -462,15 +497,31 @@ public class LauncherActivity extends Activity {
                 .setView(passwordField)
                 .setNegativeButton(R.string.game_menu_cancel, null)
                 .setPositiveButton(R.string.launcher_confirm, (dialog, which) ->
-                        createMachine(passwordField.getText().toString()))
+                        createMachine(passwordField.getText().toString(), balanceId))
                 .show();
     }
 
+    // Rótulo de um plano criável: "xTerminator NW · 10h" / "… · ilimitado".
+    private String creatablePlanLabel(SpaceConnectApiClient.CreatablePlan plan) {
+        if (plan == null) return getString(R.string.launcher_plan_fallback);
+        String name = plan.planName != null && !plan.planName.trim().isEmpty()
+                ? plan.planName.trim()
+                : prettifyPlanSlug(plan.planSlug);
+        if (plan.unlimited) {
+            return name + " · " + getString(R.string.launcher_plan_unlimited_short);
+        }
+        return name + " · " + formatHours(plan.hoursRemaining);
+    }
+
     private void createMachine(String password) {
+        createMachine(password, null);
+    }
+
+    private void createMachine(String password, String balanceId) {
         if (requestRunning) return;
         requestRunning = true;
         progressBar.setVisibility(View.VISIBLE);
-        AccountManager.createMachine(this, password, new AccountManager.ResultCallback<SpaceConnectApiClient.CreateMachineResponse>() {
+        AccountManager.createMachine(this, password, balanceId, new AccountManager.ResultCallback<SpaceConnectApiClient.CreateMachineResponse>() {
             @Override
             public void onSuccess(SpaceConnectApiClient.CreateMachineResponse result) {
                 requestRunning = false;
@@ -487,6 +538,121 @@ public class LauncherActivity extends Activity {
                 Toast.makeText(LauncherActivity.this, message, Toast.LENGTH_LONG).show();
             }
         });
+    }
+
+    // Botão "Minhas VMs": visível quando há máquinas OU planos criáveis. É o
+    // ponto de gestão que funciona em qualquer estado (inclusive em sessão).
+    private void updateMachinesButton() {
+        boolean show = (machines != null && machines.length > 0)
+                || (creatable != null && creatable.length > 0);
+        findViewById(R.id.launcherMachinesButton).setVisibility(show ? View.VISIBLE : View.GONE);
+    }
+
+    // Painel de gestão de VMs: lista as máquinas (marcando a em sessão/selecionada)
+    // e oferece "Criar nova VM". Disponível em QUALQUER estado — era o que
+    // faltava no app: ao ligar uma VM a gestão das outras sumia.
+    private void showMachinesDialog() {
+        boolean hasMachines = machines != null && machines.length > 0;
+        boolean hasCreatable = creatable != null && creatable.length > 0;
+        if (!hasMachines && !hasCreatable) {
+            startCreateMachineFlow();
+            return;
+        }
+
+        final String sessionMachineId = lastStatus != null && lastStatus.session != null
+                && lastStatus.session.machine != null ? lastStatus.session.machine.id : null;
+
+        final java.util.List<String> labels = new java.util.ArrayList<>();
+        final java.util.List<SpaceConnectApiClient.MachineListItem> rows = new java.util.ArrayList<>();
+        if (hasMachines) {
+            for (SpaceConnectApiClient.MachineListItem m : machines) {
+                if (m == null) continue;
+                String name = (m.name == null || m.name.trim().isEmpty()) ? m.id : m.name;
+                String label = name + " (" + m.provider + ")" + planHoursSuffix(m);
+                if (m.id != null && m.id.equals(sessionMachineId)) {
+                    label = "▶ " + label + "\n" + getString(R.string.launcher_machine_in_session);
+                } else if (m.id != null && m.id.equals(selectedMachineId)) {
+                    label = label + "\n" + getString(R.string.launcher_machine_selected);
+                }
+                labels.add(label);
+                rows.add(m);
+            }
+        }
+        final int createIndex = labels.size();
+        if (hasCreatable) {
+            labels.add(getString(R.string.launcher_create_new_machine));
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.launcher_machines_title)
+                .setItems(labels.toArray(new String[0]), (dialog, which) -> {
+                    if (hasCreatable && which == createIndex) {
+                        startCreateMachineFlow();
+                    } else if (which >= 0 && which < rows.size()) {
+                        onMachineChosen(rows.get(which), sessionMachineId);
+                    }
+                })
+                .setNegativeButton(R.string.game_menu_cancel, null)
+                .show();
+    }
+
+    private void onMachineChosen(SpaceConnectApiClient.MachineListItem machine, String sessionMachineId) {
+        if (machine == null || machine.id == null) return;
+        // Já é a VM da sessão atual: gestão fica nos botões Conectar/Encerrar.
+        if (machine.id.equals(sessionMachineId)) {
+            selectedMachineId = machine.id;
+            renderPlanHours();
+            return;
+        }
+        // Sessão ativa em OUTRA VM: trocar exige encerrar a atual primeiro
+        // (uma sessão por vez no aparelho, igual ao desktop).
+        if (sessionMachineId != null) {
+            String current = machineLabelForId(sessionMachineId);
+            String target = (machine.name == null || machine.name.trim().isEmpty()) ? machine.id : machine.name;
+            new AlertDialog.Builder(this)
+                    .setTitle(R.string.launcher_switch_machine_title)
+                    .setMessage(getString(R.string.launcher_switch_machine_message, current, target))
+                    .setNegativeButton(R.string.game_menu_cancel, null)
+                    .setPositiveButton(R.string.launcher_switch_machine_confirm, (d, w) ->
+                            switchToMachine(sessionMachineId, machine.id))
+                    .show();
+            return;
+        }
+        // Sem sessão: seleciona e entra na fila dessa VM.
+        selectedMachineId = machine.id;
+        joinQueueForMachine(machine.id);
+    }
+
+    // Troca de VM: encerra a sessão atual e, quando o backend confirmar, entra
+    // na fila da nova. Seguro porque fila/sessão são por máquina no backend —
+    // a nova VM não é bloqueada pela sessão que está sendo encerrada.
+    private void switchToMachine(String currentMachineId, String targetMachineId) {
+        if (requestRunning) return;
+        requestRunning = true;
+        progressBar.setVisibility(View.VISIBLE);
+        AccountManager.endSession(this, currentMachineId,
+                new AccountManager.ResultCallback<SpaceConnectApiClient.EndSessionResponse>() {
+            @Override
+            public void onSuccess(SpaceConnectApiClient.EndSessionResponse result) {
+                requestRunning = false;
+                progressBar.setVisibility(View.GONE);
+                selectedMachineId = targetMachineId;
+                joinQueueForMachine(targetMachineId);
+            }
+
+            @Override
+            public void onError(String message) {
+                requestRunning = false;
+                progressBar.setVisibility(View.GONE);
+                Toast.makeText(LauncherActivity.this, message, Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private String machineLabelForId(String machineId) {
+        SpaceConnectApiClient.MachineListItem m = machineForId(machineId);
+        if (m == null) return getString(R.string.launcher_machine);
+        return (m.name == null || m.name.trim().isEmpty()) ? m.id : m.name;
     }
 
     // Transferência de disco só faz sentido com 2+ máquinas Proxmox.

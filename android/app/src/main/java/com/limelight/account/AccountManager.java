@@ -236,6 +236,16 @@ public final class AccountManager {
         executeAuthenticated(context, token -> API.createMachine(token, password), callback);
     }
 
+    // Cria a VM de um plano específico (balanceId) — usado pelo "Criar nova VM"
+    // quando o usuário já tem máquinas e escolhe de qual plano criar a próxima.
+    public static void createMachine(
+            Context context,
+            String password,
+            String balanceId,
+            ResultCallback<SpaceConnectApiClient.CreateMachineResponse> callback) {
+        executeAuthenticated(context, token -> API.createMachine(token, password, balanceId), callback);
+    }
+
     public static void getConnection(
             Context context,
             ResultCallback<SpaceConnectApiClient.ConnectionResponse> callback) {

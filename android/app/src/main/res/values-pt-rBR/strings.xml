@@ -446,6 +446,14 @@
     <string name="launcher_create_machine_message">Confirme sua senha pra criar seu PC dedicado na SpaceCloud. Isso pode levar alguns minutos.</string>
     <string name="launcher_create_machine_password_hint">Senha</string>
     <string name="launcher_create_machine_success">Seu PC está sendo criado. Isso pode levar alguns minutos.</string>
+    <string name="launcher_machines_title">Minhas VMs</string>
+    <string name="launcher_create_new_machine">＋ Criar nova VM</string>
+    <string name="launcher_select_plan_title">Escolha o plano</string>
+    <string name="launcher_switch_machine_title">Trocar de VM</string>
+    <string name="launcher_switch_machine_message">Isso encerra sua sessão atual em %1$s e inicia em %2$s. Continuar?</string>
+    <string name="launcher_switch_machine_confirm">Trocar</string>
+    <string name="launcher_machine_in_session">Em sessão</string>
+    <string name="launcher_machine_selected">Selecionada</string>
     <string name="launcher_shortcut_controller">Controle e entrada</string>
     <string name="launcher_shortcut_settings">Configurações</string>
     <string name="launcher_upload_file">Enviar arquivo pro PC</string>

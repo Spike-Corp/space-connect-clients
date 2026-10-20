@@ -200,6 +200,18 @@
                 android:textSize="14sp"
                 android:visibility="gone" />
 
+            <Button
+                android:id="@+id/launcherMachinesButton"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_button_ghost"
+                android:text="@string/launcher_machines_title"
+                android:textAllCaps="false"
+                android:textColor="?attr/appForegroundColor"
+                android:textSize="14sp"
+                android:visibility="gone" />
+
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

@@ -130,8 +130,19 @@ public final class SpaceConnectApiClient {
     // sozinha, ela só serve quem já tem uma máquina dedicada.
     public CreateMachineResponse createMachine(String accessToken, String password)
             throws IOException, ApiException {
+        return createMachine(accessToken, password, null);
+    }
+
+    // Cria a VM DE UM plano específico (balanceId). Igual ao desktop: sem o
+    // balanceId o backend escolhe "o primeiro plano ativo", o que embaralha
+    // quem tem mais de um plano sem VM (demo + pacote, etc.).
+    public CreateMachineResponse createMachine(String accessToken, String password, String balanceId)
+            throws IOException, ApiException {
         CreateMachineRequest input = new CreateMachineRequest();
         input.password = password;
+        if (balanceId != null && !balanceId.trim().isEmpty()) {
+            input.balanceId = balanceId.trim();
+        }
         return post("create-machine", input, accessToken, CreateMachineResponse.class);
     }
 
@@ -538,6 +549,9 @@ public final class SpaceConnectApiClient {
 
     private static final class CreateMachineRequest {
         String password;
+        // Opcional: de qual plano criar a VM (null = backend escolhe). Gson
+        // omite campo null por padrão, então não vai no corpo quando ausente.
+        String balanceId;
     }
 
     private static final class RenameMachineRequest {
@@ -806,6 +820,25 @@ public final class SpaceConnectApiClient {
         public boolean locked;
         public MachineListItem[] machines;
         public Entitlement[] upcomingEntitlements;
+        // Planos ativos SEM VM vinculada — o usuário pode criar a VM deles.
+        // Mesmo campo que o desktop consome pra "Criar nova VM". Sem isso o app
+        // só oferecia "criar" quando não havia NENHUMA máquina (loop pra quem já
+        // tinha VM e comprou outro plano, ex.: demo + pacote).
+        public CreatablePlan[] creatable;
+    }
+
+    // Plano criável (entitlement ativo ainda sem VM). balanceId identifica de
+    // qual plano criar a VM — mandado no create-machine pra não embaralhar
+    // multi-plano (o backend, sem ele, pega "o primeiro plano ativo").
+    public static final class CreatablePlan {
+        public String balanceId;
+        public String planSlug;
+        public String planName;
+        public String type;
+        public boolean unlimited;
+        public double hoursRemaining;
+        public double bonusHours;
+        public String expiresAt;
     }
 
     public static final class MachineListItem {
