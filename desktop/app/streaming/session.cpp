@@ -1922,12 +1922,14 @@ void Session::execInternal()
 
     m_InputHandler->setWindow(m_Window);
 
-    QSvgRenderer svgIconRenderer(QString(":/res/moonlight.svg"));
     QImage svgImage(ICON_SIZE, ICON_SIZE, QImage::Format_RGBA8888);
     svgImage.fill(0);
 
     QPainter svgPainter(&svgImage);
-    svgIconRenderer.render(&svgPainter);
+    // Ícone da janela de streaming = logo do Space Connect (antes era o do
+    // Moonlight). PNG desenhado no mesmo buffer RGBA pra manter o SDL_Surface igual.
+    QImage brandLogo(QStringLiteral(":/res/spaceconnect_icon_256.png"));
+    svgPainter.drawImage(QRect(0, 0, ICON_SIZE, ICON_SIZE), brandLogo);
     SDL_Surface* iconSurface = SDL_CreateRGBSurfaceWithFormatFrom((void*)svgImage.constBits(),
                                                                   svgImage.width(),
                                                                   svgImage.height(),

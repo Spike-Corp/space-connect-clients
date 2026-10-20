@@ -56,6 +56,7 @@ class LauncherApi : public QObject
     // tinha; o desktop não passava machineId em nada e o backend escolhia
     // "a" sessão ativa — usuário com 2 planos não conseguia escolher).
     Q_PROPERTY(QVariantList machines READ machines NOTIFY machinesChanged)
+    Q_PROPERTY(QVariantList creatablePlans READ creatablePlans NOTIFY machinesChanged)
     Q_PROPERTY(QString selectedMachineId READ selectedMachineId WRITE setSelectedMachineId NOTIFY machinesChanged)
     // Máquina da sessão ativa reportada pelo /status (vazio quando não há) — a UI
     // usa pra exibir o saldo do plano da VM certa em contas multi-plano.
@@ -92,6 +93,7 @@ public:
     QString upcomingPlanName() const { return m_UpcomingPlanName; }
     QString upcomingPlanAvailableAt() const { return m_UpcomingPlanAvailableAt; }
     QVariantList machines() const { return m_Machines; }
+    QVariantList creatablePlans() const { return m_CreatablePlans; }
     QString selectedMachineId() const { return m_SelectedMachineId; }
     void setSelectedMachineId(const QString& id);
     QString statusMachineId() const { return m_StatusMachineId; }
@@ -116,7 +118,7 @@ public:
     // Provisiona a VM dedicada do usuário (self-service), igual ao botão
     // "Criar VM" do site. Necessário antes de conseguir entrar na fila —
     // a fila nunca cria VM sozinha.
-    Q_INVOKABLE void createMachine(const QString& password);
+    Q_INVOKABLE void createMachine(const QString& password, const QString& balanceId = QString());
     Q_INVOKABLE void fetchMachines();
     Q_INVOKABLE void submitPairPin(const QString& pin);
     Q_INVOKABLE void uploadFileToVm(const QString& filePath);
@@ -286,6 +288,7 @@ private:
     QString m_UpcomingPlanName;
     QString m_UpcomingPlanAvailableAt;
     QVariantList m_Machines;
+    QVariantList m_CreatablePlans;
     QString m_SelectedMachineId;
     // Máquina da sessão ativa reportada pelo /status (prioriza sobre a seleção).
     QString m_StatusMachineId;

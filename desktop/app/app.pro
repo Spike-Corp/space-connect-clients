@@ -568,7 +568,7 @@ unix:!macx: {
     INSTALLS += target desktop icons appstream
 }
 win32 {
-    RC_ICONS = moonlight.ico
+    RC_ICONS = spaceconnect.ico
     QMAKE_TARGET_COMPANY = Space Connect
     QMAKE_TARGET_DESCRIPTION = Space Connect Streaming Client
     QMAKE_TARGET_PRODUCT = Space Connect

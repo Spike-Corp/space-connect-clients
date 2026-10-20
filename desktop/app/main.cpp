@@ -674,7 +674,9 @@ int main(int argc, char *argv[])
 #ifndef Q_OS_DARWIN
     // Set the window icon except on macOS where we want to keep the
     // modified macOS 11 style rounded corner icon.
-    app.setWindowIcon(QIcon(":/res/moonlight.svg"));
+    // Ícone da janela/taskbar = logo do Space Connect (antes usava o do Moonlight,
+    // que deixava "a cara do Moonlight" na barra de tarefas e no alt-tab).
+    app.setWindowIcon(QIcon(":/res/spaceconnect_icon_256.png"));
 #endif
 
     // This is necessary to show our icon correctly on Wayland

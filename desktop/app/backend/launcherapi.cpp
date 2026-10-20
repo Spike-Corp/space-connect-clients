@@ -367,6 +367,51 @@ void LauncherApi::fetchMachines()
                     m_HasMachine = !list.isEmpty();
                     m_MachinesLoaded = true;
 
+                    // Planos criáveis: entitlements ativos que ainda não têm VM.
+                    // É o que faltava — um plano novo (ex.: demo) sem máquina não
+                    // aparecia em lugar nenhum e o cliente não conseguia criar a VM
+                    // dele. Montamos um rótulo pronto e guardamos o balanceId pra
+                    // mandar no create-machine (o backend cria a VM do plano certo).
+                    {
+                        const QJsonArray creatable =
+                            root.value(QStringLiteral("creatable")).toArray();
+                        QVariantList plans;
+                        plans.reserve(creatable.size());
+                        for (const QJsonValue& value : creatable) {
+                            const QJsonObject plan = value.toObject();
+                            const QString balanceId =
+                                plan.value(QStringLiteral("balanceId")).toString();
+                            if (balanceId.isEmpty())
+                                continue;
+                            const QString planName =
+                                plan.value(QStringLiteral("planName")).toString();
+                            const QString planSlug =
+                                plan.value(QStringLiteral("planSlug")).toString();
+                            const bool unlimited =
+                                plan.value(QStringLiteral("unlimited")).toBool();
+                            const double hoursRemaining =
+                                plan.value(QStringLiteral("hoursRemaining")).toDouble();
+                            QVariantMap entry;
+                            entry.insert(QStringLiteral("balanceId"), balanceId);
+                            entry.insert(QStringLiteral("planSlug"), planSlug);
+                            entry.insert(QStringLiteral("planName"), planName);
+                            entry.insert(QStringLiteral("unlimited"), unlimited);
+                            entry.insert(QStringLiteral("hoursRemaining"), hoursRemaining);
+                            QString label = planName.isEmpty() ? planSlug : planName;
+                            if (unlimited) {
+                                label += QStringLiteral(" · ") + tr("ilimitado");
+                            }
+                            else {
+                                label += QStringLiteral(" · %1h").arg(
+                                    hoursRemaining, 0, 'f',
+                                    hoursRemaining == std::floor(hoursRemaining) ? 0 : 1);
+                            }
+                            entry.insert(QStringLiteral("display"), label);
+                            plans.append(entry);
+                        }
+                        m_CreatablePlans = plans;
+                    }
+
                     // Seleção: com 1 máquina, ela é sempre a escolhida. Com 2+,
                     // mantém a escolha salva se ainda existir; senão limpa pra
                     // o usuário escolher no seletor (backend decide até lá).
@@ -411,7 +456,7 @@ QString LauncherApi::effectiveMachineId() const
     return m_SelectedMachineId;
 }
 
-void LauncherApi::createMachine(const QString& password)
+void LauncherApi::createMachine(const QString& password, const QString& balanceId)
 {
     if (!m_LoggedIn || m_Busy)
         return;
@@ -422,8 +467,14 @@ void LauncherApi::createMachine(const QString& password)
 
     setBusy(true);
     setError(QString());
+    // Quando o usuário escolhe de qual plano criar (demo, pacote, mensal...),
+    // mandamos o balanceId pro backend criar a VM DAQUELE plano. Sem isso o
+    // backend pegava "o primeiro plano ativo", o que embaralhava multi-plano.
+    QJsonObject payload{{QStringLiteral("password"), password}};
+    if (!balanceId.isEmpty())
+        payload.insert(QStringLiteral("balanceId"), balanceId);
     request("POST", QStringLiteral("create-machine"),
-            QJsonObject{{QStringLiteral("password"), password}},
+            payload,
             true,
             [this](int status, const QJsonObject& root) {
                 setBusy(false);
@@ -537,7 +588,7 @@ void LauncherApi::requestConnection()
                     emit connectionReady(address, targetMachineId, name);
                 }
                 catch (const std::exception&) {
-                    setError(QStringLiteral("Conexão Moonlight ainda não disponível"));
+                    setError(QStringLiteral("Conexão ainda não disponível"));
                 }
             });
 }

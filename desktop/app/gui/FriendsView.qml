@@ -751,6 +751,6 @@ Item {
         parent: Overlay.overlay
         x: Math.round((parent.width - width) / 2)
         y: Math.round((parent.height - height) / 2)
-        Label { text: qsTr("Não foi possível alcançar o host Moonlight. Tente novamente em alguns segundos."); wrapMode: Text.WordWrap; width: 300 }
+        Label { text: qsTr("Não foi possível alcançar o host de streaming. Tente novamente em alguns segundos."); wrapMode: Text.WordWrap; width: 300 }
     }
 }

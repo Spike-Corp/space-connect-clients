@@ -13,7 +13,7 @@ Item {
     // PcView por cima do hostname do Apollo (SCG-VMF).
     property string pendingConnectAddress: ""
     property string pendingConnectName: ""
-    property string connectionErrorText: qsTr("Não foi possível alcançar o host Moonlight. Tente novamente em alguns segundos.")
+    property string connectionErrorText: qsTr("Não foi possível alcançar o host de streaming. Tente novamente em alguns segundos.")
 
     function formatActivationDate(value) {
         if (!value) return "--/--"
@@ -236,8 +236,8 @@ Item {
                 })
             else {
                 connectionErrorText = detectedPortBlocking
-                        ? qsTr("Sua rede parece bloquear as portas do Moonlight. Tente outra conexão ou libere o aplicativo no firewall.")
-                        : qsTr("Não foi possível alcançar o host Moonlight. Tente novamente em alguns segundos.")
+                        ? qsTr("Sua rede parece bloquear as portas de streaming. Tente outra conexão ou libere o aplicativo no firewall.")
+                        : qsTr("Não foi possível alcançar o host de streaming. Tente novamente em alguns segundos.")
                 errorDialog.open()
             }
         }
@@ -372,6 +372,18 @@ Item {
                     }
                 }
 
+                // "Criar nova VM": aparece quando o cliente JÁ tem VM mas tem um
+                // plano ativo sem máquina (ex.: comprou/ganhou o demo). Sem isso o
+                // fluxo de criação só abria pra quem tinha ZERO VMs, então o plano
+                // novo ficava invisível no app.
+                Button {
+                    visible: LauncherApi.hasMachine && LauncherApi.creatablePlans.length > 0
+                    text: qsTr("Criar nova VM")
+                    enabled: !LauncherApi.busy
+                    Layout.fillWidth: true
+                    onClicked: createMachineDialog.open()
+                }
+
                 Button {
                     text: primaryText()
                     highlighted: true
@@ -479,19 +491,59 @@ Item {
 
     Dialog {
         id: createMachineDialog
-        title: qsTr("Create your VM")
+        title: qsTr("Criar sua VM")
         standardButtons: Dialog.Cancel
         parent: Overlay.overlay
         x: Math.round((parent.width - width) / 2)
         y: Math.round((parent.height - height) / 2)
         modal: true
 
+        // balanceId do plano escolhido (ou do único plano criável). Vazio = deixa
+        // o backend decidir (mantém compat. com o fluxo antigo de plano único).
+        function selectedBalanceId() {
+            var plans = LauncherApi.creatablePlans
+            if (!plans || plans.length === 0) return ""
+            if (plans.length === 1) return plans[0].balanceId
+            var idx = planSelector.currentIndex
+            if (idx >= 0 && idx < plans.length) return plans[idx].balanceId
+            return plans[0].balanceId
+        }
+
         ColumnLayout {
-            width: 320
+            width: 340
             spacing: 12
 
+            // Seletor de plano: aparece quando há 2+ planos sem VM (ex.: mensal +
+            // demo). Sem isso o cliente não escolhia de qual plano criar a VM — era
+            // o que faltava pro plano demo aparecer no app.
             Label {
-                text: qsTr("Choose a password for your PC (used for Windows login too).")
+                visible: LauncherApi.creatablePlans.length > 1
+                text: qsTr("De qual plano criar a VM?")
+                color: "#9793aa"
+                Layout.fillWidth: true
+            }
+            SpaceComboBox {
+                id: planSelector
+                visible: LauncherApi.creatablePlans.length > 1
+                model: LauncherApi.creatablePlans
+                textRole: "display"
+                currentIndex: 0
+                Layout.fillWidth: true
+            }
+            // Com um único plano criável, mostramos qual é (sem seletor) pra dar contexto.
+            Label {
+                visible: LauncherApi.creatablePlans.length === 1
+                text: LauncherApi.creatablePlans.length === 1
+                      ? qsTr("Plano: %1").arg(LauncherApi.creatablePlans[0].display)
+                      : ""
+                color: "#e8c85a"
+                font.bold: true
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            Label {
+                text: qsTr("Escolha uma senha para o seu PC (também é usada no login do Windows).")
                 wrapMode: Text.WordWrap
                 color: "#9793aa"
                 Layout.fillWidth: true
@@ -500,17 +552,17 @@ Item {
             TextField {
                 id: machinePasswordField
                 echoMode: TextInput.Password
-                placeholderText: qsTr("Password (5-64 characters)")
+                placeholderText: qsTr("Senha (5-64 caracteres)")
                 Layout.fillWidth: true
             }
 
             Button {
-                text: qsTr("Create VM")
+                text: qsTr("Criar VM")
                 highlighted: true
                 enabled: machinePasswordField.text.length >= 5 && machinePasswordField.text.length <= 64
                 Layout.fillWidth: true
                 onClicked: {
-                    LauncherApi.createMachine(machinePasswordField.text)
+                    LauncherApi.createMachine(machinePasswordField.text, createMachineDialog.selectedBalanceId())
                     machinePasswordField.text = ""
                     createMachineDialog.close()
                 }
