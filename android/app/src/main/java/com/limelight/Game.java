@@ -1802,6 +1802,31 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         inputManager.toggleSoftInput(0, 0);
     }
 
+    // Cola o texto da área de transferência do dispositivo digitando-o no host via
+    // sendUtf8Text (canal de input), igual ao Ctrl+Alt+Shift+V do desktop. Independe do
+    // endpoint /actions/clipboard do Apollo (que exige sessão de stream ativa e, após o
+    // backport de segurança GHSA-ph75-mgxh-mv57, pode recusar o push HTTP), então funciona
+    // mesmo quando o Ctrl+V nativo não cola do cliente pro host.
+    public void pasteClipboardText() {
+        if (conn == null) {
+            return;
+        }
+        try {
+            ClipboardManager cm = clipboardManager != null ? clipboardManager
+                    : (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+            ClipData clip = cm != null ? cm.getPrimaryClip() : null;
+            CharSequence text = (clip != null && clip.getItemCount() > 0)
+                    ? clip.getItemAt(0).coerceToText(this) : null;
+            if (text == null || text.length() == 0) {
+                Toast.makeText(this, getString(R.string.game_menu_paste_clipboard_empty), Toast.LENGTH_SHORT).show();
+                return;
+            }
+            conn.sendUtf8Text(text.toString());
+        } catch (Exception e) {
+            LimeLog.warning("pasteClipboardText failed: " + e.getMessage());
+        }
+    }
+
     // Shows/hides the custom-drawn full on-screen keyboard (own F1-F12 row, etc.) - unlike
     // toggleKeyboard() above, this doesn't involve the system IME/Gboard at all. Used by the
     // specialKeysButton overlay button and the game menu's "Full keyboard" entry.

@@ -118,6 +118,8 @@
     <string name="game_menu_disable_zoom_mode">Disable pan/zoom mode</string>
     <string name="game_menu_disconnect">Disconnect</string>
     <string name="game_menu_quit_session">Quit session</string>
+    <string name="game_menu_paste_clipboard">Paste text (clipboard)</string>
+    <string name="game_menu_paste_clipboard_empty">Clipboard is empty</string>
     <string name="game_menu_cancel">Cancel</string>
     <string name="game_dialog_title_quit_confirm">Quit session?</string>
     <string name="game_dialog_message_quit_confirm">This will end your streaming session and quit the app.</string>

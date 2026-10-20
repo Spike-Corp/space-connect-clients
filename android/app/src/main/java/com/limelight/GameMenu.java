@@ -67,6 +67,7 @@ public class GameMenu {
         options.add(new MenuOption(getString(R.string.game_menu_select_mouse_mode), game::selectMouseMode));
         options.add(new MenuOption(getString(R.string.game_menu_toggle_keyboard), game::toggleKeyboard));
         options.add(new MenuOption(getString(R.string.game_menu_toggle_full_keyboard), game::toggleFullKeyboard));
+        options.add(new MenuOption(getString(R.string.game_menu_paste_clipboard), game::pasteClipboardText));
         options.add(new MenuOption(getString(game.areOnScreenControlsHidden() ?
                 R.string.game_menu_show_controls : R.string.game_menu_hide_controls), game::toggleOnScreenControls));
         options.add(new MenuOption(getString(R.string.game_menu_rotate_screen), game::rotateScreen));

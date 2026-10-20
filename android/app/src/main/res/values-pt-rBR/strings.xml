@@ -79,6 +79,8 @@
     <string name="game_menu_disable_zoom_mode">Desativar modo de zoom/panorâmica</string>
     <string name="game_menu_disconnect">Desconectar</string>
     <string name="game_menu_quit_session">Encerrar sessão</string>
+    <string name="game_menu_paste_clipboard">Colar texto (área de transferência)</string>
+    <string name="game_menu_paste_clipboard_empty">Área de transferência vazia</string>
     <string name="game_menu_cancel">Cancelar</string>
     <string name="game_dialog_title_quit_confirm">Encerrar sessão?</string>
     <string name="game_dialog_message_quit_confirm">Isso vai encerrar sua sessão de streaming e fechar o aplicativo.</string>
