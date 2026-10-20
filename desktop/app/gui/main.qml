@@ -408,6 +408,37 @@ ApplicationWindow {
             anchors.rightMargin: 10
             anchors.fill: parent
 
+            // Marca do app no topo-esquerdo, igual ao Navbar do site (logo à
+            // esquerda). Ícone sempre visível; wordmark some em janela estreita.
+            Row {
+                id: brandMark
+                spacing: 8
+                Layout.alignment: Qt.AlignVCenter
+                Layout.leftMargin: 2
+
+                Image {
+                    id: brandIcon
+                    source: "qrc:/res/spaceconnect_icon_256.png"
+                    sourceSize.width: 30
+                    sourceSize.height: 30
+                    width: 30; height: 30
+                    anchors.verticalCenter: parent.verticalCenter
+                    smooth: true
+                    antialiasing: true
+                }
+
+                Label {
+                    id: brandWordmark
+                    visible: toolBar.width > 760
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "SPACE CONNECT"
+                    font.family: displayFontLoader.name
+                    font.pointSize: 13
+                    font.letterSpacing: 1.6
+                    color: "#f8f5ff"
+                }
+            }
+
             NavigableToolButton {
                 // Only make the button visible if the user has navigated somewhere.
                 // (No XD Console o "voltar" do console cairia no login — confunde;

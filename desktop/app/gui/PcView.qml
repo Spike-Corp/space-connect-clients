@@ -2,6 +2,8 @@ import QtQuick 2.9
 import QtQuick.Controls 2.2
 import QtQuick.Layouts 1.3
 
+import "styles"
+
 import ComputerModel 1.0
 
 import ComputerManager 1.0
@@ -187,8 +189,10 @@ CenteredGridView {
 
         Label {
             elide: Label.ElideRight
-            text: qsTr("No PCs yet. Your PC will appear automatically once linked to your Space Connect account.")
+            text: qsTr("Nenhum PC ainda. Seu PC aparece aqui automaticamente assim que for vinculado à sua conta Space Connect.")
+            font.family: SpaceTheme.bodyFont
             font.pointSize: 20
+            color: SpaceTheme.fgMuted
             verticalAlignment: Text.AlignVCenter
             wrapMode: Text.Wrap
         }
@@ -201,14 +205,14 @@ CenteredGridView {
         width: 300; height: 320;
         grid: pcGrid
 
-        // "Space Connect" card look: dark surface panel with a thin accent
-        // border that brightens to purple when focused/hovered - matches the
-        // Android client's bg_card + accent-highlight styling.
+        // "Space Connect" card look: superfície dark do site com borda sutil
+        // (branco/10) que acende em roxo da marca quando focada/hover — espelha
+        // os cards do nosso front (frontend-v2).
         background: Rectangle {
-            radius: 14
-            color: "#110d17"
+            radius: SpaceTheme.radiusLg
+            color: (pcDelegate.highlighted || pcDelegate.hovered) ? SpaceTheme.surface : SpaceTheme.bgRaised
             border.width: pcDelegate.highlighted ? 2 : 1
-            border.color: (pcDelegate.highlighted || pcDelegate.hovered) ? "#a482fa" : "#e8e2ff"
+            border.color: (pcDelegate.highlighted || pcDelegate.hovered) ? SpaceTheme.purple : SpaceTheme.border
         }
 
         property alias pcContextMenu : pcContextMenuLoader.item
@@ -254,7 +258,10 @@ CenteredGridView {
             width: parent.width
             anchors.top: pcIcon.bottom
             anchors.bottom: parent.bottom
-            font.pointSize: 36
+            font.family: SpaceTheme.headingFont
+            font.pointSize: 26
+            font.weight: Font.DemiBold
+            color: SpaceTheme.fg
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.Wrap
             elide: Text.ElideRight
