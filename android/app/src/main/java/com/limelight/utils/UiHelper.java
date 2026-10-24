@@ -49,6 +49,16 @@ public class UiHelper {
         return "light".equals(prefs.getString(THEME_PREF_STRING, "dark"));
     }
 
+    /** True quando o dispositivo é uma TV (Android TV / Google TV / box leanback). */
+    public static boolean isTv(Context context) {
+        UiModeManager modeMgr = (UiModeManager) context.getSystemService(Context.UI_MODE_SERVICE);
+        if (modeMgr != null && modeMgr.getCurrentModeType() == Configuration.UI_MODE_TYPE_TELEVISION) {
+            return true;
+        }
+        return context.getPackageManager().hasSystemFeature("android.software.leanback")
+                || context.getPackageManager().hasSystemFeature("android.hardware.type.television");
+    }
+
     private static Typeface displayTypeface;
     private static Typeface bodyTypeface;
 
