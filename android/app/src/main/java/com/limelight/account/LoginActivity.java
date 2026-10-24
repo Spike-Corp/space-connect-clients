@@ -21,6 +21,8 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.view.Window;
 import android.view.WindowManager;
@@ -149,11 +151,57 @@ public class LoginActivity extends Activity {
     }
 
     private void openAccountWebPage(String path) {
+        String url = ACCOUNT_WEB_URL + path;
+        // Na TV nao ha navegador/confianca no browser — mostra QR pra abrir no celular.
+        if (UiHelper.isTv(this)) {
+            showQrDialog(url);
+            return;
+        }
         try {
-            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(ACCOUNT_WEB_URL + path)));
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
         } catch (Exception e) {
             Toast.makeText(this, ACCOUNT_WEB_URL, Toast.LENGTH_LONG).show();
         }
+    }
+
+    private void showQrDialog(String url) {
+        android.graphics.Bitmap qr = com.limelight.utils.QrCodeUtil.generate(url, 600);
+        Typeface bodyFont = UiHelper.getBodyTypeface(this);
+        Typeface displayFont = UiHelper.getDisplayTypeface(this);
+
+        int pad = (int) (24 * getResources().getDisplayMetrics().density);
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
+        layout.setPadding(pad, pad, pad, pad);
+
+        TextView title = new TextView(this);
+        title.setText(getString(R.string.login_scan_qr_title));
+        title.setTypeface(displayFont, Typeface.BOLD);
+        title.setTextSize(20);
+        layout.addView(title);
+
+        if (qr != null) {
+            ImageView iv = new ImageView(this);
+            iv.setImageBitmap(qr);
+            int sz = (int) (280 * getResources().getDisplayMetrics().density);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(sz, sz);
+            lp.setMargins(0, pad, 0, pad);
+            iv.setLayoutParams(lp);
+            layout.addView(iv);
+        }
+
+        TextView subtitle = new TextView(this);
+        subtitle.setText(getString(R.string.login_scan_qr_subtitle) + "\n" + url);
+        subtitle.setTypeface(bodyFont);
+        subtitle.setTextSize(14);
+        subtitle.setGravity(android.view.Gravity.CENTER);
+        layout.addView(subtitle);
+
+        new AlertDialog.Builder(this)
+                .setView(layout)
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
     }
 
     private AccountManager.LoginCallback loginCallback(Button loginButton) {

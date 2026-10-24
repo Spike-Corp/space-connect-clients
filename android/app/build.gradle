@@ -12,8 +12,8 @@ android {
         minSdk 24
         targetSdk 36
 
-        versionName "0.3.35"
-        versionCode = 63
+        versionName "0.3.36"
+        versionCode = 64
 
         // Generate native debug symbols to allow Google Play to symbolicate our native crashes
         ndk.debugSymbolLevel = 'FULL'
@@ -167,6 +167,8 @@ dependencies {
     // 3.5.8 requires minSdk 19, uses StandardCharsets.UTF_8 internally
     implementation 'org.jmdns:jmdns:3.5.7'
     implementation 'com.github.cgutman:ShieldControllerExtensions:1.0.1'
+    // QR Code local (offline) para links de conta na Android TV (registro / esqueci senha)
+    implementation 'com.google.zxing:core:3.5.3'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'com.squareup.okhttp3:mockwebserver:3.12.13'
     testImplementation 'org.robolectric:robolectric:4.14.1'

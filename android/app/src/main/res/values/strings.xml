@@ -269,6 +269,8 @@
     <string name="login_button">Sign In</string>
     <string name="login_create_account">Subscribe now to play</string>
     <string name="login_forgot_password">Forgot password?</string>
+    <string name="login_scan_qr_title">Continue on your phone</string>
+    <string name="login_scan_qr_subtitle">Point your phone\'s camera at the QR code to open this page:</string>
     <string name="login_continue_without_account">Continue without an account</string>
     <string name="login_error">Check your email and password and try again</string>
     <string name="launcher_android_version_required">Space Connect requires Android 6.0 or newer</string>

@@ -292,6 +292,8 @@
     <string name="login_button">Entrar</string>
     <string name="login_create_account">Assinar já para jogar</string>
     <string name="login_forgot_password">Esqueceu a senha?</string>
+    <string name="login_scan_qr_title">Continue no seu celular</string>
+    <string name="login_scan_qr_subtitle">Aponte a câmera do celular para o QR code para abrir esta página:</string>
     <string name="login_continue_without_account">Continuar sem conta</string>
     <string name="login_error">Verifique seu e-mail e senha e tente novamente</string>
     <string name="launcher_android_version_required">O Space Connect exige Android 6.0 ou superior</string>
