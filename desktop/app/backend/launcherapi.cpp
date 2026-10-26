@@ -316,6 +316,11 @@ void LauncherApi::fetchMachines()
                             entitlement.value(QStringLiteral("bonusHours")).toDouble();
                         entry.insert(QStringLiteral("planSlug"),
                                      entitlement.value(QStringLiteral("planSlug")).toString());
+                        // Status cru do plano (active/grace/expired/canceled) — igual
+                        // ao que o site mostra em "Meus produtos", pra o app poder
+                        // exibir "Expirada" em vez de deixar a VM travada sem motivo.
+                        entry.insert(QStringLiteral("entitlementStatus"),
+                                     entitlement.value(QStringLiteral("status")).toString());
                         // Tamanho do disco (pra transferência de disco entre VMs).
                         entry.insert(QStringLiteral("diskGb"),
                                      machine.value(QStringLiteral("specs")).toObject().value(QStringLiteral("diskGb")).toInt());
@@ -358,6 +363,21 @@ void LauncherApi::fetchMachines()
                             if (activation.isValid()) {
                                 display += tr(" · ativação %1").arg(
                                     activation.toUTC().date().toString(QStringLiteral("dd/MM")));
+                            }
+                        }
+                        else {
+                            // Plano inativo sem data de ativação = expirado/cancelado.
+                            // Espelha o status que o site mostra em "Meus produtos".
+                            const QString entStatus =
+                                entitlement.value(QStringLiteral("status")).toString();
+                            if (entStatus == QStringLiteral("grace")) {
+                                display += QStringLiteral(" · ") + tr("Em carência");
+                            }
+                            else if (entStatus == QStringLiteral("canceled")) {
+                                display += QStringLiteral(" · ") + tr("Cancelada");
+                            }
+                            else {
+                                display += QStringLiteral(" · ") + tr("Expirada");
                             }
                         }
                         entry.insert(QStringLiteral("display"), display);

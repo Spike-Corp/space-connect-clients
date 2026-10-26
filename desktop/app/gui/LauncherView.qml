@@ -172,6 +172,17 @@ Item {
                 lines.push(text)
             }
         }
+        else if (m && !m.upcomingEntitlement) {
+            // Plano da VM inativo (expirado/cancelado) — mostra o status como o
+            // site faz em "Meus produtos", em vez de deixar a VM travada sem dizer por quê.
+            var iname = (m.planName && ("" + m.planName).trim().length > 0)
+                    ? m.planName : prettifyPlan(m.planSlug)
+            var st = m.entitlementStatus || ""
+            var stLabel = st === "grace" ? qsTr("Em carência")
+                        : st === "canceled" ? qsTr("Cancelada")
+                        : qsTr("Expirada")
+            lines.push(qsTr("%1 · %2").arg(iname).arg(stLabel))
+        }
         if (LauncherApi.hasUpcomingPlan) {
             lines.push(qsTr("Pré-venda: %1 · ativação em %2")
                        .arg(LauncherApi.upcomingPlanName || qsTr("Plano"))
