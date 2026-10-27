@@ -15,6 +15,31 @@ Item {
     property string pendingConnectName: ""
     property string connectionErrorText: qsTr("Não foi possível alcançar o host de streaming. Tente novamente em alguns segundos.")
 
+    // Dicas curtas que rodam enquanto a VM liga/entra na fila — ensinam a usar a
+    // SpaceCloud do jeito certo. Trocam sozinhas (ver Timer mais abaixo).
+    property var bootTips: [
+        qsTr("Baixe o app Space Connect no PC ou celular — a conexão é automática, sem IP nem configurar porta."),
+        qsTr("Controle de Xbox/PS funciona plugado no seu dispositivo. O app reconhece sozinho."),
+        qsTr("Use Wi-Fi 5 GHz ou cabo de rede pra melhor qualidade de imagem e menos delay."),
+        qsTr("Seus jogos e arquivos ficam salvos na VM mesmo depois de desligar. Nada se perde."),
+        qsTr("Feche a sessão pelo painel quando terminar — assim suas horas não são consumidas à toa."),
+        qsTr("Quanto mais perto do servidor (São Paulo), menor o delay. Teste sua rede no painel."),
+        qsTr("No app, dá pra mandar arquivos do seu PC/celular direto pra dentro da máquina na nuvem."),
+        qsTr("Jogos pesados pedem planos com GPU mais forte. Cyberpunk e afins rolam melhor na RTX.")
+    ]
+    property int bootTipIndex: 0
+
+    Timer {
+        interval: 6000
+        running: LauncherApi.state === "starting" || LauncherApi.state === "queued"
+        repeat: true
+        onTriggered: launcherView.bootTipIndex = (launcherView.bootTipIndex + 1) % launcherView.bootTips.length
+    }
+
+    function currentBootTip() {
+        return launcherView.bootTips[launcherView.bootTipIndex]
+    }
+
     function formatActivationDate(value) {
         if (!value) return "--/--"
         var d = new Date(value)
@@ -330,6 +355,37 @@ Item {
                     font.bold: true
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
+                }
+
+                // Dica rotativa enquanto a VM liga / está na fila (só aparece nesses estados).
+                Rectangle {
+                    visible: LauncherApi.state === "starting" || LauncherApi.state === "queued"
+                    Layout.fillWidth: true
+                    implicitHeight: tipRow.implicitHeight + 20
+                    radius: 10
+                    color: "#1a1430"
+                    border.width: 1
+                    border.color: "#4572fa"
+
+                    RowLayout {
+                        id: tipRow
+                        anchors.fill: parent
+                        anchors.margins: 10
+                        spacing: 10
+
+                        Label {
+                            text: "💡"
+                            font.pixelSize: 16
+                            Layout.alignment: Qt.AlignTop
+                        }
+                        Label {
+                            text: currentBootTip()
+                            color: "#c9c3dd"
+                            font.pixelSize: 13
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
+                        }
+                    }
                 }
 
                 BusyIndicator {
