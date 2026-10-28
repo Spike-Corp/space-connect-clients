@@ -735,8 +735,43 @@ Flickable {
 
                 Label {
                     width: parent.width
+                    text: qsTr("Tipo de plano")
+                    font.pointSize: 12
+                    wrapMode: Text.Wrap
+                }
+
+                SpaceComboBox {
+                    id: bitrateProfileComboBox
+                    hoverEnabled: true
+                    textRole: "text"
+
+                    // A posição é o perfil do LauncherApi: 0 = automático, 1 = host dedicado, 2 = cloud.
+                    model: ListModel {
+                        ListElement { text: qsTr("Automático (detectar pelo plano da VM)") }
+                        ListElement { text: qsTr("Host dedicado (até 100 Mbps)") }
+                        ListElement { text: qsTr("Cloud (até 25 Mbps)") }
+                    }
+
+                    Component.onCompleted: currentIndex = LauncherApi.bitrateProfile()
+
+                    // ::onActivated must be used, as it only listens for when the index is changed by a human
+                    onActivated: {
+                        // activated também dispara ao reescolher o mesmo item: não zera o bitrate à toa.
+                        if (LauncherApi.bitrateProfile() === currentIndex)
+                            return
+                        LauncherApi.setBitrateProfile(currentIndex)
+                        bitrateSpinBox.applyProfile()
+                    }
+
+                    ToolTip.delay: 1000
+                    ToolTip.timeout: 5000
+                    ToolTip.visible: hovered
+                    ToolTip.text: qsTr("Automático reconhece se a sua VM é host dedicado ou cloud e libera o limite certo. Escolha à mão só se o app não conseguir detectar.")
+                }
+
+                Label {
+                    width: parent.width
                     id: bitrateTierDesc
-                    text: qsTr("Up to 25 Mbps on cloud hosts. Space Cloud's dedicated physical machines unlock up to 100 Mbps (50 Mbps recommended).")
                     font.pointSize: 9
                     font.italic: true
                     wrapMode: Text.Wrap
@@ -791,11 +826,10 @@ Flickable {
                     }
 
                     function updateMaxBitrate() {
-                        // The backend reports the ceiling from the machine's provider/plan
-                        // (physical proxmox host = 100 Mbps, cloud VM = 25 Mbps) via the
-                        // launcher connection. Prefer it; fall back to the local GPU-model
-                        // heuristic only when the backend value hasn't been cached yet
-                        // (e.g. older backend, or connection not requested this run).
+                        // O teto vem do LauncherApi: tipo da VM em uso (host dedicado = 100 Mbps,
+                        // cloud = 25 Mbps) detectado pelo backend, ou o perfil escolhido no
+                        // seletor "Tipo de plano". Só cai na heurística local de GPU quando
+                        // nada disso está disponível (backend antigo ou nenhuma conexão ainda).
                         var launcherMaxKbps = LauncherApi.maxBitrateKbps()
                         updatingMaxBitrate = true
                         if (launcherMaxKbps > 0) {
@@ -806,6 +840,51 @@ Flickable {
                             maxMbpsConfirmed = false
                         }
                         updatingMaxBitrate = false
+                        bitrateTierDesc.text = describeBitrateTier()
+                    }
+
+                    function tierLabel(tier) {
+                        if (tier === "physical") return qsTr("host dedicado")
+                        if (tier === "cloud") return qsTr("cloud")
+                        return ""
+                    }
+
+                    // Texto abaixo do seletor: o que o app detectou e qual teto está valendo.
+                    function describeBitrateTier() {
+                        var profile = LauncherApi.bitrateProfile()
+                        var info = LauncherApi.bitrateInfo()
+                        var fromBackend = info.detectedSource === "machine" || info.detectedSource === "machines"
+
+                        if (profile === 1 || profile === 2) {
+                            var manual = qsTr("Escolhido manualmente: %1 — limite de %2 Mbps.")
+                                .arg(tierLabel(profile === 1 ? "physical" : "cloud")).arg(maxMbps)
+                            if (profile === 1 && fromBackend && info.detectedTier === "cloud")
+                                manual += " " + qsTr("A sua VM foi identificada como cloud, então o limite não passa disso.")
+                            return manual
+                        }
+
+                        if (fromBackend && tierLabel(info.detectedTier) !== "") {
+                            if (info.machineName !== "")
+                                return qsTr("Detectado: %1 (%2) — limite de %3 Mbps.")
+                                    .arg(tierLabel(info.detectedTier)).arg(info.machineName).arg(maxMbps)
+                            return qsTr("Detectado: %1 (todas as suas VMs) — limite de %2 Mbps.")
+                                .arg(tierLabel(info.detectedTier)).arg(maxMbps)
+                        }
+
+                        if (info.detectedSource === "cache")
+                            return qsTr("Detectado na última conexão — limite de %1 Mbps.").arg(maxMbps)
+
+                        return qsTr("Ainda não foi possível detectar o seu plano — usando o limite padrão de %1 Mbps. Se a sua VM é um host dedicado, escolha 'Host dedicado' acima.").arg(maxMbps)
+                    }
+
+                    // Troca explícita no seletor "Tipo de plano": recalcula o teto e leva o
+                    // bitrate pro valor recomendado do tipo escolhido (igual ao app Android).
+                    function applyProfile() {
+                        updateMaxBitrate()
+                        var recommendedKbps = LauncherApi.recommendedBitrateKbps()
+                        if (recommendedKbps > 0)
+                            StreamingPreferences.bitrateKbps = Math.min(recommendedKbps, maxMbps * 1000)
+                        syncFromPreferences()
                     }
 
                     // Reads StreamingPreferences.bitrateKbps (which may be an uncapped "default"
@@ -880,6 +959,13 @@ Flickable {
                         // to a lower-tier host, re-clamp) without needing to close/reopen
                         // Settings.
                         ComputerManager.computerStateChanged.connect(function() {
+                            updateMaxBitrate()
+                            syncFromPreferences()
+                        })
+
+                        // O tipo da VM (host dedicado/cloud) só chega quando o launcher carrega
+                        // as máquinas, e muda quando o usuário troca de VM no seletor.
+                        LauncherApi.machinesChanged.connect(function() {
                             updateMaxBitrate()
                             syncFromPreferences()
                         })

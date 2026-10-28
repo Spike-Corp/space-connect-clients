@@ -237,6 +237,7 @@ HEADERS += \
     backend/micforwarder.h \
     backend/micleveltester.h \
     backend/launcherapi.h \
+    backend/launcherbitrate.h \
     backend/xdapi.h \
     backend/latencytester.h \
     backend/launcherjson.h \

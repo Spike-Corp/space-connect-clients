@@ -300,6 +300,15 @@ void LauncherApi::fetchMachines()
                         entry.insert(QStringLiteral("name"), name);
                         entry.insert(QStringLiteral("provider"), provider);
                         entry.insert(QStringLiteral("state"), machine.value(QStringLiteral("state")).toString());
+                        // Teto de bitrate do tipo de host (plano/provider), definido pelo
+                        // backend. Backend antigo não manda: fica ""/0 e o app cai no teto
+                        // cacheado da última conexão ou na heurística de GPU.
+                        entry.insert(QStringLiteral("bitrateTier"),
+                                     machine.value(QStringLiteral("bitrateTier")).toString());
+                        entry.insert(QStringLiteral("maxBitrateKbps"),
+                                     machine.value(QStringLiteral("maxBitrateKbps")).toInt());
+                        entry.insert(QStringLiteral("recommendedBitrateKbps"),
+                                     machine.value(QStringLiteral("recommendedBitrateKbps")).toInt());
                         // Saldo do plano ligado à VM (o backend já manda o
                         // entitlement por máquina — horas em HORAS, ex.: 87.5).
                         const QJsonObject entitlement =
@@ -627,16 +636,52 @@ void LauncherApi::ensureMicBridge()
             });
 }
 
+LauncherBitrate::Detection LauncherApi::detectBitrate() const
+{
+    // Teto cacheado da última conexão: só vale quando o backend ainda não classificou a VM.
+    QSettings settings;
+    return LauncherBitrate::detect(
+        m_Machines,
+        effectiveMachineId(),
+        settings.value(QStringLiteral("launchermaxbitratekbps"), 0).toInt(),
+        settings.value(QStringLiteral("launcherrecommendedbitratekbps"), 0).toInt());
+}
+
 int LauncherApi::maxBitrateKbps() const
 {
-    QSettings settings;
-    return settings.value(QStringLiteral("launchermaxbitratekbps"), 0).toInt();
+    return LauncherBitrate::effectiveMaxKbps(detectBitrate(), bitrateProfile());
 }
 
 int LauncherApi::recommendedBitrateKbps() const
 {
+    return LauncherBitrate::effectiveRecommendedKbps(detectBitrate(), bitrateProfile());
+}
+
+int LauncherApi::bitrateProfile() const
+{
     QSettings settings;
-    return settings.value(QStringLiteral("launcherrecommendedbitratekbps"), 0).toInt();
+    return LauncherBitrate::normalizeProfile(
+        settings.value(QStringLiteral("launcher/bitrateProfile"), LauncherBitrate::ProfileAuto)
+            .toInt());
+}
+
+void LauncherApi::setBitrateProfile(int profile)
+{
+    QSettings settings;
+    settings.setValue(QStringLiteral("launcher/bitrateProfile"),
+                      LauncherBitrate::normalizeProfile(profile));
+}
+
+QVariantMap LauncherApi::bitrateInfo() const
+{
+    const LauncherBitrate::Detection detection = detectBitrate();
+    QVariantMap info;
+    info.insert(QStringLiteral("detectedTier"), detection.tier);
+    info.insert(QStringLiteral("detectedSource"), detection.source);
+    info.insert(QStringLiteral("detectedMaxKbps"), detection.maxKbps);
+    info.insert(QStringLiteral("machineName"), detection.machineName);
+    info.insert(QStringLiteral("planName"), detection.planName);
+    return info;
 }
 
 void LauncherApi::endSession()

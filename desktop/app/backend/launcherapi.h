@@ -1,5 +1,6 @@
 #pragma once
 
+#include "launcherbitrate.h"
 #include "recaptchafetcher.h"
 
 #include <QHash>
@@ -200,10 +201,18 @@ public:
     Q_INVOKABLE void setUsername(const QString& username);
     Q_INVOKABLE void checkUsername(const QString& username);
     Q_INVOKABLE void logout();
-    // Bitrate ceiling (Kbps) cached from the last connection reported by the backend.
-    // 0 when never received; callers should fall back to a local heuristic.
+    // Teto de bitrate (Kbps) EFETIVO: perfil escolhido pelo usuário (bitrateProfile) +
+    // tipo da VM detectado pelo backend (plano/provider) + teto cacheado da última
+    // conexão. 0 = ainda desconhecido; quem chama cai na heurística local.
     Q_INVOKABLE int maxBitrateKbps() const;
     Q_INVOKABLE int recommendedBitrateKbps() const;
+    // Seletor de plano na tela de configurações: 0 = automático (pelo plano da VM),
+    // 1 = host dedicado, 2 = cloud.
+    Q_INVOKABLE int bitrateProfile() const;
+    Q_INVOKABLE void setBitrateProfile(int profile);
+    // O que foi detectado: detectedTier ("physical"/"cloud"/""), detectedSource
+    // ("machine"/"machines"/"cache"/""), detectedMaxKbps, machineName e planName.
+    Q_INVOKABLE QVariantMap bitrateInfo() const;
 
 signals:
     void busyChanged();
@@ -261,6 +270,8 @@ private:
     // VM alvo das ações (fila/conexão/encerrar): a da sessão ativa, se houver;
     // senão a selecionada no seletor. Vazio = backend decide (comportamento antigo).
     QString effectiveMachineId() const;
+    // Tipo de host (teto de bitrate) da VM em uso — ver backend/launcherbitrate.h.
+    LauncherBitrate::Detection detectBitrate() const;
     static QString platformName();
 
     QNetworkAccessManager m_Network;
