@@ -4,8 +4,6 @@
 #include <QVariantList>
 #include <QVariantMap>
 
-#include <algorithm>
-
 // Resolução do teto de bitrate de vídeo por tipo de host (plano da VM). Só QtCore, sem
 // rede/GUI, pra poder ser testada sozinha (tests/launcherbitrate_test.cpp).
 namespace LauncherBitrate {
@@ -131,7 +129,8 @@ inline int effectiveRecommendedKbps(const Detection& detection, int profile)
 
     const int recommended =
         profile == ProfilePhysical ? kPhysicalRecommendedKbps : kCloudRecommendedKbps;
-    return std::min(recommended, effectiveMaxKbps(detection, profile));
+    // qMin, não std::min: o windows.h (sem NOMINMAX) define min() como macro e quebra o MSVC.
+    return qMin(recommended, effectiveMaxKbps(detection, profile));
 }
 
 }  // namespace LauncherBitrate
