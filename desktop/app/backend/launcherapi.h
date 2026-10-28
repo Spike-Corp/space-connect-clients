@@ -189,6 +189,9 @@ public:
     // Renomeia a VM no backend (só funciona pra VM do próprio usuário — o
     // backend rejeita VM de amigo; nesse caso o rename fica só local no app).
     Q_INVOKABLE void renameMachine(const QString& machineId, const QString& name);
+    // Troca a senha do Windows (scg) da PRÓPRIA VM, sem formatar. Aplica ao vivo
+    // se a VM estiver ligada, senão no próximo boot. Emite machinePasswordFinished.
+    Q_INVOKABLE void setMachinePassword(const QString& machineId, const QString& password);
     // Exclui a VM de VERDADE (wipe total: disco + snapshots + libera slot).
     // Irreversível. O cliente confirma 2x no app. Emite machineDeleteFinished.
     Q_INVOKABLE void deleteMachine(const QString& machineId);
@@ -234,6 +237,7 @@ signals:
     void gpuLicenseApplied(bool success, QString message);
     void diskTransferFinished(bool success, QString message);
     void machineDeleteFinished(bool success, QString message);
+    void machinePasswordFinished(bool success, QString message, QString applied);
 
 private:
     using ResponseHandler = std::function<void(int, const QJsonObject&)>;

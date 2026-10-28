@@ -42,12 +42,15 @@ import android.net.Uri;
 import android.opengl.GLSurfaceView;
 import android.os.Build;
 import android.view.animation.LinearInterpolator;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
+import android.text.InputType;
 import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.view.View.OnClickListener;
@@ -56,6 +59,7 @@ import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 import android.widget.AdapterView.AdapterContextMenuInfo;
@@ -151,6 +155,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
     private final static int TEST_NETWORK_ID = 10;
     private final static int POWER_OFF_ID = 11;
     private final static int RENAME_ID = 12;
+    private final static int SET_PASSWORD_ID = 14;
 
     private void initializeViews() {
         setContentView(R.layout.activity_pc_view);
@@ -443,7 +448,8 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         // Excluir a VM de VERDADE (wipe total na nuvem) — só aparece pra
         // máquinas da própria conta (têm machineId). Sempre pede 2x.
         if (machineIdForComputer(computer.details) != null) {
-            menu.add(Menu.NONE, DELETE_VM_ID, 9, getResources().getString(R.string.pcview_menu_delete_vm));
+            menu.add(Menu.NONE, SET_PASSWORD_ID, 9, getResources().getString(R.string.pcview_menu_set_password));
+            menu.add(Menu.NONE, DELETE_VM_ID, 10, getResources().getString(R.string.pcview_menu_delete_vm));
         }
     }
 
@@ -563,8 +569,11 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
 
     // Liga a VM na nuvem do usuário (entra na fila/inicia a sessão) - substitui o antigo
     // Wake-On-LAN (que não fazia sentido pra uma VM cloud sem MAC de LAN acessível).
-    private void doPowerOn() {
-        AccountManager.joinQueue(PcView.this, new AccountManager.ResultCallback<SpaceConnectApiClient.StatusResponse>() {
+    // Passa o machineId da máquina selecionada pro backend resolver o provider real
+    // (GCP/Proxmox) — sem isso, a fila caía sempre no fluxo Proxmox mesmo pra VMs GCP.
+    private void doPowerOn(final String machineId) {
+        AccountManager.ResultCallback<SpaceConnectApiClient.StatusResponse> cb =
+                new AccountManager.ResultCallback<SpaceConnectApiClient.StatusResponse>() {
             @Override
             public void onSuccess(SpaceConnectApiClient.StatusResponse result) {
                 Toast.makeText(PcView.this, getResources().getString(R.string.power_on_starting), Toast.LENGTH_SHORT).show();
@@ -577,7 +586,12 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             public void onError(String message) {
                 Toast.makeText(PcView.this, message, Toast.LENGTH_LONG).show();
             }
-        });
+        };
+        if (machineId != null) {
+            AccountManager.joinQueue(PcView.this, machineId, cb);
+        } else {
+            AccountManager.joinQueue(PcView.this, cb);
+        }
     }
 
     // Desliga a VM (encerra a sessão) - substitui o antigo aviso de "Fim de Serviço do
@@ -686,7 +700,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                 return true;
 
             case POWER_ON_ID:
-                doPowerOn();
+                doPowerOn(machineIdForComputer(computer.details));
                 return true;
 
             case DELETE_ID:
@@ -754,6 +768,13 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             case RENAME_ID:
                 promptRename(computer.details);
                 return true;
+
+            case SET_PASSWORD_ID: {
+                final String machineId = machineIdForComputer(computer.details);
+                if (machineId == null) return true;
+                promptSetPassword(machineId);
+                return true;
+            }
 
             case VIEW_DETAILS_ID:
                 Dialog.displayDialog(PcView.this, getResources().getString(R.string.title_details), computer.details.toString(), false);
@@ -947,6 +968,78 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                             }
                         });
                     }
+                })
+                .show();
+    }
+
+    // Troca a senha do Windows (scg) da PRÓPRIA VM, sem formatar. Campo com
+    // 👁️ pra revelar a senha (mesmo padrão da tela de login). Aplica ao vivo se
+    // a máquina estiver ligada, senão no próximo boot.
+    private void promptSetPassword(final String machineId) {
+        final EditText pwField = new EditText(this);
+        pwField.setHint(R.string.pcview_set_password_hint);
+        pwField.setSingleLine(true);
+        pwField.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        pwField.setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_lock, 0, R.drawable.ic_eye, 0);
+        pwField.setCompoundDrawablePadding(24);
+        pwField.setOnTouchListener((v, event) -> {
+            if (event.getAction() != MotionEvent.ACTION_UP) {
+                return false;
+            }
+            Drawable endDrawable = pwField.getCompoundDrawablesRelative()[2];
+            if (endDrawable == null) {
+                return false;
+            }
+            int toggleStart = pwField.getWidth() - pwField.getTotalPaddingEnd();
+            if (event.getX() < toggleStart) {
+                return false;
+            }
+            v.performClick();
+            boolean visible = (pwField.getInputType() & InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD)
+                    == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD;
+            if (visible) {
+                pwField.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+                pwField.setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_lock, 0, R.drawable.ic_eye, 0);
+            } else {
+                pwField.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
+                pwField.setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_lock, 0, R.drawable.ic_eye_off, 0);
+            }
+            pwField.setSelection(pwField.getText().length());
+            return true;
+        });
+
+        final LinearLayout wrap = new LinearLayout(this);
+        wrap.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (20 * getResources().getDisplayMetrics().density);
+        wrap.setPadding(pad, pad / 2, pad, 0);
+        wrap.addView(pwField);
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.pcview_menu_set_password)
+                .setMessage(R.string.pcview_set_password_msg)
+                .setView(wrap)
+                .setNegativeButton(R.string.game_menu_cancel, null)
+                .setPositiveButton(R.string.launcher_confirm, (dialog, which) -> {
+                    String pw = pwField.getText().toString();
+                    if (pw.length() < 6 || pw.length() > 32 || !pw.matches("^[\\x21-\\x7E]+$")) {
+                        Toast.makeText(PcView.this, getResources().getString(R.string.pcview_set_password_invalid), Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    Toast.makeText(PcView.this, getResources().getString(R.string.pcview_set_password_sending), Toast.LENGTH_SHORT).show();
+                    AccountManager.setMachinePassword(PcView.this, machineId, pw,
+                            new AccountManager.ResultCallback<SpaceConnectApiClient.SetMachinePasswordResponse>() {
+                        @Override
+                        public void onSuccess(SpaceConnectApiClient.SetMachinePasswordResponse result) {
+                            boolean live = result != null && "live".equals(result.applied);
+                            int msg = live ? R.string.pcview_set_password_ok_live : R.string.pcview_set_password_ok_boot;
+                            Toast.makeText(PcView.this, getResources().getString(msg), Toast.LENGTH_LONG).show();
+                        }
+
+                        @Override
+                        public void onError(String message) {
+                            Toast.makeText(PcView.this, message != null ? message : getResources().getString(R.string.pcview_set_password_fail), Toast.LENGTH_LONG).show();
+                        }
+                    });
                 })
                 .show();
     }

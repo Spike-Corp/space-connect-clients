@@ -29,6 +29,14 @@
     <string name="pcview_delete_vm_confirm_yes">Yes, delete forever</string>
     <string name="pcview_menu_test_network">Test Network Connection</string>
     <string name="pcview_menu_rename">Rename</string>
+    <string name="pcview_menu_set_password">Change VM password</string>
+    <string name="pcview_set_password_hint">New Windows password</string>
+    <string name="pcview_set_password_msg">Set a new password for the \"scg\" Windows account on this VM. No format needed.</string>
+    <string name="pcview_set_password_invalid">Use 6–32 characters, no spaces or accents.</string>
+    <string name="pcview_set_password_sending">Changing password…</string>
+    <string name="pcview_set_password_ok_live">Password changed. Use it on your next login.</string>
+    <string name="pcview_set_password_ok_boot">Saved. It will apply the next time the VM boots.</string>
+    <string name="pcview_set_password_fail">Could not change the password. Try again.</string>
     <string name="pcview_menu_details">View Details</string>
     <string name="pcview_menu_eol">NVIDIA GameStream End-of-Service</string>
 

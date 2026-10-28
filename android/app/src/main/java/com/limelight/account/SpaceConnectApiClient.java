@@ -125,6 +125,15 @@ public final class SpaceConnectApiClient {
         return patch("machines/" + safeMachineId(machineId) + "/name", input, accessToken, RenameMachineResponse.class);
     }
 
+    // Troca a senha Windows (scg) da PRÓPRIA VM, sem formatar. Aplica ao vivo se a
+    // máquina estiver ligada, senão no próximo boot. Mesma lógica do site.
+    public SetMachinePasswordResponse setMachinePassword(String accessToken, String machineId, String password)
+            throws IOException, ApiException {
+        SetMachinePasswordRequest input = new SetMachinePasswordRequest();
+        input.password = password;
+        return post("machines/" + safeMachineId(machineId) + "/set-password", input, accessToken, SetMachinePasswordResponse.class);
+    }
+
     // Provisiona a VM dedicada do usuário (self-service), igual ao botão "Criar
     // VM" do site. Necessário antes de entrar na fila — a fila nunca cria VM
     // sozinha, ela só serve quem já tem uma máquina dedicada.
@@ -558,6 +567,10 @@ public final class SpaceConnectApiClient {
         String name;
     }
 
+    private static final class SetMachinePasswordRequest {
+        String password;
+    }
+
     private static final class EmptyRequest {
     }
 
@@ -888,6 +901,12 @@ public final class SpaceConnectApiClient {
     public static final class RenameMachineResponse {
         public String machineId;
         public String name;
+    }
+
+    public static final class SetMachinePasswordResponse {
+        public Boolean ok;
+        public String applied; // live | on_boot
+        public String username;
     }
 
     public static final class MicEnsureResponse {

@@ -226,6 +226,16 @@ public final class AccountManager {
         executeAuthenticated(context, token -> API.renameMachine(token, machineId, name), callback);
     }
 
+    // Troca a senha do Windows (scg) da PRÓPRIA VM, sem formatar. Aplica ao vivo
+    // se a máquina estiver ligada, senão no próximo boot. Igual ao site.
+    public static void setMachinePassword(
+            Context context,
+            String machineId,
+            String password,
+            ResultCallback<SpaceConnectApiClient.SetMachinePasswordResponse> callback) {
+        executeAuthenticated(context, token -> API.setMachinePassword(token, machineId, password), callback);
+    }
+
     // Provisiona a VM dedicada do usuário (self-service), igual ao botão "Criar
     // VM" do site — necessário pra usuários sem VM ainda conseguirem jogar
     // pelo app, em vez de ficarem presos num loop de fila sem VM nenhuma.

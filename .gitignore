@@ -43,3 +43,5 @@ mic-bridge/publish/
 .DS_Store
 Thumbs.db
 .github/workflows/build-desktop.yml
+build-redesign/
+desktop/build-redesign/

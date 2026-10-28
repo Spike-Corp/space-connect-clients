@@ -1414,6 +1414,33 @@ void LauncherApi::renameMachine(const QString& machineId, const QString& name)
             });
 }
 
+void LauncherApi::setMachinePassword(const QString& machineId, const QString& password)
+{
+    if (!m_LoggedIn || machineId.isEmpty()) return;
+    // Validação local espelhando o backend: 6-32 chars, ASCII imprimível sem espaços.
+    static const QRegularExpression pwRe(QStringLiteral("^[\\x21-\\x7E]+$"));
+    if (password.length() < 6 || password.length() > 32 || !pwRe.match(password).hasMatch()) {
+        emit machinePasswordFinished(false, tr("Use de 6 a 32 caracteres, sem espaços ou acentos."), QString());
+        return;
+    }
+    request("POST", QStringLiteral("machines/") + machineId + QStringLiteral("/set-password"),
+            QJsonObject{{QStringLiteral("password"), password}}, true,
+            [this](int status, const QJsonObject& root) {
+                if (status >= 200 && status < 300) {
+                    const QString applied = root.value(QStringLiteral("applied")).toString();
+                    const QString msg = applied == QStringLiteral("live")
+                        ? tr("Senha trocada. Use ela no próximo login.")
+                        : tr("Salvo. Vai valer no próximo boot da VM.");
+                    emit machinePasswordFinished(true, msg, applied);
+                } else {
+                    emit machinePasswordFinished(false,
+                        errorObject(root).value(QStringLiteral("message")).toString(
+                            tr("Não foi possível trocar a senha. Tente de novo.")),
+                        QString());
+                }
+            });
+}
+
 QString LauncherApi::machineIdForAddress(const QString& address) const
 {
     const QString exact = m_MachineIdByAddress.value(address);

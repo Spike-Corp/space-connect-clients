@@ -136,6 +136,11 @@ CenteredGridView {
             errorDialog.helpText = ""
             errorDialog.open()
         }
+        function onMachinePasswordFinished(success, message, applied) {
+            errorDialog.text = message
+            errorDialog.helpText = ""
+            errorDialog.open()
+        }
     }
 
     StackView.onDeactivating: {
@@ -320,6 +325,21 @@ CenteredGridView {
                         deletePcDialog.pcIndex = index
                         deletePcDialog.pcName = model.name
                         deletePcDialog.open()
+                    }
+                }
+                NavigableMenuItem {
+                    parentMenu: pcContextMenu
+                    // Trocar a senha do Windows (scg) da VM — só pra máquinas da
+                    // conta (têm machineId). Não formata.
+                    visible: {
+                        var addr = model.address || ""
+                        return LauncherApi.machineIdForAddress(addr) !== ""
+                    }
+                    text: qsTr("Trocar senha da VM")
+                    onTriggered: {
+                        setPasswordDialog.pcName = model.name
+                        setPasswordDialog.machineId = LauncherApi.machineIdForAddress(model.address || "")
+                        setPasswordDialog.open()
                     }
                 }
                 NavigableMenuItem {
@@ -563,6 +583,78 @@ CenteredGridView {
         }
     }
 
+    NavigableDialog {
+        id: setPasswordDialog
+        property string pcName: ""
+        property string machineId: ""
+
+        standardButtons: Dialog.Ok | Dialog.Cancel
+
+        onOpened: {
+            pwField.clear()
+            pwField.echoMode = TextInput.Password
+            pwField.forceActiveFocus()
+        }
+
+        onClosed: {
+            pwField.clear()
+        }
+
+        onAccepted: {
+            if (machineId && pwField.text)
+                LauncherApi.setMachinePassword(machineId, pwField.text)
+        }
+
+        ColumnLayout {
+            spacing: 10
+            Label {
+                text: qsTr("Nova senha do Windows (conta scg)")
+                font.bold: true
+            }
+            Label {
+                text: qsTr("Troca a senha da VM '%1' sem formatar. De 6 a 32 caracteres, sem espaços ou acentos.").arg(setPasswordDialog.pcName)
+                Layout.maximumWidth: 360
+                wrapMode: Text.WordWrap
+                opacity: 0.8
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+                TextField {
+                    id: pwField
+                    placeholderText: qsTr("Nova senha")
+                    echoMode: TextInput.Password
+                    Layout.fillWidth: true
+                    focus: true
+                    Keys.onReturnPressed: setPasswordDialog.accept()
+                    Keys.onEnterPressed: setPasswordDialog.accept()
+                }
+                // 👁️ revelar/ocultar a senha
+                Button {
+                    id: pwToggle
+                    flat: true
+                    implicitWidth: 40
+                    implicitHeight: 40
+                    ToolTip.visible: hovered
+                    ToolTip.text: pwField.echoMode === TextInput.Password ? qsTr("Mostrar senha") : qsTr("Ocultar senha")
+                    onClicked: {
+                        pwField.echoMode = (pwField.echoMode === TextInput.Password)
+                            ? TextInput.Normal : TextInput.Password
+                    }
+                    Image {
+                        anchors.centerIn: parent
+                        width: 22
+                        height: 22
+                        fillMode: Image.PreserveAspectFit
+                        source: pwField.echoMode === TextInput.Password
+                            ? "qrc:/res/baseline-visibility-24px.svg"
+                            : "qrc:/res/baseline-visibility_off-24px.svg"
+                    }
+                }
+            }
+        }
+    }
+
     NavigableMessageDialog {
         id: showPcDetailsDialog
         property string pcDetails : "";
@@ -570,6 +662,5 @@ CenteredGridView {
         imageSrc: "qrc:/res/baseline-help_outline-24px.svg"
         standardButtons: Dialog.Ok
     }
-
     ScrollBar.vertical: ScrollBar {}
 }

@@ -124,6 +124,14 @@
     <string name="pcview_delete_vm_confirm_yes">Sim, excluir pra sempre</string>
     <string name="pcview_menu_test_network">Testar Conexão com a Internet</string>
     <string name="pcview_menu_rename">Renomear</string>
+    <string name="pcview_menu_set_password">Trocar senha da VM</string>
+    <string name="pcview_set_password_hint">Nova senha do Windows</string>
+    <string name="pcview_set_password_msg">Defina uma nova senha pra conta \"scg\" do Windows nesta VM. Não precisa formatar.</string>
+    <string name="pcview_set_password_invalid">Use de 6 a 32 caracteres, sem espaços ou acentos.</string>
+    <string name="pcview_set_password_sending">Trocando a senha…</string>
+    <string name="pcview_set_password_ok_live">Senha trocada. Use ela no próximo login.</string>
+    <string name="pcview_set_password_ok_boot">Salvo. Vai valer no próximo boot da VM.</string>
+    <string name="pcview_set_password_fail">Não deu pra trocar a senha. Tente de novo.</string>
     <string name="pcview_menu_details">Ver Detalhes</string>
     <string name="nettest_title_waiting">Testando a Conexão com a Internet</string>
     <string name="nettest_title_done">Teste de Internet Completo</string>
