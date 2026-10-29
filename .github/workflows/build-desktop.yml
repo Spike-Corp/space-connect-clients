@@ -486,7 +486,7 @@ jobs:
 
   macos:
     name: macOS universal
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.only == 'all' || inputs.only == 'macos' }}
+    if: ${{ vars.ENABLE_MACOS_BUILDS == 'true' && (github.event_name != 'workflow_dispatch' || inputs.only == 'all' || inputs.only == 'macos') }}
     runs-on: macos-latest
     defaults:
       run:
@@ -571,6 +571,9 @@ jobs:
           $SUDO wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage -O linuxdeploy
           $SUDO wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage -O linuxdeploy-plugin-qt
           $SUDO chmod +x linuxdeploy linuxdeploy-plugin-qt
+
+      - name: Test launcher boot texts
+        run: node app/tests/launcherboottexts_test.cjs
 
       - name: Build AppImage
         env:

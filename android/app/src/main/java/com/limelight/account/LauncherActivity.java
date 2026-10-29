@@ -231,11 +231,14 @@ public class LauncherActivity extends Activity {
         primaryButton.setEnabled(true);
 
         if ("queued".equals(status.state) && status.queue != null) {
-            statusText.setText(R.string.launcher_status_queued);
-            detailsText.setText(getString(
-                    R.string.launcher_queue_position,
-                    status.queue.position,
-                    status.queue.total));
+            SpaceConnectApiClient.BootTexts texts = status.bootTexts;
+            String position = getString(R.string.launcher_queue_position, status.queue.position, status.queue.total);
+            statusText.setText(texts == null ? getString(R.string.launcher_status_queued)
+                    : texts.queueTitle(status.queue.position, status.queue.total, position));
+            String reason = texts != null && texts.reasons != null ? texts.reasons.get(status.queue.blockedReason) : null;
+            detailsText.setText(bootDetails(status, texts == null ? position
+                    : SpaceConnectApiClient.BootTexts.text(reason,
+                        SpaceConnectApiClient.BootTexts.text(texts.queueSearching, position))));
             primaryButton.setText(R.string.launcher_leave_queue);
             primaryButton.setOnClickListener(v -> leaveQueue());
             return;
@@ -264,12 +267,12 @@ public class LauncherActivity extends Activity {
                 statusText.setText(R.string.launcher_status_ending);
                 primaryButton.setVisibility(View.GONE);
             } else {
-                statusText.setText(R.string.launcher_status_starting);
+                statusText.setText(SpaceConnectApiClient.BootTexts.text(
+                        status.bootTexts == null ? null : status.bootTexts.bootingTitle,
+                        getString(R.string.launcher_status_starting)));
                 // Mostra a fase real do boot (criação/proteção/rede) em vez de só "starting".
                 String phase = status.session.machine != null ? status.session.machine.creationPhase : null;
-                if (phase != null && !phase.isEmpty()) {
-                    detailsText.setText(creationPhaseLabel(phase));
-                }
+                detailsText.setText(bootDetails(status, creationPhaseLabel(phase)));
                 primaryButton.setText(R.string.launcher_wait);
                 primaryButton.setEnabled(false);
             }
@@ -409,6 +412,13 @@ public class LauncherActivity extends Activity {
 
     // Rótulo amigável da fase de criação/boot (mesmo vocabulário do site/desktop).
     private String creationPhaseLabel(String phase) {
+        SpaceConnectApiClient.BootTexts texts = lastStatus == null ? null : lastStatus.bootTexts;
+        if (texts != null && texts.phases != null) {
+            String custom = texts.phases.get(phase);
+            if (custom != null && !custom.trim().isEmpty()) return custom;
+        }
+        if (phase == null || phase.isEmpty()) return SpaceConnectApiClient.BootTexts.text(
+                texts == null ? null : texts.defaultTitle, getString(R.string.phase_generic));
         int res;
         switch (phase) {
             case "queued": res = R.string.phase_queued; break;
@@ -426,6 +436,35 @@ public class LauncherActivity extends Activity {
             default: return getString(R.string.phase_generic);
         }
         return getString(res);
+    }
+
+    private String bootDetails(SpaceConnectApiClient.StatusResponse status, String phase) {
+        SpaceConnectApiClient.BootTexts texts = status.bootTexts;
+        if (texts == null) return phase;
+        StringBuilder body = new StringBuilder();
+        appendBootLine(body, texts.eyebrow);
+        appendBootLine(body, texts.subtitle);
+        appendBootLine(body, status.bootElapsedSeconds >= 60
+                ? SpaceConnectApiClient.BootTexts.text(texts.takingLonger, "{reason}").replace("{reason}", phase)
+                : phase);
+        if (texts.steps != null) {
+            for (int i = 0; i < texts.steps.length; i++) {
+                if (texts.steps[i] != null && !texts.steps[i].trim().isEmpty()) {
+                    appendBootLine(body, (i + 1) + ". " + texts.steps[i]);
+                }
+            }
+        }
+        if (texts.tips != null && texts.tips.length > 0) {
+            int index = (int) ((System.currentTimeMillis() / 6000) % texts.tips.length);
+            appendBootLine(body, texts.tips[index]);
+        }
+        return body.toString();
+    }
+
+    private static void appendBootLine(StringBuilder body, String text) {
+        if (text == null || text.trim().isEmpty()) return;
+        if (body.length() > 0) body.append("\n\n");
+        body.append(text);
     }
 
     // Descobre se o usuário já tem alguma VM dedicada provisionada. Sem isso o

@@ -17,7 +17,7 @@ Item {
 
     // Dicas curtas que rodam enquanto a VM liga/entra na fila — ensinam a usar a
     // SpaceCloud do jeito certo. Trocam sozinhas (ver Timer mais abaixo).
-    property var bootTips: [
+    property var fallbackBootTips: [
         qsTr("Baixe o app Space Connect no PC ou celular — a conexão é automática, sem IP nem configurar porta."),
         qsTr("Controle de Xbox/PS funciona plugado no seu dispositivo. O app reconhece sozinho."),
         qsTr("Use Wi-Fi 5 GHz ou cabo de rede pra melhor qualidade de imagem e menos delay."),
@@ -27,17 +27,32 @@ Item {
         qsTr("No app, dá pra mandar arquivos do seu PC/celular direto pra dentro da máquina na nuvem."),
         qsTr("Jogos pesados pedem planos com GPU mais forte. Cyberpunk e afins rolam melhor na RTX.")
     ]
+    property var remoteBootTexts: LauncherApi.bootTexts
+    property var bootTips: remoteBootTexts && remoteBootTexts.tips !== undefined
+            && typeof remoteBootTexts.tips !== "string" && typeof remoteBootTexts.tips.length === "number"
+            ? remoteBootTexts.tips : fallbackBootTips
     property int bootTipIndex: 0
 
     Timer {
         interval: 6000
-        running: LauncherApi.state === "starting" || LauncherApi.state === "queued"
+        running: launcherView.bootTips.length > 0 && (LauncherApi.state === "starting" || LauncherApi.state === "queued")
         repeat: true
         onTriggered: launcherView.bootTipIndex = (launcherView.bootTipIndex + 1) % launcherView.bootTips.length
     }
 
     function currentBootTip() {
-        return launcherView.bootTips[launcherView.bootTipIndex]
+        return bootTips.length ? bootTips[bootTipIndex % bootTips.length] : ""
+    }
+
+    function bootText(key, fallback) {
+        var value = remoteBootTexts ? remoteBootTexts[key] : null
+        return typeof value === "string" && value.trim().length > 0 ? value : fallback
+    }
+
+    function queueTitle() {
+        return bootText("queueTitle", qsTr("Position %1 of %2").arg(LauncherApi.queuePosition).arg(LauncherApi.queueTotal))
+                .split("{position}").join(LauncherApi.queuePosition)
+                .split("{total}").join(LauncherApi.queueTotal)
     }
 
     function formatActivationDate(value) {
@@ -104,8 +119,8 @@ Item {
     function statusTitle() {
         if (activationPending()) return qsTr("Pré-venda confirmada")
         if (needsMachine()) return qsTr("Create your PC")
-        if (LauncherApi.state === "queued") return qsTr("You are in the queue")
-        if (LauncherApi.state === "starting") return qsTr("Your PC is starting")
+        if (LauncherApi.state === "queued") return queueTitle()
+        if (LauncherApi.state === "starting") return bootText("bootingTitle", qsTr("Your PC is starting"))
         if (LauncherApi.state === "ready") return qsTr("Your PC is ready")
         if (LauncherApi.state === "ending") return qsTr("Ending session")
         return qsTr("Ready to play")
@@ -113,6 +128,9 @@ Item {
 
     // Rótulo amigável da fase de criação/boot (mesmo vocabulário do site).
     function creationPhaseLabel(phase) {
+        var phases = remoteBootTexts ? remoteBootTexts.phases : null
+        if (phases && typeof phases[phase] === "string" && phases[phase].trim().length)
+            return phases[phase]
         var map = {
             "queued": qsTr("Allocating cloud resources"),
             "checking_snapshot": qsTr("Checking saved snapshots"),
@@ -127,7 +145,7 @@ Item {
             "waiting_agent": qsTr("Connecting monitoring agent"),
             "ready": qsTr("Almost ready!")
         }
-        return map[phase] || qsTr("Preparing your machine")
+        return map[phase] || bootText("defaultTitle", qsTr("Preparing your machine"))
     }
 
     function statusDetails() {
@@ -136,11 +154,15 @@ Item {
                     .arg(pendingPlanName()).arg(pendingActivationDate())
         if (needsMachine())
             return qsTr("You don't have a dedicated PC yet. Create one to start playing.")
-        if (LauncherApi.state === "queued")
-            return qsTr("Position %1 of %2").arg(LauncherApi.queuePosition).arg(LauncherApi.queueTotal)
-        // Mostra a fase real do boot (criação/proteção/rede) em vez de um "starting" genérico.
-        if (LauncherApi.state === "starting" && LauncherApi.creationPhase)
-            return creationPhaseLabel(LauncherApi.creationPhase)
+        if (LauncherApi.state === "queued" || LauncherApi.state === "starting") {
+            var reasons = remoteBootTexts ? remoteBootTexts.reasons : null
+            var reason = reasons && reasons[LauncherApi.queueBlockedReason]
+            var detail = LauncherApi.state === "starting" ? creationPhaseLabel(LauncherApi.creationPhase)
+                    : reason || bootText("queueSearching", qsTr("Join the shared queue. Your plan determines your priority."))
+            return LauncherApi.bootElapsedSeconds >= 60
+                    ? bootText("takingLonger", "{reason}").split("{reason}").join(detail)
+                    : detail
+        }
         if (LauncherApi.machineName)
             return qsTr("%1 · %2 minutes remaining").arg(LauncherApi.machineName).arg(LauncherApi.remainingMinutes)
         return qsTr("Join the shared queue. Your plan determines your priority.")
@@ -289,8 +311,18 @@ Item {
         onTriggered: LauncherApi.refreshStatus()
     }
 
+    Flickable {
+        id: launcherScroll
+        anchors.fill: parent
+        clip: true
+        contentWidth: width
+        contentHeight: Math.max(height, launcherColumn.implicitHeight + 40)
+        ScrollBar.vertical: ScrollBar {}
+
     ColumnLayout {
-        anchors.centerIn: parent
+        id: launcherColumn
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: Math.max(20, (launcherScroll.height - implicitHeight) / 2)
         width: Math.min(620, parent.width - 60)
         spacing: 16
 
@@ -323,18 +355,51 @@ Item {
                 spacing: 14
 
                 Label {
+                    visible: (LauncherApi.state === "starting" || LauncherApi.state === "queued") && text.length > 0
+                    text: bootText("eyebrow", "")
+                    textFormat: Text.PlainText
+                    color: "#a993ff"
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+
+                Label {
                     text: statusTitle()
+                    textFormat: Text.PlainText
                     color: "#f8f5ff"
                     font.pixelSize: 24
                     font.bold: true
+                    wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                 }
 
                 Label {
                     text: statusDetails()
+                    textFormat: Text.PlainText
                     color: "#9793aa"
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
+                }
+
+                Label {
+                    visible: (LauncherApi.state === "starting" || LauncherApi.state === "queued") && text.length > 0
+                    text: bootText("subtitle", "")
+                    textFormat: Text.PlainText
+                    color: "#9793aa"
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+
+                Repeater {
+                    model: (LauncherApi.state === "starting" || LauncherApi.state === "queued")
+                            && remoteBootTexts && remoteBootTexts.steps ? remoteBootTexts.steps : []
+                    delegate: Label {
+                        text: (index + 1) + ". " + modelData
+                        textFormat: Text.PlainText
+                        color: "#9793aa"
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
                 }
 
                 Label {
@@ -359,7 +424,7 @@ Item {
 
                 // Dica rotativa enquanto a VM liga / está na fila (só aparece nesses estados).
                 Rectangle {
-                    visible: LauncherApi.state === "starting" || LauncherApi.state === "queued"
+                    visible: bootTips.length > 0 && (LauncherApi.state === "starting" || LauncherApi.state === "queued")
                     Layout.fillWidth: true
                     implicitHeight: tipRow.implicitHeight + 20
                     radius: 10
@@ -380,6 +445,7 @@ Item {
                         }
                         Label {
                             text: currentBootTip()
+                            textFormat: Text.PlainText
                             color: "#c9c3dd"
                             font.pixelSize: 13
                             wrapMode: Text.WordWrap
@@ -554,6 +620,8 @@ Item {
                 onClicked: LauncherApi.logout()
             }
         }
+    }
+
     }
 
     Dialog {

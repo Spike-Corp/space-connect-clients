@@ -28,6 +28,9 @@ class LauncherApi : public QObject
     Q_PROPERTY(QString planSlug READ planSlug NOTIFY statusChanged)
     Q_PROPERTY(QString machineName READ machineName NOTIFY statusChanged)
     Q_PROPERTY(QString creationPhase READ creationPhase NOTIFY statusChanged)
+    Q_PROPERTY(QVariantMap bootTexts READ bootTexts NOTIFY statusChanged)
+    Q_PROPERTY(QString queueBlockedReason READ queueBlockedReason NOTIFY statusChanged)
+    Q_PROPERTY(int bootElapsedSeconds READ bootElapsedSeconds NOTIFY statusChanged)
     Q_PROPERTY(qint64 remainingMinutes READ remainingMinutes NOTIFY statusChanged)
     // Falso enquanto ainda não sabemos (undecided) ou o usuário realmente não
     // tem nenhuma VM dedicada provisionada. Sem isso, o app só sabia "joinQueue",
@@ -86,6 +89,9 @@ public:
     QString planSlug() const { return m_PlanSlug; }
     QString machineName() const { return m_MachineName; }
     QString creationPhase() const { return m_CreationPhase; }
+    QVariantMap bootTexts() const { return m_BootTexts; }
+    QString queueBlockedReason() const { return m_QueueBlockedReason; }
+    int bootElapsedSeconds() const { return m_BootElapsedSeconds; }
     qint64 remainingMinutes() const { return m_RemainingMs / 60000; }
     bool hasMachine() const { return m_HasMachine; }
     bool machinesLoaded() const { return m_MachinesLoaded; }
@@ -287,6 +293,9 @@ private:
     QString m_PlanSlug;
     QString m_MachineName;
     QString m_CreationPhase;
+    QVariantMap m_BootTexts;
+    QString m_QueueBlockedReason;
+    int m_BootElapsedSeconds = 0;
     int m_QueuePosition = 0;
     int m_QueueTotal = 0;
     qint64 m_RemainingMs = 0;

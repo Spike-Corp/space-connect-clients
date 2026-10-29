@@ -115,6 +115,19 @@ public class SpaceConnectApiClientTest {
     }
 
     @Test
+    public void statusUsesAdminBootTextsAndPreservesEmptyTips() throws Exception {
+        server.enqueue(new MockResponse().setHeader("Content-Type", "application/json").setBody(
+                "{\"state\":\"queued\",\"queue\":{\"position\":2,\"total\":3},\"bootTexts\":{"
+                + "\"queueTitle\":\"Fila {position}/{total}\",\"phases\":{\"starting\":\"Texto editado\"},\"tips\":[]}}"));
+        SpaceConnectApiClient.StatusResponse status = client.getStatus("access-1");
+        assertEquals("Fila 2/3", status.bootTexts.queueTitle(2, 3, "fallback"));
+        assertEquals("Texto editado", status.bootTexts.phases.get("starting"));
+        assertEquals(0, status.bootTexts.tips.length);
+        assertEquals("fallback", SpaceConnectApiClient.BootTexts.text(" ", "fallback"));
+        assertEquals("fallback", SpaceConnectApiClient.BootTexts.text(null, "fallback"));
+    }
+
+    @Test
     public void joinQueueUsesTheSharedLauncherEndpoint() throws Exception {
         server.enqueue(new MockResponse()
                 .setResponseCode(200)

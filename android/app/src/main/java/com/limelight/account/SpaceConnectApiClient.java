@@ -6,6 +6,7 @@ import com.limelight.BuildConfig;
 
 import java.io.IOException;
 import java.net.URLEncoder;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.MediaType;
@@ -770,9 +771,34 @@ public final class SpaceConnectApiClient {
 
     public static final class StatusResponse {
         public String state;
+        public BootTexts bootTexts;
+        public int bootElapsedSeconds;
         public QueueStatus queue;
         public SessionStatus session;
         public String serverNow;
+    }
+
+    public static final class BootTexts {
+        public String eyebrow;
+        public String subtitle;
+        public String queueTitle;
+        public String bootingTitle;
+        public String defaultTitle;
+        public String queueSearching;
+        public String takingLonger;
+        public String[] steps;
+        public String[] tips;
+        public Map<String, String> phases;
+        public Map<String, String> reasons;
+
+        public static String text(String remote, String fallback) {
+            return remote != null && !remote.trim().isEmpty() ? remote : fallback;
+        }
+
+        public String queueTitle(int position, int total, String fallback) {
+            return text(queueTitle, fallback).replace("{position}", String.valueOf(position))
+                    .replace("{total}", String.valueOf(total));
+        }
     }
 
     public static final class QueueStatus {
@@ -782,6 +808,7 @@ public final class SpaceConnectApiClient {
         public String planSlug;
         public double requestedHours;
         public String joinedAt;
+        public String blockedReason;
     }
 
     public static final class SessionStatus {
