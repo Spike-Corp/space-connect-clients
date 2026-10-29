@@ -572,6 +572,11 @@ jobs:
           $SUDO wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage -O linuxdeploy-plugin-qt
           $SUDO chmod +x linuxdeploy linuxdeploy-plugin-qt
 
+      - name: Setup Node for launcher tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
       - name: Test launcher boot texts
         run: node app/tests/launcherboottexts_test.cjs
 
