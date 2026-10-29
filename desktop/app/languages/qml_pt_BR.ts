@@ -1163,6 +1163,18 @@
 <context>
     <name>PcView</name>
     <message>
+        <source>Remove '%1' from this app?
+
+This only removes the shortcut from your list — your VM in the cloud (and everything in it) is NOT deleted. You can add it back anytime.
+
+To actually delete the VM and free its disk, use the panel (spacecloud.gg/painel).</source>
+        <translation>Remover '%1' deste aplicativo?
+
+Isso remove apenas o atalho da sua lista — sua VM na nuvem e todos os arquivos nela NÃO serão apagados. Você pode adicioná-la novamente quando quiser.
+
+Para excluir a VM de verdade e liberar o disco, use o painel (spacecloud.gg/painel).</translation>
+    </message>
+    <message>
         <location filename="../gui/PcView.qml" line="276"/>
         <source>Turn on my VM</source>
         <translation>Ligar meu PC</translation>
@@ -2652,8 +2664,16 @@
     </message>
     <message>
         <location filename="../gui/main.qml" line="492"/>
-        <source>Update available for Space Connect: Version %1</source>
-        <translation>Atualização disponível para o Space Connect: Versão %1</translation>
+        <source>Update available for Space Connect: Version %1. Click to install now.</source>
+        <translation>Atualização disponível para o Space Connect: versão %1. Clique para instalar agora.</translation>
+    </message>
+    <message>
+        <source>Downloading update... %1%</source>
+        <translation>Baixando atualização... %1%</translation>
+    </message>
+    <message>
+        <source>Download failed (%1). Opening browser...</source>
+        <translation>Falha ao baixar (%1). Abrindo o navegador...</translation>
     </message>
     <message>
         <location filename="../gui/main.qml" line="554"/>

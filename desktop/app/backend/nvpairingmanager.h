@@ -25,6 +25,9 @@ public:
     pair(QString appVersion, QString pin, QSslCertificate& serverCert);
 
 private:
+    void
+    cleanupFailedPairing();
+
     QByteArray
     generateRandomBytes(int length);
 

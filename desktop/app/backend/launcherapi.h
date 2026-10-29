@@ -270,7 +270,7 @@ private:
     void applyStatus(const QJsonObject& root);
     void setBusy(bool busy);
     void setError(const QString& message);
-    void sendPairAttempt(const QString& pin, int attempt);
+    void sendPairAttempt(const QString& pin, const QString& machineId, int attempt);
     void sendFriendPairAttempt(const QString& machineId, const QString& pin, int attempt);
     QString deviceId() const;
     // VM alvo das ações (fila/conexão/encerrar): a da sessão ativa, se houver;

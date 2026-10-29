@@ -420,6 +420,9 @@ public final class AccountManager {
                             launcherPrefs.edit().remove("pending_friend_machine").apply();
                             return;
                         }
+                        if (r != null && r.viaAgent) {
+                            return;
+                        }
                     } else {
                         API.pair(session.accessToken, pin);
                         return;

@@ -211,6 +211,18 @@
 <context>
     <name>PcView</name>
     <message>
+        <source>Remove '%1' from this app?
+
+This only removes the shortcut from your list — your VM in the cloud (and everything in it) is NOT deleted. You can add it back anytime.
+
+To actually delete the VM and free its disk, use the panel (spacecloud.gg/painel).</source>
+        <translation>Remover '%1' desta aplicação?
+
+Isto remove apenas o atalho da sua lista — a sua VM na nuvem e todos os ficheiros nela NÃO serão apagados. Pode adicioná-la novamente quando quiser.
+
+Para eliminar a VM de verdade e libertar o disco, utilize o painel (spacecloud.gg/painel).</translation>
+    </message>
+    <message>
         <location filename="../gui/PcView.qml" line="21"/>
         <source>Computers</source>
         <translation>Computadores</translation>
@@ -351,27 +363,27 @@
     <message>
         <location filename="../backend/computermanager.cpp" line="586"/>
         <source>The PIN from the PC didn&apos;t match. Please try again.</source>
-        <translation type="unfinished"></translation>
+        <translation>O PIN do computador não corresponde. Tente novamente.</translation>
     </message>
     <message>
         <location filename="../backend/computermanager.cpp" line="590"/>
         <source>You cannot pair while a previous session is still running on the host PC. Quit any running games or reboot the host PC, then try pairing again.</source>
-        <translation type="unfinished"></translation>
+        <translation>Não é possível emparelhar enquanto uma sessão anterior estiver em execução no computador anfitrião. Feche os jogos em execução ou reinicie esse computador e tente novamente.</translation>
     </message>
     <message>
         <location filename="../backend/computermanager.cpp" line="593"/>
         <source>Pairing failed. Please try again.</source>
-        <translation type="unfinished"></translation>
+        <translation>Falha ao emparelhar. Tente novamente.</translation>
     </message>
     <message>
         <location filename="../backend/computermanager.cpp" line="597"/>
         <source>Another pairing attempt is already in progress.</source>
-        <translation type="unfinished"></translation>
+        <translation>Já está em curso outra tentativa de emparelhamento.</translation>
     </message>
     <message>
         <location filename="../backend/computermanager.cpp" line="607"/>
-        <source>GeForce Experience returned error: %1</source>
-        <translation type="unfinished">GeForce Experience retornou um erro: %1</translation>
+        <source>GameStream returned error: %1</source>
+        <translation>O GameStream devolveu um erro: %1</translation>
     </message>
 </context>
 <context>
@@ -1259,8 +1271,16 @@
     </message>
     <message>
         <location filename="../gui/main.qml" line="337"/>
-        <source>Update available for Moonlight: Version %1</source>
-        <translation>Atualização disponível para o Moonlight: Versão %1</translation>
+        <source>Update available for Space Connect: Version %1. Click to install now.</source>
+        <translation>Atualização disponível para o Space Connect: versão %1. Clique para instalar agora.</translation>
+    </message>
+    <message>
+        <source>Downloading update... %1%</source>
+        <translation>A descarregar atualização... %1%</translation>
+    </message>
+    <message>
+        <source>Download failed (%1). Opening browser...</source>
+        <translation>Falha ao descarregar (%1). A abrir o navegador...</translation>
     </message>
     <message>
         <location filename="../gui/main.qml" line="384"/>

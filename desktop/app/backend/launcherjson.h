@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QByteArray>
+#include <QJsonObject>
 #include <QString>
 
 struct LauncherStatus
@@ -37,4 +38,5 @@ class LauncherJson
 public:
     static LauncherStatus parseStatus(const QByteArray& json);
     static LauncherConnection parseConnection(const QByteArray& json);
+    static bool pairPinAccepted(int status, const QJsonObject& response);
 };

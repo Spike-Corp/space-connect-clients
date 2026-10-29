@@ -577,8 +577,10 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Test launcher boot texts
-        run: node app/tests/launcherboottexts_test.cjs
+      - name: Test boot texts and prepare Portuguese catalogs
+        run: |
+          node app/tests/launcherboottexts_test.cjs
+          lrelease app/languages/qml_pt_BR.ts app/languages/qml_pt.ts
 
       - name: Build AppImage
         env:
@@ -588,6 +590,14 @@ jobs:
           # OOM-killed (exit 137).
           MAKE_JOBS: 2
         run: bash scripts/build-appimage.sh
+
+      - name: Test pairing and Portuguese dialogs
+        run: |
+          mkdir -p build/pairing-tests
+          cd build/pairing-tests
+          qmake ../../app/tests/pairing_test.pro "MOONLIGHT_LIB_DIR=$PWD/../build-release/moonlight-common-c"
+          make -j2
+          ./pairing_test
 
       - name: Package AppImage
         run: |

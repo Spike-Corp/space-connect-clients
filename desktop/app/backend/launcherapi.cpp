@@ -606,6 +606,7 @@ void LauncherApi::requestConnection()
                         }
                     }
                     m_MachineIdByAddress.insert(address, targetMachineId);
+                    m_PendingFriendMachineId.clear();
                     // Mic bridge: se o usuário encaminha o mic (padrão ligado),
                     // garante que o bridge está RODANDO na VM antes da sessão
                     // começar — o processo morre entre boots e a task ONLOGON
@@ -716,7 +717,7 @@ void LauncherApi::submitPairPin(const QString& pin)
         sendFriendPairAttempt(m_PendingFriendMachineId, pin, 0);
         return;
     }
-    sendPairAttempt(pin, 0);
+    sendPairAttempt(pin, effectiveMachineId(), 0);
 }
 
 void LauncherApi::sendFriendPairAttempt(const QString& machineId, const QString& pin, int attempt)
@@ -725,8 +726,7 @@ void LauncherApi::sendFriendPairAttempt(const QString& machineId, const QString&
             QJsonObject{{QStringLiteral("pin"), pin}},
             true,
             [this, machineId, pin, attempt](int status, const QJsonObject& root) {
-                if (status >= 200 && status < 300
-                    && root.value(QStringLiteral("paired")).toBool()) {
+                if (LauncherJson::pairPinAccepted(status, root)) {
                     return;
                 }
                 if (attempt < 7) {
@@ -737,19 +737,23 @@ void LauncherApi::sendFriendPairAttempt(const QString& machineId, const QString&
             });
 }
 
-void LauncherApi::sendPairAttempt(const QString& pin, int attempt)
+void LauncherApi::sendPairAttempt(const QString& pin, const QString& machineId, int attempt)
 {
+    QJsonObject body{{QStringLiteral("pin"), pin}};
+    if (!machineId.isEmpty())
+        body.insert(QStringLiteral("machineId"), machineId);
     request("POST", QStringLiteral("pair"),
-            QJsonObject{{QStringLiteral("pin"), pin}},
+            body,
             true,
-            [this, pin, attempt](int status, const QJsonObject& root) {
-                if (status >= 200 && status < 300
-                    && root.value(QStringLiteral("paired")).toBool()) {
+            [this, pin, machineId, attempt](int status, const QJsonObject& root) {
+                // Agent acknowledgement stops delivery retries, not the native
+                // handshake: only NvPairingManager can confirm pairing.
+                if (LauncherJson::pairPinAccepted(status, root)) {
                     return;
                 }
                 if (attempt < 7) {
-                    QTimer::singleShot(500, this, [this, pin, attempt]() {
-                        sendPairAttempt(pin, attempt + 1);
+                    QTimer::singleShot(500, this, [this, pin, machineId, attempt]() {
+                        sendPairAttempt(pin, machineId, attempt + 1);
                     });
                 }
             });
@@ -761,6 +765,7 @@ void LauncherApi::logout()
     m_AccessToken.clear();
     m_RefreshToken.clear();
     m_TempToken.clear();
+    m_PendingFriendMachineId.clear();
     m_Email.clear();
     m_PlanLocked = false;
     m_UpcomingPlanName.clear();

@@ -5,6 +5,13 @@
 
 #include <stdexcept>
 
+bool LauncherJson::pairPinAccepted(int status, const QJsonObject& response)
+{
+    return status >= 200 && status < 300
+        && (response.value(QStringLiteral("paired")).toBool()
+            || response.value(QStringLiteral("viaAgent")).toBool());
+}
+
 static QJsonObject parseObject(const QByteArray& json)
 {
     QJsonParseError error;
