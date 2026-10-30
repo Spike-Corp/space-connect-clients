@@ -129,6 +129,19 @@ public final class SpaceConnectApiClient {
         return get("machines", accessToken, MachinesResponse.class);
     }
 
+    public ManagementResponse getManagement(String accessToken) throws IOException, ApiException {
+        return get("vm-management", accessToken, ManagementResponse.class);
+    }
+
+    public OperationResponse machineAction(String accessToken, String machineId, MachineAction input)
+            throws IOException, ApiException {
+        return post("machines/" + safeMachineId(machineId) + "/actions", input, accessToken, OperationResponse.class);
+    }
+
+    public OperationResponse retryOperation(String accessToken, String operationId) throws IOException, ApiException {
+        return post("vm-operations/" + safeMachineId(operationId) + "/retry", new Object(), accessToken, OperationResponse.class);
+    }
+
     // Renomeia a VM (apelido de conta) — mesmo endpoint do desktop
     // (PATCH machines/:id/name). Se a VM não for do usuário (ex.: VM de
     // amigo), o backend responde 404/403 e quem chamou deve tratar como
@@ -200,25 +213,25 @@ public final class SpaceConnectApiClient {
         return get("emulators", accessToken, EmulatorsResponse.class);
     }
 
-    public EmulatorStatusResponse getEmulatorStatus(String accessToken) throws IOException, ApiException {
-        return get("emulators/status", accessToken, EmulatorStatusResponse.class);
+    public EmulatorStatusResponse getEmulatorStatus(String accessToken, String machineId) throws IOException, ApiException {
+        return get(forMachine("emulators/status", machineId), accessToken, EmulatorStatusResponse.class);
     }
 
-    public EmulatorActionResponse installEmulator(String accessToken, String emulatorId) throws IOException, ApiException {
-        return post("emulators/" + emulatorId + "/install", new Object(), accessToken, EmulatorActionResponse.class);
+    public EmulatorActionResponse installEmulator(String accessToken, String emulatorId, String machineId) throws IOException, ApiException {
+        return post("emulators/" + emulatorId + "/install", new MachineTarget(machineId), accessToken, EmulatorActionResponse.class);
     }
 
-    public EmulatorInstallStatusResponse getEmulatorInstallStatus(String accessToken, String emulatorId) throws IOException, ApiException {
-        return get("emulators/install-status?emulator=" + emulatorId, accessToken, EmulatorInstallStatusResponse.class);
+    public EmulatorInstallStatusResponse getEmulatorInstallStatus(String accessToken, String emulatorId, String machineId) throws IOException, ApiException {
+        return get(forMachine("emulators/install-status?emulator=" + emulatorId, machineId), accessToken, EmulatorInstallStatusResponse.class);
     }
 
-    public EmulatorActionResponse launchEmulator(String accessToken, String emulatorId) throws IOException, ApiException {
-        return post("emulators/" + emulatorId + "/launch", new Object(), accessToken, EmulatorActionResponse.class);
+    public EmulatorActionResponse launchEmulator(String accessToken, String emulatorId, String machineId) throws IOException, ApiException {
+        return post("emulators/" + emulatorId + "/launch", new MachineTarget(machineId), accessToken, EmulatorActionResponse.class);
     }
 
     // Garante que o MicBridge está rodando na VM antes de encaminhar o mic.
-    public MicEnsureResponse ensureMicBridge(String accessToken) throws IOException, ApiException {
-        return post("mic/ensure", new Object(), accessToken, MicEnsureResponse.class);
+    public MicEnsureResponse ensureMicBridge(String accessToken, String machineId) throws IOException, ApiException {
+        return post("mic/ensure", new MachineTarget(machineId), accessToken, MicEnsureResponse.class);
     }
 
     // Biblioteca de downloads gerenciada pelo admin (aba Downloads do app).
@@ -228,12 +241,12 @@ public final class SpaceConnectApiClient {
 
     // A VM baixa o item direto da URL pra pasta Downloads DA VM (não pro
     // aparelho local). Retorna na hora; o app faz polling no status.
-    public VmDownloadStartResponse startVmDownload(String accessToken, String itemId) throws IOException, ApiException {
-        return post("downloads/" + itemId + "/to-vm", new Object(), accessToken, VmDownloadStartResponse.class);
+    public VmDownloadStartResponse startVmDownload(String accessToken, String itemId, String machineId) throws IOException, ApiException {
+        return post("downloads/" + itemId + "/to-vm", new MachineTarget(machineId), accessToken, VmDownloadStartResponse.class);
     }
 
-    public VmDownloadStatusResponse getVmDownloadStatus(String accessToken, String itemId) throws IOException, ApiException {
-        return get("downloads/" + itemId + "/to-vm/status", accessToken, VmDownloadStatusResponse.class);
+    public VmDownloadStatusResponse getVmDownloadStatus(String accessToken, String itemId, String machineId) throws IOException, ApiException {
+        return get(forMachine("downloads/" + itemId + "/to-vm/status", machineId), accessToken, VmDownloadStatusResponse.class);
     }
 
     // Licença NVIDIA vGPU (RTX Virtual Workstation) da T4: depois de atualizar
@@ -243,8 +256,8 @@ public final class SpaceConnectApiClient {
         return get("gpu/license/status", accessToken, GpuLicenseStatusResponse.class);
     }
 
-    public GpuLicenseApplyResponse applyGpuLicense(String accessToken) throws IOException, ApiException {
-        return post("gpu/license/apply", new Object(), accessToken, GpuLicenseApplyResponse.class);
+    public GpuLicenseApplyResponse applyGpuLicense(String accessToken, String machineId) throws IOException, ApiException {
+        return post("gpu/license/apply", new MachineTarget(machineId), accessToken, GpuLicenseApplyResponse.class);
     }
 
     // Transfere o disco de uma VM pra outra (a de origem é excluída).
@@ -333,6 +346,15 @@ public final class SpaceConnectApiClient {
     public EndSessionResponse endSession(String accessToken, String machineId) throws IOException, ApiException {
         return post("session/end?machineId=" + safeMachineId(machineId), new EmptyRequest(), accessToken,
                 EndSessionResponse.class);
+    }
+
+    private static String forMachine(String path, String machineId) {
+        return machineId == null ? path : path + (path.contains("?") ? "&" : "?") + "machineId=" + safeMachineId(machineId);
+    }
+
+    private static final class MachineTarget {
+        final String machineId;
+        MachineTarget(String id) { machineId = id == null ? null : safeMachineId(id); }
     }
 
     private static String safeMachineId(String machineId) {
@@ -922,6 +944,80 @@ public final class SpaceConnectApiClient {
         public Entitlement entitlement;
         public boolean locked;
         public String lockedReason;
+        public String operationId;
+        public String operationKind;
+        public SessionStatus session;
+        public FormatQuota formats;
+        public QueueStatus queue;
+        public MachinePhases phases;
+        public MachineStorage storage;
+    }
+
+    public static final class MachinePhases {
+        public String creation;
+        public String shutdown;
+        public String format;
+    }
+
+    public static final class MachineStorage {
+        public String snapshotStatus;
+        public boolean diskDetached;
+    }
+
+    public static final class FormatQuota {
+        public int used;
+        public int freeRemaining;
+        public int paidRemaining;
+        public int remaining;
+    }
+
+    public static final class ManagementResponse {
+        public String serverNow;
+        public MachineListItem[] machines;
+        public DataVolume[] volumes;
+        public VmOperation[] operations;
+        public String policy;
+    }
+
+    public static final class DataVolume {
+        public String id;
+        public String machineId;
+        public String provider;
+        public int sizeGb;
+        public String state;
+        public boolean initialized;
+        public String driveLetter;
+        public String initializationError;
+        public String operationId;
+    }
+
+    public static final class VmOperation {
+        public String id;
+        public String machineId;
+        public String[] machineIds;
+        public String kind;
+        public String state;
+        public String phase;
+        public String message;
+        public String updatedAt;
+        public String createdAt;
+        public boolean dataErased;
+    }
+
+    public static final class OperationResponse {
+        public VmOperation operation;
+        public boolean accepted;
+        public String operationId;
+    }
+
+    public static final class MachineAction {
+        public String requestId = java.util.UUID.randomUUID().toString();
+        public String action;
+        public Boolean eraseWindows;
+        public Boolean eraseAdditionalData;
+        public String volumeId;
+        public String targetMachineId;
+        public MachineAction(String action) { this.action = action; }
     }
 
     public static final class MachineSpecs {

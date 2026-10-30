@@ -18,7 +18,7 @@
           HelpUrl="https://spacecloud.gg"
           UpdateUrl="https://spacecloud.gg"
           DisableModify="yes"
-          IconSourceFile="..\..\app\moonlight.ico">
+          IconSourceFile="..\..\app\spaceconnect.ico">
 
     <bal:Condition Message="This version of Space Connect requires Windows 10 or later." Condition="VersionNT &gt;= v10.0" />
     <bal:Condition Message="This version of Space Connect requires a 64-bit version of Windows." Condition="NativeMachine &lt;&gt; 332" />
@@ -50,7 +50,7 @@
                                               ThemeFile="RtfTheme.xml"
                                               Theme="rtfLicense"
                                               SuppressOptionsUI="false" />
-      <Payload Name="SpaceConnect.ico" SourceFile="..\..\app\moonlight.ico" Compressed="yes" />
+      <Payload Name="SpaceConnect.ico" SourceFile="..\..\app\spaceconnect.ico" Compressed="yes" />
     </BootstrapperApplication>
 
     <Chain>

@@ -138,12 +138,12 @@ public class LauncherActivity extends Activity {
                 startActivity(new Intent(LauncherActivity.this, FriendsActivity.class)));
         // Emuladores: catálogo oficial (RetroArch e cia), instala/abre na VM.
         findViewById(R.id.launcherEmulatorsButton).setOnClickListener(v ->
-                startActivity(new Intent(LauncherActivity.this, EmulatorsActivity.class)));
+                startActivity(new Intent(LauncherActivity.this, EmulatorsActivity.class).putExtra("machineId", selectedMachineId)));
         // Downloads: biblioteca de arquivos/links gerenciada pelo admin.
         findViewById(R.id.launcherDownloadsButton).setOnClickListener(v ->
-                startActivity(new Intent(LauncherActivity.this, DownloadsActivity.class)));
-        // Transferir disco entre VMs (só aparece com 2+ máquinas Proxmox).
-        findViewById(R.id.launcherTransferDiskButton).setOnClickListener(v -> showTransferDiskDialog());
+                startActivity(new Intent(LauncherActivity.this, DownloadsActivity.class).putExtra("machineId", selectedMachineId)));
+        findViewById(R.id.launcherTransferDiskButton).setOnClickListener(v ->
+                startActivity(new Intent(this, MachineManagementActivity.class)));
         // USB passthrough: o helper é Windows-only (roda no PC do cliente). No
         // Android o botão vira um how-to + link de download, visível com a VM pronta.
         findViewById(R.id.launcherUsbButton).setOnClickListener(v -> showUsbPassthroughInfo());
@@ -394,27 +394,15 @@ public class LauncherActivity extends Activity {
         boolean firstSample = lastNotifiedState == null;
 
         if (nowReady && !firstSample && !"ready".equals(lastNotifiedState)) {
-            if (prefs.getBoolean("checkbox_notify_ready", true)) {
-                String text = getString(R.string.notify_machine_ready);
-                if (canPostNotifications()) postSessionNotification(NOTIF_ID_READY, text);
-                else Toast.makeText(this, text, Toast.LENGTH_LONG).show();
-            }
-            if (prefs.getBoolean("checkbox_sound_ready", true)) {
-                playNotifySound();
-            }
+            if (status.session != null) VmMonitorService.sessionNotice(this, true, status.session.id,
+                    status.session.machine == null ? "" : status.session.machine.name);
         }
         if (nowReady && status.session != null) {
             long mins = Math.max(0, status.session.remainingMs / 60000L);
             if (!endWarned && mins > 0 && mins <= 5) {
                 endWarned = true;
-                if (prefs.getBoolean("checkbox_notify_ending", true)) {
-                    String text = getString(R.string.notify_machine_ending);
-                    if (canPostNotifications()) postSessionNotification(NOTIF_ID_ENDING, text);
-                    else Toast.makeText(this, text, Toast.LENGTH_LONG).show();
-                }
-                if (prefs.getBoolean("checkbox_sound_ending", true)) {
-                    playNotifySound();
-                }
+                VmMonitorService.sessionNotice(this, false, status.session.id,
+                        status.session.machine == null ? "" : status.session.machine.name);
             }
         }
         if (!nowReady) endWarned = false;
@@ -658,55 +646,21 @@ public class LauncherActivity extends Activity {
 
     private void onMachineChosen(SpaceConnectApiClient.MachineListItem machine, String sessionMachineId) {
         if (machine == null || machine.id == null) return;
-        // Já é a VM da sessão atual: gestão fica nos botões Conectar/Encerrar.
-        if (machine.id.equals(sessionMachineId)) {
-            selectedMachineId = machine.id;
-            renderPlanHours();
-            return;
-        }
-        // Sessão ativa em OUTRA VM: trocar exige encerrar a atual primeiro
-        // (uma sessão por vez no aparelho, igual ao desktop).
-        if (sessionMachineId != null) {
-            String current = machineLabelForId(sessionMachineId);
-            String target = (machine.name == null || machine.name.trim().isEmpty()) ? machine.id : machine.name;
-            new AlertDialog.Builder(this)
-                    .setTitle(R.string.launcher_switch_machine_title)
-                    .setMessage(getString(R.string.launcher_switch_machine_message, current, target))
-                    .setNegativeButton(R.string.game_menu_cancel, null)
-                    .setPositiveButton(R.string.launcher_switch_machine_confirm, (d, w) ->
-                            switchToMachine(sessionMachineId, machine.id))
-                    .show();
-            return;
-        }
-        // Sem sessão: seleciona e entra na fila dessa VM.
+        statusEpoch++;
+        if (statusScope != null) statusScope.close();
+        if (statusFuture != null) statusFuture.cancel(true);
+        if (pollingRequest) requestRunning = false;
+        pollingRequest = false;
+        lastStatus = null;
+        lastNotifiedState = null;
+        endWarned = false;
         selectedMachineId = machine.id;
-        joinQueueForMachine(machine.id);
-    }
-
-    // Troca de VM: encerra a sessão atual e, quando o backend confirmar, entra
-    // na fila da nova. Seguro porque fila/sessão são por máquina no backend —
-    // a nova VM não é bloqueada pela sessão que está sendo encerrada.
-    private void switchToMachine(String currentMachineId, String targetMachineId) {
-        if (requestRunning) return;
-        requestRunning = true;
-        progressBar.setVisibility(View.VISIBLE);
-        AccountManager.endSession(this, currentMachineId,
-                new AccountManager.ResultCallback<SpaceConnectApiClient.EndSessionResponse>() {
-            @Override
-            public void onSuccess(SpaceConnectApiClient.EndSessionResponse result) {
-                requestRunning = false;
-                progressBar.setVisibility(View.GONE);
-                selectedMachineId = targetMachineId;
-                joinQueueForMachine(targetMachineId);
-            }
-
-            @Override
-            public void onError(String message) {
-                requestRunning = false;
-                progressBar.setVisibility(View.GONE);
-                Toast.makeText(LauncherActivity.this, message, Toast.LENGTH_LONG).show();
-            }
-        });
+        primaryButton.setEnabled(false);
+        endSessionButton.setVisibility(View.GONE);
+        statusText.setText(R.string.vm_loading);
+        detailsText.setText(machine.name);
+        renderPlanHours();
+        refreshStatus(true);
     }
 
     private String machineLabelForId(String machineId) {
@@ -715,117 +669,9 @@ public class LauncherActivity extends Activity {
         return (m.name == null || m.name.trim().isEmpty()) ? m.id : m.name;
     }
 
-    // Transferência de disco só faz sentido com 2+ máquinas Proxmox.
     private void updateTransferDiskButton() {
-        int proxmox = 0;
-        if (machines != null) {
-            for (SpaceConnectApiClient.MachineListItem m : machines) {
-                if (m != null && "proxmox".equals(m.provider)) proxmox++;
-            }
-        }
-        findViewById(R.id.launcherTransferDiskButton).setVisibility(proxmox >= 2 ? View.VISIBLE : View.GONE);
-    }
-
-    // Dialog de transferência de disco entre VMs: exclui a de origem e soma o
-    // disco dela (inteiro) na de destino. Avisa que é irreversível.
-    private void showTransferDiskDialog() {
-        java.util.List<SpaceConnectApiClient.MachineListItem> proxmox = new java.util.ArrayList<>();
-        if (machines != null) {
-            for (SpaceConnectApiClient.MachineListItem m : machines) {
-                if (m != null && "proxmox".equals(m.provider)) proxmox.add(m);
-            }
-        }
-        if (proxmox.size() < 2) return;
-
-        String[] labels = new String[proxmox.size()];
-        for (int i = 0; i < proxmox.size(); i++) {
-            SpaceConnectApiClient.MachineListItem m = proxmox.get(i);
-            String name = (m.name == null || m.name.trim().isEmpty()) ? m.id : m.name;
-            int gb = m.specs != null && m.specs.diskGb != null ? m.specs.diskGb : 0;
-            labels[i] = name + (gb > 0 ? " (" + gb + " GB)" : "");
-        }
-
-        final int[] sourceIdx = { -1 };
-        final int[] targetIdx = { -1 };
-
-        android.widget.LinearLayout layout = new android.widget.LinearLayout(this);
-        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
-        int pad = (int) (20 * getResources().getDisplayMetrics().density);
-        layout.setPadding(pad, pad, pad, pad);
-
-        TextView srcLabel = new TextView(this);
-        srcLabel.setText(R.string.transfer_disk_source);
-        srcLabel.setTextSize(12);
-        layout.addView(srcLabel);
-        android.widget.Spinner srcSpinner = new android.widget.Spinner(this);
-        srcSpinner.setAdapter(new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, labels));
-        layout.addView(srcSpinner);
-
-        TextView dstLabel = new TextView(this);
-        dstLabel.setText(R.string.transfer_disk_target);
-        dstLabel.setTextSize(12);
-        layout.addView(dstLabel);
-        android.widget.Spinner dstSpinner = new android.widget.Spinner(this);
-        dstSpinner.setAdapter(new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, labels));
-        layout.addView(dstSpinner);
-
-        TextView warn = new TextView(this);
-        warn.setText(R.string.transfer_disk_warn);
-        warn.setTextSize(12);
-        warn.setTextColor(0xFFF87171);
-        layout.addView(warn);
-
-        srcSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
-            public void onItemSelected(android.widget.AdapterView<?> p, View v, int pos, long id) { sourceIdx[0] = pos; }
-            public void onNothingSelected(android.widget.AdapterView<?> p) {}
-        });
-        dstSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
-            public void onItemSelected(android.widget.AdapterView<?> p, View v, int pos, long id) { targetIdx[0] = pos; }
-            public void onNothingSelected(android.widget.AdapterView<?> p) {}
-        });
-
-        new AlertDialog.Builder(this)
-                .setTitle(R.string.transfer_disk_title)
-                .setView(layout)
-                .setNegativeButton(R.string.game_menu_cancel, null)
-                .setPositiveButton(R.string.transfer_disk_confirm, (d, w) -> {
-                    if (sourceIdx[0] < 0 || targetIdx[0] < 0 || sourceIdx[0] == targetIdx[0]) {
-                        Toast.makeText(this, R.string.transfer_disk_same, Toast.LENGTH_LONG).show();
-                        return;
-                    }
-                    String sourceId = proxmox.get(sourceIdx[0]).id;
-                    String targetId = proxmox.get(targetIdx[0]).id;
-                    // Segunda confirmação — excluir uma VM é irreversível.
-                    new AlertDialog.Builder(this)
-                            .setTitle(R.string.transfer_disk_title)
-                            .setMessage(getString(R.string.transfer_disk_final_warn, labels[sourceIdx[0]], labels[targetIdx[0]]))
-                            .setNegativeButton(R.string.game_menu_cancel, null)
-                            .setPositiveButton(R.string.transfer_disk_confirm_yes, (d2, w2) -> doTransferDisk(sourceId, targetId))
-                            .show();
-                })
-                .show();
-    }
-
-    private void doTransferDisk(String sourceId, String targetId) {
-        if (requestRunning) return;
-        requestRunning = true;
-        progressBar.setVisibility(View.VISIBLE);
-        AccountManager.transferDisk(this, sourceId, targetId, new AccountManager.ResultCallback<SpaceConnectApiClient.TransferDiskResponse>() {
-            @Override
-            public void onSuccess(SpaceConnectApiClient.TransferDiskResponse r) {
-                requestRunning = false;
-                progressBar.setVisibility(View.GONE);
-                Toast.makeText(LauncherActivity.this, r != null && r.message != null ? r.message : getString(R.string.transfer_disk_done), Toast.LENGTH_LONG).show();
-                checkMachines();
-            }
-
-            @Override
-            public void onError(String message) {
-                requestRunning = false;
-                progressBar.setVisibility(View.GONE);
-                Toast.makeText(LauncherActivity.this, message != null ? message : getString(R.string.transfer_disk_fail), Toast.LENGTH_LONG).show();
-            }
-        });
+        findViewById(R.id.launcherTransferDiskButton).setVisibility(
+                machines != null && machines.length > 0 ? View.VISIBLE : View.GONE);
     }
 
     private void joinQueue() {
@@ -836,6 +682,10 @@ public class LauncherActivity extends Activity {
         }
         if (machines.length == 1) {
             selectedMachineId = machines[0].id;
+            joinQueueForMachine(selectedMachineId);
+            return;
+        }
+        if (containsMachine(selectedMachineId)) {
             joinQueueForMachine(selectedMachineId);
             return;
         }
@@ -1080,7 +930,23 @@ public class LauncherActivity extends Activity {
                     Toast.LENGTH_LONG).show();
             return;
         }
-        startSession(machineId);
+        if (requestRunning) return;
+        requestRunning = true;
+        VmMonitorService.observe(this, machineId, true);
+        SpaceConnectApiClient.MachineAction action = new SpaceConnectApiClient.MachineAction("power_on");
+        AccountManager.machineAction(this, machineId, action, new AccountManager.ResultCallback<SpaceConnectApiClient.OperationResponse>() {
+            @Override public void onSuccess(SpaceConnectApiClient.OperationResponse result) {
+                requestRunning = false;
+                if (resumed) refreshStatus(true);
+            }
+            @Override public void onError(String message) {
+                requestRunning = false;
+                if (resumed) {
+                    Toast.makeText(LauncherActivity.this, message, Toast.LENGTH_LONG).show();
+                    refreshStatus(false);
+                }
+            }
+        });
     }
 
     private void leaveQueue() {
@@ -1128,6 +994,7 @@ public class LauncherActivity extends Activity {
         }
         launchingSession = true;
         selectedMachineId = machineId;
+        VmMonitorService.observe(this, machineId, false);
         startActivity(SessionLoadingActivity.intent(this, machineId, accountNameFor(machineId), false));
         overridePendingTransition(0, 0);
     }

@@ -1,9 +1,11 @@
 #pragma once
 
 #include "connectioncancel.h"
+#include "launcherjson.h"
 #include <QObject>
 #include <QPointer>
 #include <QTimer>
+#include <QVariantMap>
 
 class LauncherApi;
 class ComputerManager;
@@ -18,6 +20,7 @@ class SessionOrchestrator : public QObject
     Q_PROPERTY(QString phase READ phase NOTIFY changed)
     Q_PROPERTY(QString statusText READ statusText NOTIFY changed)
     Q_PROPERTY(bool reducedMotion READ reducedMotion NOTIFY changed)
+    Q_PROPERTY(QVariantMap bootTexts READ bootTexts NOTIFY changed)
 
 public:
     explicit SessionOrchestrator(QObject* parent = nullptr);
@@ -34,6 +37,7 @@ public:
     QString phase() const { return m_Phase; }
     QString statusText() const { return m_StatusText; }
     bool reducedMotion() const;
+    QVariantMap bootTexts() const { return m_BootTexts; }
 
 signals:
     void changed();
@@ -69,6 +73,8 @@ private:
     bool m_WaitingForApps = false;
     bool m_FreshlyPaired = false;
     bool m_OwnsPolling = false;
+    LauncherStatus m_Status;
+    QVariantMap m_BootTexts;
     QString m_MachineId;
     QString m_Address;
     QString m_Name;

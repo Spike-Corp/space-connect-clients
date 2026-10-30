@@ -171,6 +171,32 @@ public class SessionOrchestratorTest {
         assertEquals(0, listener.opened.get());
     }
 
+    @Test public void cancellingOverlayDoesNotCancelAnIndependentlyStartedQueue() throws Exception {
+        Backend backend = new Backend();
+        backend.statuses.add(status("queued"));
+        SessionOrchestrator attempt = attempt(backend, new Host(), new Callbacks(), new Listener());
+        attempt.start();
+        awaitStage(attempt, SessionOrchestrator.Stage.QUEUED);
+        attempt.cancel();
+        assertEquals(0, backend.joins.get());
+        assertEquals(0, backend.cleanups.get());
+    }
+
+    @Test public void transientIdleDuringAllocationDoesNotFailOrJoinAgain() throws Exception {
+        Backend backend = new Backend();
+        backend.statuses.add(status("idle"));
+        backend.joinResult = status("idle");
+        backend.statuses.add(status("idle"));
+        backend.statuses.add(status("starting"));
+        backend.statuses.add(status("ready"));
+        Host host = new Host();
+        SessionOrchestrator attempt = attempt(backend, host, new Callbacks(), new Listener());
+        attempt.start();
+        await(host.prepared);
+        awaitStage(attempt, SessionOrchestrator.Stage.WAITING_FOR_FRAME);
+        assertEquals(1, backend.joins.get());
+    }
+
     private CountDownLatch gate() {
         CountDownLatch gate = new CountDownLatch(1);
         gates.add(gate);

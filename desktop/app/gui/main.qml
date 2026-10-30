@@ -3,6 +3,7 @@ import QtQuick.Controls 2.3
 import QtQuick.Layouts 1.3
 import QtQuick.Window 2.2
 import QtQuick.Controls.Material 2.2
+import Qt.labs.platform 1.1 as Labs
 
 import ComputerManager 1.0
 import AutoUpdateChecker 1.0
@@ -29,6 +30,7 @@ ApplicationWindow {
     property bool clearOnBack: false
 
     id: window
+    BrandTheme { id: brand }
     width: 1280
     height: 600
 
@@ -37,19 +39,11 @@ ApplicationWindow {
     // controles (campos, dialogs, combos) ficavam escuros sobre fundo escuro =
     // invisíveis. Travamos o tema escuro + acento da marca pra todo mundo.
     Material.theme: Material.Dark
-    Material.accent: "#a482fa"
-    Material.primary: "#4572fa"
+    Material.accent: brand.purple
+    Material.primary: brand.blue
+    Material.foreground: brand.foreground
 
-    // "Space Connect" GTA VI-inspired sunset gradient window background - same original
-    // indigo -> purple -> coral horizon palette used on the Android client's bg_app_gradient.
-    // Not sampled from any copyrighted artwork.
-    background: Rectangle {
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: "#0d0816" }
-            GradientStop { position: 0.55; color: "#a482fa" }
-            GradientStop { position: 1.0; color: "#4572fa" }
-        }
-    }
+    background: Rectangle { color: brand.background }
 
     Component.onCompleted: {
         sessionOrchestrator.initialize(LauncherApi, ComputerManager)
@@ -111,6 +105,7 @@ ApplicationWindow {
         id: sessionLoadingWindow
         orchestrator: sessionOrchestrator
         dashboardWindow: window
+        tips: sessionOrchestrator.bootTexts.tips || []
     }
 
     Popup {
@@ -323,52 +318,27 @@ ApplicationWindow {
         // O sinal twoFactorRequired é tratado no LoginView (abre o modal lá).
     }
 
-    // ── Notificações de sessão ──────────────────────────────────────────────
-    // Vive no main.qml (não no LauncherView) pra disparar mesmo com o usuário
-    // em outra tela (Settings etc.) — o estado é observado globalmente aqui.
-    // Os toggles são lidos FRESCO do QSettings via LauncherApi.sessionNotifyEnabled
-    // (o Settings do QML cachearia; assim a mudança no SettingsView vale na hora).
-    QtObject {
-        id: notifyTracker
-        property string lastState: ""
-        property bool endWarned: false
-    }
-
     function showSessionToast(text) {
         sessionToastLabel.text = text
         sessionToast.visible = true
         sessionToastTimer.restart()
     }
 
+    Labs.SystemTrayIcon {
+        id: operationsTray
+        visible: available && LauncherApi.loggedIn
+        icon.source: "qrc:/res/spaceconnect_icon_256.png"
+        tooltip: "Space Connect"
+        onActivated: { window.showNormal(); window.raise(); window.requestActivate() }
+        onMessageClicked: { window.showNormal(); window.raise(); window.requestActivate() }
+    }
+
     Connections {
         target: LauncherApi
-        function onStatusChanged() {
-            var st = LauncherApi.state
-            if (st === "ready" && notifyTracker.lastState !== "ready" && notifyTracker.lastState !== "") {
-                // Transição pra "pronta" (fila/boot concluídos)
-                if (LauncherApi.sessionNotifyEnabled("notifyOnReady")) {
-                    window.showSessionToast(qsTr("Your machine is ready! Click Connect."))
-                    window.alert(5000)
-                }
-                if (LauncherApi.sessionNotifyEnabled("soundOnReady"))
-                    LauncherApi.playNotifySound()
-            }
-            if (st === "ready") {
-                var mins = LauncherApi.remainingMinutes
-                if (!notifyTracker.endWarned && mins > 0 && mins <= 5) {
-                    notifyTracker.endWarned = true
-                    if (LauncherApi.sessionNotifyEnabled("notifyBeforeEnd")) {
-                        window.showSessionToast(qsTr("Your machine shuts down in ~5 minutes. Save your progress!"))
-                        window.alert(5000)
-                    }
-                    if (LauncherApi.sessionNotifyEnabled("soundBeforeEnd"))
-                        LauncherApi.playNotifySound()
-                }
-            } else {
-                // Saiu do estado ready: rearma o aviso de desligamento da próxima sessão.
-                notifyTracker.endWarned = false
-            }
-            notifyTracker.lastState = st
+        function onBackgroundNotice(message) {
+            window.showSessionToast(message)
+            if (operationsTray.available) operationsTray.showMessage("SpaceCloud", message)
+            else window.alert(5000)
         }
     }
 
@@ -379,8 +349,8 @@ ApplicationWindow {
         z: 1000
         anchors.horizontalCenter: parent.horizontalCenter
         y: 78
-        width: sessionToastLabel.implicitWidth + 36
-        height: 44
+        width: Math.min(parent.width - 40, sessionToastLabel.implicitWidth + 36)
+        height: sessionToastLabel.implicitHeight + 24
         radius: 22
         color: "#110d17"
         border.width: 1.5
@@ -389,6 +359,9 @@ ApplicationWindow {
         Label {
             id: sessionToastLabel
             anchors.centerIn: parent
+            width: parent.width - 36
+            wrapMode: Text.WordWrap
+            textFormat: Text.PlainText
             color: "#f8f5ff"
             font.pointSize: 11
         }
@@ -414,11 +387,9 @@ ApplicationWindow {
         anchors.topMargin: 5
         anchors.bottomMargin: 5
 
-        // "Space Connect" display font for the toolbar title - same Orbitron
-        // typeface used for headings/wordmarks on the Android client.
         FontLoader {
             id: displayFontLoader
-            source: "qrc:/fonts/orbitron_bold.ttf"
+            source: "qrc:/fonts/bai_jamjuree_semibold.ttf"
         }
 
         Label {
@@ -438,6 +409,14 @@ ApplicationWindow {
             anchors.leftMargin: 10
             anchors.rightMargin: 10
             anchors.fill: parent
+
+            Image {
+                source: "qrc:/res/spaceconnect_icon_256.png"
+                Layout.preferredWidth: 36
+                Layout.preferredHeight: 36
+                fillMode: Image.PreserveAspectFit
+                Accessible.name: "SpaceCloud"
+            }
 
             NavigableToolButton {
                 // Only make the button visible if the user has navigated somewhere.

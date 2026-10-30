@@ -34,6 +34,24 @@ public final class SessionOverlayView extends FrameLayout {
     private final View logo;
     private final View spinner;
     private final Button cancel;
+    private final TextView tip;
+    private String[] tips;
+    private int tipIndex;
+    private final Runnable rotateTip = new Runnable() {
+        @Override public void run() {
+            if (disposed || firstFrame) return;
+            if (tips != null && tips.length > 0) {
+                tipIndex = (tipIndex + 1) % tips.length;
+                if (reducedMotion) tip.setText(tips[tipIndex]);
+                else tip.animate().alpha(0f).setDuration(180).withEndAction(() -> {
+                    if (disposed || firstFrame) return;
+                    tip.setText(tips[tipIndex]);
+                    tip.animate().alpha(1f).setDuration(220).start();
+                }).start();
+            }
+            handler.postDelayed(this, 7000);
+        }
+    };
     private AnimatorSet pulse;
     private ObjectAnimator spin;
     private AnimatorSet textFade;
@@ -51,13 +69,18 @@ public final class SessionOverlayView extends FrameLayout {
     public SessionOverlayView(Context context, AttributeSet attrs) {
         super(context, attrs);
         inflate(context, R.layout.view_session_loading, this);
-        setBackgroundResource(R.drawable.bg_session_loading);
+        android.util.TypedValue background = new android.util.TypedValue();
+        context.getTheme().resolveAttribute(R.attr.appBackgroundDrawable, background, true);
+        setBackgroundResource(background.resourceId != 0 ? background.resourceId : R.drawable.bg_session_loading);
         setClickable(true);
         setFocusable(false);
         setElevation(100 * getResources().getDisplayMetrics().density);
         logo = findViewById(R.id.sessionLogo);
         spinner = findViewById(R.id.sessionSpinner);
         cancel = findViewById(R.id.sessionCancel);
+        tip = findViewById(R.id.sessionTip);
+        tip.setTypeface(UiHelper.getBodyTypeface(context));
+        setTips(null);
         labels[0] = findViewById(R.id.sessionMessage);
         labels[1] = findViewById(R.id.sessionNextMessage);
         labels[0].setTypeface(UiHelper.getBodyTypeface(context));
@@ -73,6 +96,16 @@ public final class SessionOverlayView extends FrameLayout {
             return insets;
         });
         reducedMotion = isMotionReduced(context);
+    }
+
+    public void setTips(String[] remote) {
+        String[] next = remote != null && remote.length > 0 ? remote : new String[] {
+                getContext().getString(R.string.vm_tip_switch), getContext().getString(R.string.vm_tip_input),
+        };
+        if (java.util.Arrays.equals(tips, next)) return;
+        tips = next;
+        tipIndex = 0;
+        tip.setText(tips[0]);
     }
 
     public void setOnCancel(Runnable action) {
@@ -123,6 +156,8 @@ public final class SessionOverlayView extends FrameLayout {
     public void onFirstFrameRendered(Runnable revealed) {
         if (disposed || firstFrame) return;
         firstFrame = true;
+        handler.removeCallbacks(rotateTip);
+        tip.animate().cancel();
         stopLoops();
         if (reducedMotion) {
             setVisibility(GONE);
@@ -210,6 +245,7 @@ public final class SessionOverlayView extends FrameLayout {
         getContext().getContentResolver().registerContentObserver(
                 Settings.Global.getUriFor(Settings.Global.TRANSITION_ANIMATION_SCALE), false, motionObserver);
         observing = true;
+        handler.postDelayed(rotateTip, 7000);
         requestApplyInsets();
         updateMotion();
     }
@@ -225,6 +261,7 @@ public final class SessionOverlayView extends FrameLayout {
         if (observing) getContext().getContentResolver().unregisterContentObserver(motionObserver);
         observing = false;
         handler.removeCallbacksAndMessages(null);
+        tip.animate().cancel();
         stopLoops();
         if (textFade != null) {
             textFade.removeAllListeners();

@@ -105,6 +105,7 @@ public class SessionLoadingActivity extends Activity implements SessionOrchestra
     @Override public void onProgress(SessionOrchestrator.Stage stage, StatusResponse status) {
         if (!closed && attempt != null && attempt.isActive()) {
             overlay.showMessage(SessionMessages.message(this, stage, status));
+            overlay.setTips(status != null && status.bootTexts != null ? status.bootTexts.tips : null);
         }
     }
 
@@ -137,7 +138,9 @@ public class SessionLoadingActivity extends Activity implements SessionOrchestra
 
     @Override public void onFailure(SessionOrchestrator.Failure failure) {
         if (closed || transferred || isFinishing()) return;
-        Toast.makeText(this, SessionMessages.error(failure), Toast.LENGTH_LONG).show();
+        String detail = SessionLog.diagnostic();
+        Toast.makeText(this, getString(SessionMessages.error(failure))
+                + (detail.isEmpty() ? "" : "\n" + getString(R.string.vm_diagnostic, detail)), Toast.LENGTH_LONG).show();
         // CLEAR_TOP preserves the existing dashboard and all its management features.
         startActivity(new Intent(this, LauncherActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));

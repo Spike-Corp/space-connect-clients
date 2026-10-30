@@ -1,0 +1,2 @@
+module LauncherApi
+singleton LauncherApi 1.0 LauncherApi.qml

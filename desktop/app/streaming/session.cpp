@@ -1820,9 +1820,10 @@ void Session::exec(QWindow* qtWindow)
         QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
         QCoreApplication::sendPostedEvents();
 
-        // SDL is in charge now. Wait until the streaming thread exits
-        // to further update the Qt window.
-        execThread.wait();
+        // Keep account refresh and per-VM operations observable during video.
+        while (!execThread.wait(250)) {
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
+        }
     }
     else {
         // Run the streaming session on the main thread for Windows and macOS
@@ -2100,6 +2101,7 @@ void Session::execInternal()
     QString lastClipboardText;
     Uint32 lastClipboardCheckTicks = 0;
     const Uint32 startupTicks = SDL_GetTicks();
+    Uint32 lastBackgroundPump = startupTicks;
     bool revealApplied = !m_ManagedDesktop;
 
     for (;;) {
@@ -2127,6 +2129,10 @@ void Session::execInternal()
         // event or idle/timeout path below, so it keeps working even while
         // the user is actively moving the mouse inside the session.
         Uint32 nowTicks = SDL_GetTicks();
+        if (!m_ThreadedExec && m_RevealComplete.load() && nowTicks - lastBackgroundPump >= 250) {
+            lastBackgroundPump = nowTicks;
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
+        }
         if (m_RevealComplete.load() && nowTicks - lastClipboardCheckTicks >= 500) {
             lastClipboardCheckTicks = nowTicks;
 

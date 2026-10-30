@@ -1,4 +1,4 @@
-QT += core quick network quickcontrols2 svg
+QT += core quick network quickcontrols2 svg widgets
 CONFIG += c++11
 
 # Build do XD CONSOLE (app da staff): qmake CONFIG+=xdconsole

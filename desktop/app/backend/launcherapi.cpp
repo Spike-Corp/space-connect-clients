@@ -51,6 +51,25 @@ LauncherApi::LauncherApi(QObject* parent, const QUrl& apiBase)
 {
     m_RefreshTimer.setSingleShot(true);
     connect(&m_RefreshTimer, &QTimer::timeout, this, &LauncherApi::refreshTokens);
+    m_ManagementTimer.setInterval(15000);
+    connect(&m_ManagementTimer, &QTimer::timeout, this, &LauncherApi::refreshManagement);
+    connect(this, &LauncherApi::loggedInChanged, this, [this]() {
+        ++m_AuthGeneration;
+        if (m_LoggedIn) {
+            m_ManagementTimer.start();
+            refreshManagement();
+            fetchMachines();
+        } else {
+            m_ManagementTimer.stop();
+            m_Management.clear();
+            m_ManagementError.clear();
+            m_ManagementLoading = m_ManagementBusy = m_NoticesInitialized = false;
+            m_SeenNotices.clear();
+            m_WaitingBoot.clear();
+            m_OwnOperations.clear();
+            emit managementChanged();
+        }
+    });
 
     QSettings settings;
     m_RememberMe = settings.value(QStringLiteral("auth/rememberMe"), true).toBool();
@@ -224,11 +243,21 @@ void LauncherApi::refreshStatus(const QString& machineId)
     // tivesse saído da fila sozinho.
     QString statusPath = QStringLiteral("status");
     const QString targetMachineId = machineId.isEmpty() ? effectiveMachineId() : machineId;
+    const quint64 statusGeneration = m_StatusGeneration;
     if (!targetMachineId.isEmpty())
         statusPath += QStringLiteral("?machineId=") + targetMachineId;
     request("GET", statusPath, QJsonObject(), true,
-            [this](int status, const QJsonObject& root) {
+            [this, statusGeneration, targetMachineId](int status, const QJsonObject& root) {
                 setBusy(false);
+                if (status >= 200 && status < 300)
+                    emit machineStatusReceived(targetMachineId, root);
+                else if (status != 401)
+                    emit machineRequestFailed(targetMachineId, responseErrorMessage(root,
+                        tr("Could not refresh this machine. Please try again.")));
+                if (statusGeneration != m_StatusGeneration || targetMachineId != effectiveMachineId()) {
+                    refreshStatus();
+                    return;
+                }
                 if (status >= 200 && status < 300) {
                     applyStatus(root);
                     // Re-checa as máquinas em qualquer transição de estado (não só idle):
@@ -247,6 +276,9 @@ void LauncherApi::refreshStatus(const QString& machineId)
                         m_MachinesLoaded = true;
                         emit machinesChanged();
                     }
+                }
+                else if (status == 404) {
+                    fetchMachines();
                 }
                 else if (status == 401) {
                     refreshTokens();
@@ -461,7 +493,7 @@ void LauncherApi::fetchMachines()
                             }
                         }
                         if (!stillExists)
-                            setSelectedMachineId(QString());
+                            setSelectedMachineId(list.isEmpty() ? QString() : list.first().toMap().value(QStringLiteral("id")).toString());
                     }
                     emit machinesChanged();
                 }
@@ -476,18 +508,29 @@ void LauncherApi::setSelectedMachineId(const QString& id)
     if (m_SelectedMachineId == id)
         return;
     m_SelectedMachineId = id;
+    ++m_StatusGeneration;
+    ++m_ToolGeneration;
+    m_Emulators.clear();
+    m_InstallingEmulatorId.clear();
+    m_EmulatorInstallProgress = -1;
+    emit emulatorsChanged();
+    emit emulatorInstallProgressChanged();
+    m_StatusMachineId.clear();
+    m_MachineName.clear();
+    m_State = QStringLiteral("idle");
+    m_CreationPhase.clear();
+    m_QueuePosition = m_QueueTotal = 0;
+    m_RemainingMs = 0;
     QSettings settings;
     settings.setValue(QStringLiteral("launcher/selectedMachineId"), id);
     emit machinesChanged();
+    emit statusChanged();
+    refreshStatus();
 }
 
 QString LauncherApi::effectiveMachineId() const
 {
-    // Sessão ativa manda: conectar/encerrar têm que mirar a VM DA SESSÃO,
-    // mesmo que o usuário tenha selecionado outra no seletor (igual ao Android).
-    if (!m_StatusMachineId.isEmpty())
-        return m_StatusMachineId;
-    return m_SelectedMachineId;
+    return m_SelectedMachineId.isEmpty() ? m_StatusMachineId : m_SelectedMachineId;
 }
 
 void LauncherApi::createMachine(const QString& password, const QString& balanceId)
@@ -532,7 +575,6 @@ void LauncherApi::joinQueue(const QString& machineId)
     setBusy(true);
     QJsonObject body{
         {QStringLiteral("requestedHours"), 24},
-        {QStringLiteral("provider"), QStringLiteral("proxmox")},
     };
     // Multi-máquina: entra na fila da VM escolhida no seletor (backend sem
     // machineId assumia a sessão "padrão" e podia abrir a máquina errada).
@@ -542,8 +584,14 @@ void LauncherApi::joinQueue(const QString& machineId)
     request("POST", QStringLiteral("queue"),
             body,
             true,
-            [this](int status, const QJsonObject& root) {
+            [this, targetMachineId](int status, const QJsonObject& root) {
                 setBusy(false);
+                if (status >= 200 && status < 300)
+                    emit machineStatusReceived(targetMachineId, root);
+                else
+                    emit machineRequestFailed(targetMachineId, responseErrorMessage(root,
+                        tr("Could not join the queue. Please try again.")));
+                if (targetMachineId != effectiveMachineId()) { refreshStatus(); return; }
                 if (status >= 200 && status < 300)
                     applyStatus(root);
                 else
@@ -563,8 +611,14 @@ void LauncherApi::leaveQueue(const QString& machineId)
     if (!targetMachineId.isEmpty())
         path += QStringLiteral("?machineId=") + targetMachineId;
     request("DELETE", path, QJsonObject(), true,
-            [this](int status, const QJsonObject& root) {
+            [this, targetMachineId](int status, const QJsonObject& root) {
                 setBusy(false);
+                if (status >= 200 && status < 300)
+                    emit machineStatusReceived(targetMachineId, root);
+                else if (targetMachineId != effectiveMachineId())
+                    emit backgroundNotice(responseErrorMessage(root,
+                        tr("Could not cancel the previous queue request. Check your machines.")));
+                if (targetMachineId != effectiveMachineId()) { refreshStatus(); return; }
                 if (status >= 200 && status < 300)
                     applyStatus(root);
                 else
@@ -589,8 +643,10 @@ void LauncherApi::requestConnection(const QString& machineId)
                 m_ConnectionBusy = false;
                 setBusy(false);
                 if (status < 200 || status >= 300) {
-                    setError(responseErrorMessage(root,
-                        tr("Could not connect to your machine. Please try again.")));
+                    const QString message = responseErrorMessage(root,
+                        tr("Could not connect to your machine. Please try again."));
+                    emit machineRequestFailed(targetMachineId, message);
+                    setError(message);
                     return;
                 }
                 try {
@@ -625,23 +681,24 @@ void LauncherApi::requestConnection(const QString& machineId)
                     // não ressuscita. Sem isso o mic ia pra um buraco negro.
                     QSettings micPrefs;
                     if (micPrefs.value(QStringLiteral("micforwarding"), true).toBool()) {
-                        ensureMicBridge();
+                        ensureMicBridge(targetMachineId);
                     }
                     emit connectionReady(address, targetMachineId, name);
                 }
                 catch (const std::exception&) {
+                    emit machineRequestFailed(targetMachineId, tr("Connection is not available yet."));
                     setError(QStringLiteral("Conexão ainda não disponível"));
                 }
             }, true);
 }
 
-void LauncherApi::ensureMicBridge()
+void LauncherApi::ensureMicBridge(const QString& machineId)
 {
     if (!m_LoggedIn) return;
     // Fire-and-forget: o resultado não bloqueia a sessão. Se a VM ainda não tem
     // o bridge (build antigo), o backend responde 409 e a gente só loga.
     request("POST", QStringLiteral("mic/ensure"),
-            QJsonObject(), true,
+            QJsonObject{{QStringLiteral("machineId"), machineId.isEmpty() ? effectiveMachineId() : machineId}}, true,
             [this](int status, const QJsonObject&) {
                 if (status < 200 || status >= 300) {
                     qWarning() << "MicBridge ensure falhou (status" << status << ")";
@@ -768,7 +825,9 @@ void LauncherApi::sendFriendPairAttempt(const QString& machineId, const QString&
                     });
                 }
                 else {
-                    setError(tr("Automatic pairing failed. Please try again."));
+                    const QString message = responseErrorMessage(root, tr("Automatic pairing failed. Please try again."));
+                    setError(message);
+                    emit machineRequestFailed(machineId, message);
                 }
             }, true);
 }
@@ -795,7 +854,9 @@ void LauncherApi::sendPairAttempt(const QString& pin, const QString& machineId, 
                     });
                 }
                 else {
-                    setError(tr("Automatic pairing failed. Please try again."));
+                    const QString message = responseErrorMessage(root, tr("Automatic pairing failed. Please try again."));
+                    setError(message);
+                    emit machineRequestFailed(machineId, message);
                 }
             }, true);
 }
@@ -803,6 +864,7 @@ void LauncherApi::sendPairAttempt(const QString& pin, const QString& machineId, 
 void LauncherApi::logout()
 {
     cancelConnectionRequests();
+    ++m_ToolGeneration;
     m_RefreshTimer.stop();
     m_AccessToken.clear();
     m_RefreshToken.clear();
@@ -813,6 +875,10 @@ void LauncherApi::logout()
     m_UpcomingPlanName.clear();
     m_UpcomingPlanAvailableAt.clear();
     m_Machines.clear();
+    m_SelectedMachineId.clear();
+    m_StatusMachineId.clear();
+    ++m_StatusGeneration;
+    setBusy(false);
     m_HasMachine = false;
     m_MachinesLoaded = false;
     const bool wasLoggedIn = m_LoggedIn;
@@ -951,11 +1017,13 @@ void LauncherApi::request(
         reply = m_Network.post(request, QJsonDocument(body).toJson(QJsonDocument::Compact));
 
     const quint64 generation = m_ConnectionGeneration;
+    const quint64 authGeneration = m_AuthGeneration;
     if (connectionRequest)
         m_ConnectionReplies.insert(reply);
-    connect(reply, &QNetworkReply::finished, this, [this, reply, handler = std::move(handler), connectionRequest, generation]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, handler = std::move(handler), connectionRequest, generation, authenticated, authGeneration]() {
         m_ConnectionReplies.remove(reply);
-        if (connectionRequest && generation != m_ConnectionGeneration) {
+        if ((connectionRequest && generation != m_ConnectionGeneration)
+                || (authenticated && authGeneration != m_AuthGeneration)) {
             reply->deleteLater();
             return;
         }
@@ -1306,14 +1374,17 @@ void LauncherApi::refreshEmulators()
 {
     if (!m_LoggedIn)
         return;
+    const QString machineId = effectiveMachineId();
+    const quint64 generation = m_ToolGeneration;
     request("GET", QStringLiteral("emulators"), QJsonObject(), true,
-            [this](int status, const QJsonObject& root) {
-                if (status < 200 || status >= 300) return;
+            [this, machineId, generation](int status, const QJsonObject& root) {
+                if (generation != m_ToolGeneration || status < 200 || status >= 300) return;
                 const QVariantList catalog = root.value(QStringLiteral("emulators")).toArray().toVariantList();
                 // Tenta enriquecer com o status (instalado?) — se falhar (VM off)
                 // mostra o catálogo mesmo assim com installed=false.
-                request("GET", QStringLiteral("emulators/status"), QJsonObject(), true,
-                        [this, catalog](int stStatus, const QJsonObject& stRoot) {
+                request("GET", QStringLiteral("emulators/status?machineId=") + machineId, QJsonObject(), true,
+                        [this, catalog, generation](int stStatus, const QJsonObject& stRoot) {
+                            if (generation != m_ToolGeneration) return;
                             QMap<QString, bool> installed;
                             if (stStatus >= 200 && stStatus < 300) {
                                 for (const auto& v : stRoot.value(QStringLiteral("status")).toArray()) {
@@ -1342,14 +1413,17 @@ void LauncherApi::installEmulator(const QString& emulatorId)
     m_InstallingEmulatorId = emulatorId;
     m_EmulatorInstallProgress = 0;
     emit emulatorInstallProgressChanged();
+    const QString machineId = effectiveMachineId();
+    const quint64 generation = m_ToolGeneration;
     request("POST", QStringLiteral("emulators/") + emulatorId + QStringLiteral("/install"),
-            QJsonObject(), true,
-            [this, emulatorId](int status, const QJsonObject& root) {
+            QJsonObject{{QStringLiteral("machineId"), machineId}}, true,
+            [this, emulatorId, machineId, generation](int status, const QJsonObject& root) {
+                if (generation != m_ToolGeneration) return;
                 if (status >= 200 && status < 300) {
                     // O install é assíncrono no backend (download grande — o
                     // Cloudflare mataria a request em ~100s). Faz polling até
                     // done/failed (máx ~8min).
-                    pollEmulatorInstall(emulatorId, 0);
+                    pollEmulatorInstall(emulatorId, machineId, generation, 0);
                 } else {
                     m_InstallingEmulatorId.clear();
                     m_EmulatorInstallProgress = -1;
@@ -1360,8 +1434,9 @@ void LauncherApi::installEmulator(const QString& emulatorId)
             });
 }
 
-void LauncherApi::pollEmulatorInstall(const QString& emulatorId, int attempt)
+void LauncherApi::pollEmulatorInstall(const QString& emulatorId, const QString& machineId, quint64 generation, int attempt)
 {
+    if (!m_LoggedIn || generation != m_ToolGeneration) return;
     if (attempt > 240) { // 240 x 2s = ~8min
         m_InstallingEmulatorId.clear();
         m_EmulatorInstallProgress = -1;
@@ -1369,9 +1444,17 @@ void LauncherApi::pollEmulatorInstall(const QString& emulatorId, int attempt)
         emit emulatorActionResult(false, tr("Instalação demorou demais — verifique se abriu na VM e tente de novo."));
         return;
     }
-    request("GET", QStringLiteral("emulators/install-status?emulator=") + emulatorId,
+    request("GET", QStringLiteral("emulators/install-status?emulator=") + emulatorId + QStringLiteral("&machineId=") + machineId,
             QJsonObject(), true,
-            [this, emulatorId, attempt](int status, const QJsonObject& root) {
+            [this, emulatorId, machineId, generation, attempt](int status, const QJsonObject& root) {
+                if (generation != m_ToolGeneration) return;
+                if (status >= 400 && status < 500) {
+                    m_InstallingEmulatorId.clear();
+                    m_EmulatorInstallProgress = -1;
+                    emit emulatorInstallProgressChanged();
+                    emit emulatorActionResult(false, responseErrorMessage(root, tr("Falha ao consultar a instalação nesta máquina.")));
+                    return;
+                }
                 const QString state = root.value(QStringLiteral("state")).toString();
                 if (state == QStringLiteral("done")) {
                     m_InstallingEmulatorId.clear();
@@ -1407,8 +1490,8 @@ void LauncherApi::pollEmulatorInstall(const QString& emulatorId, int attempt)
                     }
                 }
                 // running / none → continua polling
-                QTimer::singleShot(2000, this, [this, emulatorId, attempt]() {
-                    pollEmulatorInstall(emulatorId, attempt + 1);
+                QTimer::singleShot(2000, this, [this, emulatorId, machineId, generation, attempt]() {
+                    pollEmulatorInstall(emulatorId, machineId, generation, attempt + 1);
                 });
             });
 }
@@ -1417,10 +1500,13 @@ void LauncherApi::launchEmulator(const QString& emulatorId)
 {
     if (!m_LoggedIn) return;
     setBusy(true);
+    const QString machineId = effectiveMachineId();
+    const quint64 generation = m_ToolGeneration;
     request("POST", QStringLiteral("emulators/") + emulatorId + QStringLiteral("/launch"),
-            QJsonObject(), true,
-            [this](int status, const QJsonObject& root) {
+            QJsonObject{{QStringLiteral("machineId"), machineId}}, true,
+            [this, generation](int status, const QJsonObject& root) {
                 setBusy(false);
+                if (generation != m_ToolGeneration) return;
                 if (status >= 200 && status < 300) {
                     emit emulatorActionResult(true, root.value(QStringLiteral("message")).toString(tr("Emulador aberto na sua máquina!")));
                 } else {
@@ -1523,26 +1609,29 @@ void LauncherApi::renameMachine(const QString& machineId, const QString& name)
 void LauncherApi::setMachinePassword(const QString& machineId, const QString& password)
 {
     if (!m_LoggedIn || machineId.isEmpty()) return;
+    const quint64 generation = ++m_MachinePasswordGeneration;
+    const quint64 authGeneration = m_AuthGeneration;
     // Validação local espelhando o backend: 6-32 chars, ASCII imprimível sem espaços.
     static const QRegularExpression pwRe(QStringLiteral("^[\\x21-\\x7E]+$"));
     if (password.length() < 6 || password.length() > 32 || !pwRe.match(password).hasMatch()) {
-        emit machinePasswordFinished(false, tr("Use de 6 a 32 caracteres, sem espaços ou acentos."), QString());
+        emit machinePasswordFinished(false, tr("Use de 6 a 32 caracteres, sem espaços ou acentos."), QString(), machineId);
         return;
     }
     request("POST", QStringLiteral("machines/") + machineId + QStringLiteral("/set-password"),
             QJsonObject{{QStringLiteral("password"), password}}, true,
-            [this](int status, const QJsonObject& root) {
+            [this, machineId, generation, authGeneration](int status, const QJsonObject& root) {
+                if (!m_LoggedIn || generation != m_MachinePasswordGeneration || authGeneration != m_AuthGeneration) return;
                 if (status >= 200 && status < 300) {
                     const QString applied = root.value(QStringLiteral("applied")).toString();
-                    const QString msg = applied == QStringLiteral("live")
-                        ? tr("Senha trocada. Use ela no próximo login.")
-                        : tr("Salvo. Vai valer no próximo boot da VM.");
-                    emit machinePasswordFinished(true, msg, applied);
+                    const QString msg = applied == QStringLiteral("on_boot")
+                        ? tr("Senha salva para o próximo início do Windows.")
+                        : tr("Senha salva e aplicação solicitada. A confirmação do Windows ainda está pendente.");
+                    emit machinePasswordFinished(true, msg, applied, machineId);
                 } else {
                     emit machinePasswordFinished(false,
                         errorObject(root).value(QStringLiteral("message")).toString(
                             tr("Não foi possível trocar a senha. Tente de novo.")),
-                        QString());
+                        QString(), machineId);
                 }
             });
 }
@@ -1661,8 +1750,11 @@ void LauncherApi::applyGpuLicense()
 {
     if (!m_LoggedIn)
         return;
-    request("POST", QStringLiteral("gpu/license/apply"), QJsonObject(), true,
-            [this](int status, const QJsonObject& root) {
+    const quint64 generation = m_ToolGeneration;
+    request("POST", QStringLiteral("gpu/license/apply"),
+            QJsonObject{{QStringLiteral("machineId"), effectiveMachineId()}}, true,
+            [this, generation](int status, const QJsonObject& root) {
+                if (generation != m_ToolGeneration) return;
                 const bool ok = root.value(QStringLiteral("ok")).toBool() && status >= 200 && status < 300;
                 QString msg = root.value(QStringLiteral("message")).toString();
                 if (msg.isEmpty())
@@ -1684,33 +1776,45 @@ void LauncherApi::downloadItem(const QString& id, const QString& url, const QStr
     // local — o bug era baixar um driver de 750MB pro PC em vez da máquina em
     // nuvem onde ele é usado). O backend dispara o job na VM; o app faz
     // polling no status pra barra de progresso.
-    request("POST", QStringLiteral("downloads/%1/to-vm").arg(id), QJsonObject(), true,
-            [this, id, name](int status, const QJsonObject& root) {
+    if (!m_LoggedIn) return;
+    const QString machineId = effectiveMachineId();
+    const quint64 generation = m_ToolGeneration;
+    request("POST", QStringLiteral("downloads/%1/to-vm").arg(id),
+            QJsonObject{{QStringLiteral("machineId"), machineId}}, true,
+            [this, id, name, machineId, generation](int status, const QJsonObject& root) {
+                if (generation != m_ToolGeneration) return;
                 if (status < 200 || status >= 300) {
                     const QString msg = root.value(QStringLiteral("error")).toObject().value(QStringLiteral("message")).toString();
                     emit downloadItemFinished(false, msg.isEmpty() ? tr("Não consegui baixar na máquina.") : msg);
                     return;
                 }
                 emit downloadItemProgress(0);
-                pollVmDownload(id, name, 0);
+                pollVmDownload(id, name, machineId, generation, 0);
             });
 }
 
-void LauncherApi::pollVmDownload(const QString& itemId, const QString& name, int attempt)
+void LauncherApi::pollVmDownload(const QString& itemId, const QString& name, const QString& machineId, quint64 generation, int attempt)
 {
+    if (!m_LoggedIn || generation != m_ToolGeneration) return;
     if (attempt > 600) { // ~30min de polling (3s cada)
         emit downloadItemFinished(false, tr("O download demorou demais. Verifique a pasta Downloads da máquina."));
         return;
     }
-    QTimer::singleShot(3000, this, [this, itemId, name, attempt]() {
-        request("GET", QStringLiteral("downloads/%1/to-vm/status").arg(itemId), QJsonObject(), true,
-                [this, itemId, name, attempt](int status, const QJsonObject& root) {
-                    if (status < 200 || status >= 300) { pollVmDownload(itemId, name, attempt + 1); return; }
+    QTimer::singleShot(3000, this, [this, itemId, name, machineId, generation, attempt]() {
+        if (!m_LoggedIn || generation != m_ToolGeneration) return;
+        request("GET", QStringLiteral("downloads/%1/to-vm/status?machineId=%2").arg(itemId, machineId), QJsonObject(), true,
+                [this, itemId, name, machineId, generation, attempt](int status, const QJsonObject& root) {
+                    if (generation != m_ToolGeneration) return;
+                    if (status >= 400 && status < 500) {
+                        emit downloadItemFinished(false, responseErrorMessage(root, tr("Falha ao consultar o download nesta máquina.")));
+                        return;
+                    }
+                    if (status < 200 || status >= 300) { pollVmDownload(itemId, name, machineId, generation, attempt + 1); return; }
                     const QString state = root.value(QStringLiteral("state")).toString();
                     if (state == QStringLiteral("running")) {
                         const int p = root.value(QStringLiteral("progress")).toInt(-1);
                         if (p >= 0) emit downloadItemProgress(p);
-                        pollVmDownload(itemId, name, attempt + 1);
+                        pollVmDownload(itemId, name, machineId, generation, attempt + 1);
                     } else if (state == QStringLiteral("done")) {
                         emit downloadItemProgress(100);
                         emit downloadItemFinished(true, tr("%1 baixado pra pasta Downloads da sua máquina.").arg(name));
@@ -1725,28 +1829,128 @@ void LauncherApi::pollVmDownload(const QString& itemId, const QString& name, int
     });
 }
 
-void LauncherApi::transferDisk(const QString& sourceMachineId, const QString& targetMachineId)
+QString LauncherApi::newOperationRequestId() const
 {
-    if (!m_LoggedIn) return;
-    if (sourceMachineId.isEmpty() || targetMachineId.isEmpty() || sourceMachineId == targetMachineId) {
-        emit diskTransferFinished(false, tr("Escolha duas máquinas diferentes."));
+    return QUuid::createUuid().toString(QUuid::WithoutBraces);
+}
+
+void LauncherApi::refreshManagement()
+{
+    if (!m_LoggedIn || m_ManagementLoading) return;
+    m_ManagementLoading = true;
+    request("GET", QStringLiteral("vm-management"), QJsonObject(), true,
+            [this](int status, const QJsonObject& root) {
+        m_ManagementLoading = false;
+        if (status < 200 || status >= 300 || !root.value(QStringLiteral("machines")).isArray()) {
+            m_ManagementError = responseErrorMessage(root, tr("Could not refresh machines and storage. Retrying shortly."));
+            if (status == 401) refreshTokens();
+            emit managementChanged();
+            return;
+        }
+        m_ManagementError.clear();
+        m_Management = root.toVariantMap();
+        QSet<QString> currentNotices;
+        const auto notifyOnce = [this, &currentNotices](const QString& key, const QString& message, bool own, const QString& setting) {
+            currentNotices.insert(key);
+            if (m_SeenNotices.contains(key)) return;
+            m_SeenNotices.insert(key);
+            if ((m_NoticesInitialized || own) && (setting.isEmpty() || sessionNotifyEnabled(setting))) {
+                emit backgroundNotice(message);
+                if ((setting == QStringLiteral("notifyOnReady") && sessionNotifyEnabled(QStringLiteral("soundOnReady")))
+                        || (setting == QStringLiteral("notifyBeforeEnd") && sessionNotifyEnabled(QStringLiteral("soundBeforeEnd"))))
+                    playNotifySound();
+            }
+        };
+        for (const QJsonValue& value : root.value(QStringLiteral("operations")).toArray()) {
+            const QJsonObject operation = value.toObject();
+            const QString state = operation.value(QStringLiteral("state")).toString();
+            const QString id = operation.value(QStringLiteral("id")).toString();
+            if (state == QStringLiteral("succeeded") || state == QStringLiteral("failed")) {
+                notifyOnce(QStringLiteral("operation:") + id + QLatin1Char(':') + state,
+                           operation.value(QStringLiteral("message")).toString(), m_OwnOperations.contains(id), QString());
+                m_OwnOperations.remove(id);
+                if (state == QStringLiteral("failed") && operation.value(QStringLiteral("kind")).toString() == QStringLiteral("power_on"))
+                    m_WaitingBoot.remove(operation.value(QStringLiteral("machineId")).toString());
+            }
+        }
+        QDateTime now = QDateTime::fromString(root.value(QStringLiteral("serverNow")).toString(), Qt::ISODate);
+        if (!now.isValid()) now = QDateTime::currentDateTimeUtc();
+        for (const QJsonValue& value : root.value(QStringLiteral("machines")).toArray()) {
+            const QJsonObject machine = value.toObject();
+            const QJsonObject session = machine.value(QStringLiteral("session")).toObject();
+            const QJsonObject phases = machine.value(QStringLiteral("phases")).toObject();
+            const QString id = machine.value(QStringLiteral("id")).toString();
+            const QString name = machine.value(QStringLiteral("name")).toString();
+            const QString sessionId = session.value(QStringLiteral("id")).toString();
+            if (sessionId.isEmpty()) continue;
+            if (phases.value(QStringLiteral("creation")).toString().isEmpty()
+                    && phases.value(QStringLiteral("shutdown")).toString().isEmpty()) {
+                notifyOnce(QStringLiteral("ready:") + sessionId, tr("%1 is powered on. Open the app to connect.").arg(name),
+                           m_WaitingBoot.remove(id), QStringLiteral("notifyOnReady"));
+            }
+            const QDateTime end = QDateTime::fromString(session.value(QStringLiteral("endAt")).toString(), Qt::ISODate);
+            const qint64 remaining = now.msecsTo(end);
+            if (end.isValid() && remaining > 0 && remaining <= 5 * 60000) {
+                notifyOnce(QStringLiteral("deadline:") + sessionId,
+                           tr("Your session on %1 ends in about five minutes. Save your work.").arg(name),
+                           true, QStringLiteral("notifyBeforeEnd"));
+            }
+        }
+        m_SeenNotices.intersect(currentNotices);
+        m_NoticesInitialized = true;
+        emit managementChanged();
+    }, false, 20000);
+}
+
+void LauncherApi::machineAction(const QString& machineId, const QString& action, const QVariantMap& options)
+{
+    if (!m_LoggedIn || m_ManagementBusy) return;
+    static const QRegularExpression idPattern(QStringLiteral("^[a-fA-F0-9]{24}$"));
+    if (!idPattern.match(machineId).hasMatch()) {
+        emit managementActionFinished(false, tr("Select a machine before continuing."));
         return;
     }
-    setBusy(true);
-    QJsonObject body{{QStringLiteral("targetMachineId"), targetMachineId}};
-    request("POST", QStringLiteral("machines/") + sourceMachineId + QStringLiteral("/transfer-disk"),
-            body, true,
-            [this](int status, const QJsonObject& root) {
-                setBusy(false);
-                if (status >= 200 && status < 300) {
-                    emit diskTransferFinished(true, root.value(QStringLiteral("message")).toString(
-                        tr("Disco transferido!")));
-                    fetchMachines(); // atualiza a lista (a origem sumiu, o destino cresceu)
-                } else {
-                    emit diskTransferFinished(false, errorObject(root).value(QStringLiteral("message")).toString(
-                        tr("Não consegui transferir o disco.")));
-                }
-            });
+    QJsonObject body = QJsonObject::fromVariantMap(options);
+    body.insert(QStringLiteral("action"), action);
+    if (body.value(QStringLiteral("requestId")).toString().isEmpty())
+        body.insert(QStringLiteral("requestId"), newOperationRequestId());
+    m_ManagementBusy = true;
+    m_ManagementError.clear();
+    emit managementChanged();
+    request("POST", QStringLiteral("machines/") + machineId + QStringLiteral("/actions"), body, true,
+            [this, machineId, action](int status, const QJsonObject& root) {
+        m_ManagementBusy = false;
+        const bool ok = status >= 200 && status < 300;
+        if (ok) {
+            const QString operationId = root.value(QStringLiteral("operation")).toObject().value(QStringLiteral("id")).toString();
+            if (!operationId.isEmpty()) m_OwnOperations.insert(operationId);
+            if (action == QStringLiteral("power_on")) m_WaitingBoot.insert(machineId);
+            emit managementActionFinished(true, tr("Request received. Follow its progress in Machines and storage."));
+            refreshManagement();
+            refreshStatus();
+        } else {
+            m_ManagementError = responseErrorMessage(root, tr("The request could not be confirmed. Retry with the same identifier."));
+            emit managementActionFinished(false, m_ManagementError);
+        }
+        emit managementChanged();
+    }, false, 30000);
+}
+
+void LauncherApi::retryOperation(const QString& operationId)
+{
+    if (!m_LoggedIn || m_ManagementBusy) return;
+    m_ManagementBusy = true;
+    emit managementChanged();
+    request("POST", QStringLiteral("vm-operations/") + operationId + QStringLiteral("/retry"), QJsonObject(), true,
+            [this, operationId](int status, const QJsonObject& root) {
+        m_ManagementBusy = false;
+        const bool ok = status >= 200 && status < 300;
+        if (ok) m_OwnOperations.insert(operationId);
+        m_ManagementError = ok ? QString() : responseErrorMessage(root, tr("Could not resume this operation."));
+        emit managementActionFinished(ok, ok ? tr("Operation queued for recovery.") : m_ManagementError);
+        emit managementChanged();
+        refreshManagement();
+    }, false, 30000);
 }
 
 void LauncherApi::deleteMachine(const QString& machineId)

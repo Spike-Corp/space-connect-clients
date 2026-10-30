@@ -23,8 +23,8 @@
          copyrighted artwork. Night-sky indigo at the top, fading through neon purple to a warm
          pink/orange horizon glow at the bottom. -->
     <color name="moonlight_sunset_top">#0D0816</color>
-    <color name="moonlight_sunset_mid">#251B4D</color>
-    <color name="moonlight_sunset_horizon">#18112B</color>
+    <color name="moonlight_sunset_mid">#110D17</color>
+    <color name="moonlight_sunset_horizon">#0D0816</color>
     <color name="moonlight_skyline_silhouette">#08050E</color>
 
     <!-- Light theme variant (selectable via the "Appearance" setting) - same accent colors,

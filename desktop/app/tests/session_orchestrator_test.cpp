@@ -27,10 +27,13 @@ public:
     QString state = QStringLiteral("idle");
     bool holdJoin = false;
     bool holdConnection = true;
+    bool holdStatus = false;
     int connectionStatus = 503;
     QJsonObject connectionError;
     QPointer<QTcpSocket> pendingJoin;
     QPointer<QTcpSocket> pendingConnection;
+    QPointer<QTcpSocket> pendingStatus;
+    QJsonObject pendingStatusBody;
 
     LauncherFixture()
     {
@@ -112,6 +115,12 @@ public:
         pendingJoin.clear();
     }
 
+    void finishStatus()
+    {
+        write(pendingStatus, 200, pendingStatusBody);
+        pendingStatus.clear();
+    }
+
 private:
     static void write(QTcpSocket* socket, int code, const QJsonObject& response)
     {
@@ -146,7 +155,19 @@ private:
             });
         }
         else if (path == QStringLiteral("/status")) {
-            write(socket, 200, status());
+            QJsonObject body = status();
+            if (state == QStringLiteral("starting") || state == QStringLiteral("ready")) {
+                QJsonObject session = body.value(QStringLiteral("session")).toObject();
+                QJsonObject machine = session.value(QStringLiteral("machine")).toObject();
+                machine.insert(QStringLiteral("id"), QUrlQuery(request.url).queryItemValue(QStringLiteral("machineId")));
+                session.insert(QStringLiteral("machine"), machine);
+                body.insert(QStringLiteral("session"), session);
+            }
+            if (holdStatus) { pendingStatus = socket; pendingStatusBody = body; }
+            else write(socket, 200, body);
+        }
+        else if (path == QStringLiteral("/vm-management")) {
+            write(socket, 200, QJsonObject{{QStringLiteral("machines"), QJsonArray()}, {QStringLiteral("operations"), QJsonArray()}});
         }
         else if (path == QStringLiteral("/queue") && request.method == "POST") {
             pendingJoin = socket;
@@ -224,6 +245,7 @@ private slots:
         QTRY_COMPARE(m_Orchestrator->phase(), QStringLiteral("queued"));
         QCOMPARE(m_Orchestrator->statusText(), QStringLiteral("Fila 2 de 4"));
         m_Api->setSelectedMachineId(QStringLiteral("other"));
+        QTRY_VERIFY(!m_Api->busy());
         m_Host->state = QStringLiteral("starting");
         m_Api->refreshStatus(QStringLiteral("chosen"));
         QTRY_COMPARE(m_Orchestrator->phase(), QStringLiteral("booting"));
@@ -260,6 +282,7 @@ private slots:
         m_Host->holdJoin = true;
         m_Orchestrator->startDesktopSession();
         QTRY_COMPARE(m_Host->count("POST", QStringLiteral("/queue")), 1);
+        QVERIFY(!m_Host->last(QStringLiteral("/queue")).body.contains(QStringLiteral("provider")));
         m_Orchestrator->cancel();
         QVERIFY(!m_Orchestrator->active());
         QVERIFY(m_Orchestrator->busy());
@@ -280,9 +303,9 @@ private slots:
         m_Host->state = QStringLiteral("queued");
         m_Orchestrator->startDesktopSession();
         QTRY_COMPARE(m_Orchestrator->phase(), QStringLiteral("queued"));
-        m_Api->setSelectedMachineId(QStringLiteral("other"));
         m_Api->submitPairPinForMachine(QStringLiteral("1234"), QStringLiteral("chosen"));
         QTRY_COMPARE(m_Host->count("POST", QStringLiteral("/pair")), 1);
+        m_Api->setSelectedMachineId(QStringLiteral("other"));
         m_Orchestrator->cancel();
         QTRY_VERIFY(!m_Api->busy() && !m_Orchestrator->busy());
         QTest::qWait(650);
@@ -291,6 +314,7 @@ private slots:
                  QStringLiteral("chosen"));
         m_Api->setSelectedMachineId(QStringLiteral("chosen"));
         m_Host->state = QStringLiteral("queued");
+        QTRY_VERIFY(!m_Api->busy());
         m_Orchestrator->startDesktopSession();
         QTRY_COMPARE(m_Orchestrator->phase(), QStringLiteral("queued"));
         m_Computers->sessionHostPrepared(1, true);
@@ -306,6 +330,37 @@ private slots:
         QTest::newRow("missing") << QJsonObject();
         QTest::newRow("blank") << QJsonObject{{QStringLiteral("error"),
             QJsonObject{{QStringLiteral("message"), QStringLiteral("   ")}}}};
+    }
+
+    void selectionDoesNotStartOrStopEitherMachineAndRejectsLateStatus()
+    {
+        m_Host->state = QStringLiteral("ready");
+        m_Host->holdStatus = true;
+        m_Api->refreshStatus();
+        QTRY_VERIFY(!m_Host->pendingStatus.isNull());
+        m_Api->setSelectedMachineId(QStringLiteral("other"));
+        QVERIFY(m_Api->statusMachineId().isEmpty());
+        m_Host->holdStatus = false;
+        m_Host->finishStatus();
+        QTRY_COMPARE(m_Api->statusMachineId(), QStringLiteral("other"));
+        QCOMPARE(m_Host->count("POST", QStringLiteral("/queue")), 0);
+        QCOMPARE(m_Host->count("DELETE", QStringLiteral("/session")), 0);
+        QCOMPARE(m_Host->count("DELETE", QStringLiteral("/queue")), 0);
+    }
+
+    void cancellingAfterSelectionChangesPreservesAnIndependentQueue()
+    {
+        m_Host->state = QStringLiteral("queued");
+        m_Orchestrator->startDesktopSession();
+        QTRY_COMPARE(m_Orchestrator->phase(), QStringLiteral("queued"));
+        m_Api->setSelectedMachineId(QStringLiteral("other"));
+        QVERIFY(m_Orchestrator->active());
+        m_Orchestrator->cancel();
+        QVERIFY(!m_Orchestrator->active());
+        QTRY_VERIFY(!m_Api->busy());
+        QCOMPARE(m_Host->count("DELETE", QStringLiteral("/queue")), 0);
+        QCOMPARE(m_Host->count("DELETE", QStringLiteral("/session")), 0);
+        QCOMPARE(m_Host->count("GET", QStringLiteral("/connection")), 0);
     }
 
     void connectionFailureWithoutMessageReturnsToDashboard()

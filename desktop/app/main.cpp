@@ -1,4 +1,4 @@
-#include <QGuiApplication>
+#include <QApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QIcon>
@@ -571,7 +571,7 @@ int main(int argc, char *argv[])
     SDL_SetHint(SDL_HINT_WINDOWS_DISABLE_THREAD_NAMING, "0");
 #endif
 
-    QGuiApplication app(argc, argv);
+    QApplication app(argc, argv);
 
 #ifndef STEAM_LINK
     // Force use of the KMSDRM backend for SDL when using Qt platform plugins
@@ -766,19 +766,12 @@ int main(int argc, char *argv[])
     // Load the bundled "Space Connect" brand fonts (same TTFs used by the Android client) and
     // make Rajdhani the app-wide default body font. Orbitron (display/heading font) is applied
     // selectively in QML via a FontLoader where a more distinctive heading look is wanted.
-    int rajdhaniMediumFontId = QFontDatabase::addApplicationFont(":/fonts/rajdhani_medium.ttf");
-    QFontDatabase::addApplicationFont(":/fonts/rajdhani_semibold.ttf");
-    QFontDatabase::addApplicationFont(":/fonts/orbitron_bold.ttf");
+    int bodyFontId = QFontDatabase::addApplicationFont(":/fonts/inter_regular.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/inter_semibold.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/bai_jamjuree_semibold.ttf");
     {
-        // Don't hardcode "Rajdhani" as the family name here - the bundled TTF's own name table
-        // registers each weight as its own family ("Rajdhani Medium"/"Rajdhani SemiBold"), not a
-        // single "Rajdhani" family with Medium/SemiBold styles. On a system with no separately
-        // installed "Rajdhani" font (e.g. a fresh macOS install), QFont("Rajdhani") silently
-        // fails to match, Qt substitutes a wider fallback font, and fixed-width UI text (e.g.
-        // the "5.1/7.1 surround sound" combo box entries) gets truncated/elided. Ask Qt for the
-        // family name(s) actually contained in the font file we just loaded instead.
-        QStringList rajdhaniFamilies = QFontDatabase::applicationFontFamilies(rajdhaniMediumFontId);
-        QFont bodyFont(!rajdhaniFamilies.isEmpty() ? rajdhaniFamilies.first() : QStringLiteral("Rajdhani"));
+        QStringList families = QFontDatabase::applicationFontFamilies(bodyFontId);
+        QFont bodyFont(!families.isEmpty() ? families.first() : QGuiApplication::font().family());
         bodyFont.setPointSize(QGuiApplication::font().pointSize());
         QGuiApplication::setFont(bodyFont);
     }

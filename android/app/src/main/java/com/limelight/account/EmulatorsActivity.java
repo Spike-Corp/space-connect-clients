@@ -28,6 +28,7 @@ public class EmulatorsActivity extends Activity {
     private TextView emptyText;
     private ProgressBar progress;
     private boolean busy;
+    private String machineId;
     // Install em andamento (por emulador) + progresso 0-100. O install NÃO
     // trava a tela toda: o usuário pode sair da aba e até entrar na VM
     // enquanto baixa — só o card do emulador mostra a barra.
@@ -40,6 +41,7 @@ public class EmulatorsActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         UiHelper.applyPreferredTheme(this);
         super.onCreate(savedInstanceState);
+        machineId = getIntent().getStringExtra("machineId");
         setContentView(R.layout.activity_emulators);
         UiHelper.applyStatusBarInset(findViewById(R.id.emulatorsRoot));
 
@@ -78,7 +80,7 @@ public class EmulatorsActivity extends Activity {
     private void loadStatus(final SpaceConnectApiClient.EmulatorEntry[] catalog) {
         // Status (instalado?) — se falhar (VM desligada), mostra o catálogo
         // com tudo "não instalado" mesmo assim.
-        AccountManager.getEmulatorStatus(this, new AccountManager.ResultCallback<SpaceConnectApiClient.EmulatorStatusResponse>() {
+        AccountManager.getEmulatorStatus(this, machineId, new AccountManager.ResultCallback<SpaceConnectApiClient.EmulatorStatusResponse>() {
             @Override
             public void onSuccess(SpaceConnectApiClient.EmulatorStatusResponse st) {
                 Map<String, Boolean> installed = new HashMap<>();
@@ -173,7 +175,7 @@ public class EmulatorsActivity extends Activity {
         installingProgress = 0;
         reloadCardsOnly();
         Toast.makeText(this, getString(R.string.emu_installing, emu.name), Toast.LENGTH_SHORT).show();
-        AccountManager.installEmulator(this, emu.id, new AccountManager.ResultCallback<SpaceConnectApiClient.EmulatorActionResponse>() {
+        AccountManager.installEmulator(this, emu.id, machineId, new AccountManager.ResultCallback<SpaceConnectApiClient.EmulatorActionResponse>() {
             @Override
             public void onSuccess(SpaceConnectApiClient.EmulatorActionResponse r) {
                 // Install é assíncrono no backend (download grande — Cloudflare
@@ -206,7 +208,7 @@ public class EmulatorsActivity extends Activity {
             return;
         }
         new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-            AccountManager.getEmulatorInstallStatus(this, emu.id, new AccountManager.ResultCallback<SpaceConnectApiClient.EmulatorInstallStatusResponse>() {
+            AccountManager.getEmulatorInstallStatus(this, emu.id, machineId, new AccountManager.ResultCallback<SpaceConnectApiClient.EmulatorInstallStatusResponse>() {
                 @Override
                 public void onSuccess(SpaceConnectApiClient.EmulatorInstallStatusResponse st) {
                     String state = st != null && st.state != null ? st.state : "none";
@@ -255,7 +257,7 @@ public class EmulatorsActivity extends Activity {
 
     private void launch(SpaceConnectApiClient.EmulatorEntry emu) {
         setBusy(true);
-        AccountManager.launchEmulator(this, emu.id, new AccountManager.ResultCallback<SpaceConnectApiClient.EmulatorActionResponse>() {
+        AccountManager.launchEmulator(this, emu.id, machineId, new AccountManager.ResultCallback<SpaceConnectApiClient.EmulatorActionResponse>() {
             @Override
             public void onSuccess(SpaceConnectApiClient.EmulatorActionResponse r) {
                 setBusy(false);

@@ -83,14 +83,14 @@ public class UiHelper {
     // design system without depending on a browser-only WOFF2 asset.
     public static Typeface getDisplayTypeface(Context context) {
         if (displayTypeface == null) {
-            displayTypeface = Typeface.create("sans-serif", Typeface.BOLD);
+            displayTypeface = Typeface.createFromAsset(context.getAssets(), "fonts/bai_jamjuree_semibold.ttf");
         }
         return displayTypeface;
     }
 
     public static Typeface getBodyTypeface(Context context) {
         if (bodyTypeface == null) {
-            bodyTypeface = Typeface.create("sans-serif", Typeface.NORMAL);
+            bodyTypeface = Typeface.createFromAsset(context.getAssets(), "fonts/inter_regular.ttf");
         }
         return bodyTypeface;
     }

@@ -25,6 +25,7 @@ public class DownloadsActivity extends Activity {
     private TextView emptyText;
     private ProgressBar progress;
     private boolean busy;
+    private String machineId;
     private View gpuLicenseCard;
     private Button gpuLicenseButton;
     private boolean applyingLicense;
@@ -33,6 +34,7 @@ public class DownloadsActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         UiHelper.applyPreferredTheme(this);
         super.onCreate(savedInstanceState);
+        machineId = getIntent().getStringExtra("machineId");
         setContentView(R.layout.activity_downloads);
         UiHelper.applyStatusBarInset(findViewById(R.id.downloadsRoot));
 
@@ -73,7 +75,7 @@ public class DownloadsActivity extends Activity {
         applyingLicense = true;
         gpuLicenseButton.setEnabled(false);
         gpuLicenseButton.setText(R.string.gpu_license_applying);
-        AccountManager.applyGpuLicense(this, new AccountManager.ResultCallback<SpaceConnectApiClient.GpuLicenseApplyResponse>() {
+        AccountManager.applyGpuLicense(this, machineId, new AccountManager.ResultCallback<SpaceConnectApiClient.GpuLicenseApplyResponse>() {
             @Override
             public void onSuccess(SpaceConnectApiClient.GpuLicenseApplyResponse r) {
                 applyingLicense = false;
@@ -179,7 +181,7 @@ public class DownloadsActivity extends Activity {
         downloadingToVm.put(id, true);
         action.setEnabled(false);
         action.setText(R.string.dl_to_vm_starting);
-        AccountManager.startVmDownload(this, id, new AccountManager.ResultCallback<SpaceConnectApiClient.VmDownloadStartResponse>() {
+        AccountManager.startVmDownload(this, id, machineId, new AccountManager.ResultCallback<SpaceConnectApiClient.VmDownloadStartResponse>() {
             @Override
             public void onSuccess(SpaceConnectApiClient.VmDownloadStartResponse r) {
                 Toast.makeText(DownloadsActivity.this,
@@ -202,7 +204,7 @@ public class DownloadsActivity extends Activity {
         final String id = item.id;
         vmDlHandler.postDelayed(() -> {
             if (id == null || !downloadingToVm.containsKey(id)) return;
-            AccountManager.getVmDownloadStatus(this, id, new AccountManager.ResultCallback<SpaceConnectApiClient.VmDownloadStatusResponse>() {
+            AccountManager.getVmDownloadStatus(this, id, machineId, new AccountManager.ResultCallback<SpaceConnectApiClient.VmDownloadStatusResponse>() {
                 @Override
                 public void onSuccess(SpaceConnectApiClient.VmDownloadStatusResponse r) {
                     if (r == null || r.state == null) { pollVmDownload(item, action); return; }

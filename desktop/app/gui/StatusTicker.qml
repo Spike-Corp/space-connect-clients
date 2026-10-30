@@ -7,6 +7,7 @@ Item {
     property bool firstIsCurrent: true
     property bool ready: false
     property color textColor: "#f8f5ff"
+    property int fontPixelSize: 20
     implicitHeight: Math.max(first.implicitHeight, second.implicitHeight, 28)
     Accessible.role: Accessible.StaticText
     Accessible.name: text
@@ -44,7 +45,7 @@ Item {
         wrapMode: Text.WordWrap
         horizontalAlignment: Text.AlignHCenter
         font.family: "Inter"
-        font.pixelSize: 20
+        font.pixelSize: ticker.fontPixelSize
         color: ticker.textColor
         Accessible.ignored: true
     }
@@ -57,7 +58,7 @@ Item {
         wrapMode: Text.WordWrap
         horizontalAlignment: Text.AlignHCenter
         font.family: "Inter"
-        font.pixelSize: 20
+        font.pixelSize: ticker.fontPixelSize
         color: ticker.textColor
         opacity: 0
         Accessible.ignored: true

@@ -5,6 +5,7 @@
 #include "streaming/session.h"
 
 #include <QCoreApplication>
+#include <QJsonDocument>
 #include <QSettings>
 #include <QUrl>
 
@@ -55,14 +56,29 @@ void SessionOrchestrator::initialize(LauncherApi* launcher, ComputerManager* com
         return;
     m_Launcher = launcher;
     m_Computers = computers;
-    connect(launcher, &LauncherApi::statusChanged, this, &SessionOrchestrator::syncStatus);
+    connect(launcher, &LauncherApi::machineStatusReceived, this,
+            [this](const QString& machineId, const QJsonObject& root) {
+        if (!m_Active || m_ConnectionRequested || machineId != m_MachineId)
+            return;
+        try {
+            m_Status = LauncherJson::parseStatus(QJsonDocument(root).toJson(QJsonDocument::Compact));
+            const QJsonObject texts = root.value(QStringLiteral("bootTexts")).toObject();
+            if (!texts.isEmpty())
+                m_BootTexts = texts.toVariantMap();
+            syncStatus();
+        }
+        catch (const std::exception&) {
+            reportError(tr("Invalid status response. Please try again."));
+        }
+    });
     connect(launcher, &LauncherApi::busyChanged, this, [this]() {
         QTimer::singleShot(0, this, &SessionOrchestrator::drive);
     });
     connect(launcher, &LauncherApi::connectionReady, this, &SessionOrchestrator::prepareHost);
-    connect(launcher, &LauncherApi::errorMessageChanged, this, [this]() {
-        if (m_Active && !m_Launcher->errorMessage().isEmpty())
-            reportError(m_Launcher->errorMessage());
+    connect(launcher, &LauncherApi::machineRequestFailed, this,
+            [this](const QString& machineId, const QString& message) {
+        if (m_Active && machineId == m_MachineId)
+            reportError(message);
     });
     connect(launcher, &LauncherApi::loggedInChanged, this, [this]() {
         if (!m_Launcher->loggedIn())
@@ -110,6 +126,8 @@ void SessionOrchestrator::startDesktopSession()
     ++m_Attempt;
     m_Active = true;
     m_JoinRequested = false;
+    m_Status = LauncherStatus();
+    m_BootTexts.clear();
     m_ConnectionRequested = false;
     m_WaitingForApps = false;
     m_FreshlyPaired = false;
@@ -137,14 +155,14 @@ void SessionOrchestrator::syncStatus()
         drive();
         return;
     }
-    const QVariantMap texts = m_Launcher->bootTexts();
+    const QVariantMap texts = m_BootTexts;
     const auto copy = [&texts](const QString& key, const QString& fallback) {
         const QString value = texts.value(key).toString().trimmed();
         return value.isEmpty() ? fallback : value;
     };
-    if (m_Launcher->state() == QStringLiteral("queued")) {
-        const int position = m_Launcher->queuePosition();
-        const int total = m_Launcher->queueTotal();
+    if (m_Status.state == QStringLiteral("queued")) {
+        const int position = m_Status.queuePosition;
+        const int total = m_Status.queueTotal;
         QString text = position > 0
                 ? copy(QStringLiteral("queueTitle"), tr("You are #%1 in queue").arg(position))
                 : copy(QStringLiteral("queueSearching"), tr("Finding your machine..."));
@@ -153,16 +171,16 @@ void SessionOrchestrator::syncStatus()
         setPhase(QStringLiteral("queued"), text);
         emit queueUpdated(position, total);
     }
-    else if (m_Launcher->state() == QStringLiteral("starting")) {
+    else if (m_Status.state == QStringLiteral("starting")) {
         const QString detail = texts.value(QStringLiteral("phases")).toMap()
-                .value(m_Launcher->creationPhase()).toString().trimmed();
+                .value(m_Status.creationPhase).toString().trimmed();
         const bool entering = m_Phase != QStringLiteral("booting");
         setPhase(QStringLiteral("booting"), detail.isEmpty()
                  ? copy(QStringLiteral("bootingTitle"), tr("Booting your machine...")) : detail);
         if (entering)
             emit machineBooting();
     }
-    else if (m_Launcher->state() == QStringLiteral("ending")) {
+    else if (m_Status.state == QStringLiteral("ending")) {
         reportError(tr("This session is ending. Wait for it to finish before connecting again."));
         return;
     }
@@ -183,14 +201,14 @@ void SessionOrchestrator::drive()
     }
     if (!m_Active || m_ConnectionRequested)
         return;
-    if (m_Launcher->state() == QStringLiteral("ready") &&
-        (m_Launcher->statusMachineId().isEmpty() || m_Launcher->statusMachineId() == m_MachineId)) {
+    if (m_Status.state == QStringLiteral("ready") &&
+        (m_Status.machineId.isEmpty() || m_Status.machineId == m_MachineId)) {
         m_ConnectionRequested = true;
         setPhase(QStringLiteral("connecting"), tr("Connecting securely..."));
         m_HandshakeDeadline.start();
         m_Launcher->requestConnection(m_MachineId);
     }
-    else if (m_Launcher->state() == QStringLiteral("idle") && !m_JoinRequested) {
+    else if (m_Status.state == QStringLiteral("idle") && !m_JoinRequested) {
         m_JoinRequested = true;
         m_Launcher->joinQueue(m_MachineId);
     }
@@ -297,9 +315,8 @@ void SessionOrchestrator::cancel()
 {
     if (!m_Active)
         return;
-    m_CancelQueued = !m_ConnectionRequested &&
-            (m_Launcher->state() == QStringLiteral("queued") ||
-             (m_JoinRequested && m_Launcher->busy()));
+    m_CancelQueued = !m_ConnectionRequested && m_JoinRequested &&
+            (m_Status.state == QStringLiteral("queued") || m_Launcher->busy());
     m_Active = false;
     stopPreparation();
     m_Cancellation->store(true);

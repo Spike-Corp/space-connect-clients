@@ -17,6 +17,12 @@
         <file>res/question_mark.svg</file>
         <file>res/moonlight.svg</file>
         <file>res/spaceconnect_icon_256.png</file>
+        <file>res/spacecloud_wordmark.png</file>
+        <file alias="fonts/bai_jamjuree_semibold.ttf">res/fonts/bai_jamjuree_semibold.ttf</file>
+        <file alias="fonts/inter_regular.ttf">res/fonts/inter_regular.ttf</file>
+        <file alias="fonts/inter_semibold.ttf">res/fonts/inter_semibold.ttf</file>
+        <file>res/fonts/BaiJamjuree-OFL.txt</file>
+        <file>res/fonts/Inter-OFL.txt</file>
         <file>res/update.svg</file>
         <file>res/baseline-help_outline-24px.svg</file>
         <file>res/baseline-error_outline-24px.svg</file>

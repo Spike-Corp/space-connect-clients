@@ -12,6 +12,8 @@
 
     <!-- Notificações de sessão (máquina pronta / desligando) — runtime request no launcher -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <!-- We don't need a MulticastLock on API level 34+ because we use NsdManager for mDNS -->
     <uses-permission
@@ -152,6 +154,11 @@
             android:resizeableActivity="true"
             android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection">
         </activity>
+        <activity android:name=".account.MachineManagementActivity" android:exported="false"
+            android:resizeableActivity="true" />
+        <service android:name=".account.VmMonitorService" android:exported="false"
+            android:foregroundServiceType="dataSync" />
+        <receiver android:name=".account.SessionDeadlineReceiver" android:exported="false" />
         <activity
             android:name=".session.SessionLoadingActivity"
             android:exported="false"

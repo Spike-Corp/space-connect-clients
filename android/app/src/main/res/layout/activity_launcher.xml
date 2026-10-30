@@ -212,6 +212,19 @@
                 android:textSize="14sp"
                 android:visibility="gone" />
 
+            <Button
+                android:id="@+id/launcherTransferDiskButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="50dp"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_button_ghost"
+                android:text="@string/vm_management"
+                android:textAllCaps="false"
+                android:textColor="?attr/appForegroundColor"
+                android:textSize="14sp"
+                android:visibility="gone" />
+
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -273,19 +286,6 @@
                 android:textColor="?attr/appForegroundColor"
                 android:textSize="14sp" />
 
-            <Button
-                android:id="@+id/launcherTransferDiskButton"
-                android:layout_width="match_parent"
-                android:layout_height="50dp"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/bg_button_ghost"
-                android:gravity="start|center_vertical"
-                android:paddingStart="16dp"
-                android:text="@string/transfer_disk_title"
-                android:textAllCaps="false"
-                android:textColor="?attr/appForegroundColor"
-                android:textSize="14sp"
-                android:visibility="gone" />
 
             <Button
                 android:id="@+id/launcherUsbButton"

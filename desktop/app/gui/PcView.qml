@@ -136,7 +136,9 @@ CenteredGridView {
             errorDialog.helpText = ""
             errorDialog.open()
         }
-        function onMachinePasswordFinished(success, message, applied) {
+        function onMachinePasswordFinished(success, message, applied, machineId) {
+            if (setPasswordDialog.pendingMachineId !== machineId) return
+            setPasswordDialog.pendingMachineId = ""
             errorDialog.text = message
             errorDialog.helpText = ""
             errorDialog.open()
@@ -144,6 +146,7 @@ CenteredGridView {
     }
 
     StackView.onDeactivating: {
+        setPasswordDialog.pendingMachineId = ""
         ComputerManager.computerAddCompleted.disconnect(addComplete)
     }
 
@@ -587,6 +590,7 @@ CenteredGridView {
         id: setPasswordDialog
         property string pcName: ""
         property string machineId: ""
+        property string pendingMachineId: ""
 
         standardButtons: Dialog.Ok | Dialog.Cancel
 
@@ -601,8 +605,10 @@ CenteredGridView {
         }
 
         onAccepted: {
-            if (machineId && pwField.text)
+            if (machineId && pwField.text) {
+                pendingMachineId = machineId
                 LauncherApi.setMachinePassword(machineId, pwField.text)
+            }
         }
 
         ColumnLayout {

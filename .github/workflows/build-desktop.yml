@@ -381,7 +381,7 @@ jobs:
           QT_QUICK_CONTROLS_STYLE: Material
         run: |
           set QT_QPA_FONTDIR=%WINDIR%\Fonts
-          "%QT_ROOT_DIR%\bin\qmltestrunner.exe" -input app\tests\qml || exit /b 1
+          "%QT_ROOT_DIR%\bin\qmltestrunner.exe" -input app\tests\qml -import app\tests\qml || exit /b 1
 
       - name: Build (Release, x64, Qt5)
         shell: cmd
@@ -622,7 +622,7 @@ jobs:
           make -j2
           ./session_orchestrator_test
           cd ../../..
-          qmltestrunner -input app/tests/qml
+          qmltestrunner -input app/tests/qml -import app/tests/qml
 
       - name: Package AppImage
         run: |

@@ -2,6 +2,8 @@
 <RCC>
     <qresource prefix="/">
         <file alias="gui/main.qml">gui/main.qml</file>
+        <file alias="gui/BrandTheme.qml">gui/BrandTheme.qml</file>
+        <file alias="gui/MachineManagementView.qml">gui/MachineManagementView.qml</file>
         <file alias="gui/PcView.qml">gui/PcView.qml</file>
         <file alias="gui/AppView.qml">gui/AppView.qml</file>
         <file alias="gui/SettingsView.qml">gui/SettingsView.qml</file>

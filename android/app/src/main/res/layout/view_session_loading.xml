@@ -26,7 +26,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
                 android:text="@string/login_app_name"
-                android:textColor="#FFFFFF"
+                android:textColor="?attr/appForegroundColor"
                 android:textSize="24sp"
                 android:letterSpacing="0.03" />
         </LinearLayout>
@@ -37,6 +37,7 @@
             android:layout_height="28dp"
             android:layout_marginTop="28dp"
             android:src="@drawable/ic_session_spinner"
+            android:tint="?attr/appForegroundColor"
             android:importantForAccessibility="no"
             android:contentDescription="@null" />
 
@@ -52,7 +53,7 @@
                 android:layout_gravity="center"
                 android:gravity="center"
                 android:lineSpacingExtra="6dp"
-                android:textColor="#FFFFFF"
+                android:textColor="?attr/appForegroundColor"
                 android:textSize="17sp" />
             <TextView
                 android:id="@+id/sessionNextMessage"
@@ -61,10 +62,21 @@
                 android:layout_gravity="center"
                 android:gravity="center"
                 android:lineSpacingExtra="6dp"
-                android:textColor="#FFFFFF"
+                android:textColor="?attr/appForegroundColor"
                 android:textSize="17sp"
                 android:alpha="0" />
         </FrameLayout>
+        <TextView
+            android:id="@+id/sessionTip"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:maxLines="3"
+            android:layout_marginTop="8dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:textSize="13sp"
+            android:textColor="?attr/appMutedForegroundColor" />
     </LinearLayout>
 
     <Button
@@ -77,7 +89,7 @@
         android:paddingEnd="24dp"
         android:background="@drawable/bg_session_cancel"
         android:text="@string/session_cancel"
-        android:textColor="#FFFFFF"
+        android:textColor="?attr/appForegroundColor"
         android:textAllCaps="false"
         android:focusable="true"
         android:nextFocusUp="@id/sessionCancel"

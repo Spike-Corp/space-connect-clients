@@ -89,6 +89,7 @@ public final class SessionOrchestrator {
     private boolean queueMayExist;
     private boolean joinUncertain;
     private boolean joined;
+    private int idlePollsAfterJoin;
     private Runnable streamCancellation;
 
     public SessionOrchestrator(String machineId, boolean friend, Backend backend, Host host,
@@ -115,10 +116,13 @@ public final class SessionOrchestrator {
         return current != null && current.id.equals(id) && current.isActive() ? current : null;
     }
 
+    public boolean isFriend() { return friend; }
+
     public void start() {
         synchronized (REGISTRY_LOCK) {
             if (started || cancelled.get()) return;
             started = true;
+            SessionLog.clear();
             if (active != null) active.cancel();
             CompletableFuture<Void> cleanup = previousCleanup;
             active = this;
@@ -182,13 +186,16 @@ public final class SessionOrchestrator {
             }
             status = next;
             if ("queued".equals(next.state)) {
-                queueMayExist = true;
+                queueMayExist = joined;
+                idlePollsAfterJoin = 0;
                 publish(Stage.QUEUED, next);
             } else if ("starting".equals(next.state) || "booting".equals(next.state)) {
                 queueMayExist = false;
                 publish(Stage.STARTING, next);
             } else if ("ready".equals(next.state)) {
                 queueMayExist = false;
+            } else if ("idle".equals(next.state) && joined && ++idlePollsAfterJoin <= 6) {
+                publish(Stage.CHECKING, next);
             } else {
                 throw new SessionException(Failure.CONNECTION);
             }

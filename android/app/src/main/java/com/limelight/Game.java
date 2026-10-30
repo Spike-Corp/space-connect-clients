@@ -2316,7 +2316,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         // Garante que o MicBridge está RODANDO na VM antes de mandar áudio —
         // o processo morre entre boots e a task ONLOGON não ressuscita, então
         // sem isso o mic ia pra um buraco negro (UDP sem listener).
-        com.limelight.account.AccountManager.ensureMicBridge(this, null);
+        if (sessionAttempt != null && !sessionAttempt.isFriend()) {
+            com.limelight.account.AccountManager.ensureMicBridge(this, sessionAttempt.machineId, null);
+        }
         int micPort = (streamPort > 0 && streamPort != NvHTTP.DEFAULT_HTTP_PORT && streamPort != 47989)
                 ? (streamPort + 25)
                 : MicForwarder.DEFAULT_PORT;
@@ -3152,10 +3154,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private void failManagedSession(String stage, int code) {
         if (!managedSession || connectionClosed) return;
-        LimeLog.warning("Session stream failure: " + stage + " (" + code + ")");
+        com.limelight.session.SessionLog.streamFailure(stage, code);
         streamCallbacks.post(() -> {
             if (connectionClosed || isFinishing() || isDestroyed() || sessionAttempt == null || !sessionAttempt.isActive()) return;
-            Toast.makeText(this, code == 409 ? R.string.session_host_busy : R.string.session_connection_failed, Toast.LENGTH_LONG).show();
+            Toast.makeText(this, getString(code == 409 ? R.string.session_host_busy : R.string.session_connection_failed)
+                    + "\n" + getString(R.string.vm_diagnostic, com.limelight.session.SessionLog.diagnostic()), Toast.LENGTH_LONG).show();
             stopConnection();
             startActivity(new Intent(this, LauncherActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));

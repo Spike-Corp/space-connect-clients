@@ -5,6 +5,7 @@ Window {
     id: loadingWindow
     property var orchestrator
     property var dashboardWindow
+    property var tips: []
     transientParent: null
     width: screen.width
     height: screen.height
@@ -41,6 +42,7 @@ Window {
         anchors.fill: parent
         statusText: loadingWindow.orchestrator ? loadingWindow.orchestrator.statusText : ""
         reducedMotion: loadingWindow.orchestrator ? loadingWindow.orchestrator.reducedMotion : false
+        tips: loadingWindow.tips
         onCancelRequested: loadingWindow.orchestrator.cancel()
     }
     NumberAnimation {

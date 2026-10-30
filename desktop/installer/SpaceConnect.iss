@@ -21,7 +21,7 @@
 #define MyAppExeName "SpaceConnect.exe"
 
 #define DeployDir AddBackslash(SourcePath) + "..\deploy"
-#define IconFile AddBackslash(SourcePath) + "..\app\moonlight.ico"
+#define IconFile AddBackslash(SourcePath) + "..\app\spaceconnect.ico"
 #define LicenseRtf AddBackslash(SourcePath) + "..\wix\MoonlightSetup\license.rtf"
 #define VcRedistExe AddBackslash(SourcePath) + "..\vcredist\VC_redist.x64.exe"
 
@@ -41,7 +41,7 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 UninstallDisplayName={#MyAppFullName}
-UninstallDisplayIcon={app}\{#MyAppExeName}
+UninstallDisplayIcon={app}\SpaceConnect-{#MyAppVersion}.ico
 OutputDir=..
 OutputBaseFilename=SpaceConnect-Setup-{#MyAppVersion}-windows-x64
 SetupIconFile={#IconFile}
@@ -80,11 +80,12 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "{#DeployDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#IconFile}"; DestDir: "{app}"; DestName: "SpaceConnect-{#MyAppVersion}.ico"; Flags: ignoreversion
 Source: "{#VcRedistExe}"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: VcRedistNeeded
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\SpaceConnect-{#MyAppVersion}.ico"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\SpaceConnect-{#MyAppVersion}.ico"; Tasks: desktopicon
 
 [Run]
 Filename: "{tmp}\VC_redist.x64.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "{cm:InstallingVcRedist}"; Flags: waituntilterminated; Check: VcRedistNeeded

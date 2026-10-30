@@ -10,7 +10,7 @@ Item {
 
     FontLoader {
         id: displayFontLoader
-        source: "qrc:/fonts/orbitron_bold.ttf"
+        source: "qrc:/fonts/bai_jamjuree_semibold.ttf"
     }
 
     function attemptLogin() {

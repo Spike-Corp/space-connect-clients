@@ -69,6 +69,9 @@ class LauncherApi : public QObject
     Q_PROPERTY(QString statusMachineId READ statusMachineId NOTIFY statusChanged)
     // Minhas máquinas (pra permissão por máquina no painel de amigos)
     Q_PROPERTY(QVariantList myMachines READ myMachines NOTIFY friendsChanged)
+    Q_PROPERTY(QVariantMap management READ management NOTIFY managementChanged)
+    Q_PROPERTY(QString managementError READ managementError NOTIFY managementChanged)
+    Q_PROPERTY(bool managementBusy READ managementBusy NOTIFY managementChanged)
 
 public:
     explicit LauncherApi(QObject* parent = nullptr,
@@ -117,7 +120,14 @@ public:
     QVariantList myMachines() const { return m_MyMachines; }
     QVariantList emulators() const { return m_Emulators; }
     QVariantList downloads() const { return m_Downloads; }
+    QVariantMap management() const { return m_Management; }
+    QString managementError() const { return m_ManagementError; }
+    bool managementBusy() const { return m_ManagementBusy; }
 
+    Q_INVOKABLE void refreshManagement();
+    Q_INVOKABLE QString newOperationRequestId() const;
+    Q_INVOKABLE void machineAction(const QString& machineId, const QString& action, const QVariantMap& options = QVariantMap());
+    Q_INVOKABLE void retryOperation(const QString& operationId);
     Q_INVOKABLE void login(const QString& email, const QString& password);
     Q_INVOKABLE void verifyTwoFactor(const QString& code);
     Q_INVOKABLE void refreshStatus(const QString& machineId = QString());
@@ -138,11 +148,8 @@ public:
     // guest agent do Proxmox — nao precisa de versao nova do agent Windows).
     // Mic bridge: garante que o MicBridge está rodando na VM (chamado ao
     // conectar quando o encaminhamento de mic está ligado). Fire-and-forget.
-    void ensureMicBridge();
+    void ensureMicBridge(const QString& machineId = QString());
     Q_INVOKABLE void refreshEmulators();
-    // Transfere o disco de uma VM pra outra (a de origem é excluída, a de
-    // destino ganha o espaço inteiro). Só aparece na UI com 2+ VMs Proxmox.
-    Q_INVOKABLE void transferDisk(const QString& sourceMachineId, const QString& targetMachineId);
     Q_INVOKABLE void refreshDownloads();
     // Baixa um item da biblioteca NA VM (pasta Downloads dela) — NÃO pro PC
     // local. O backend manda a VM baixar da URL direto; o app faz polling no
@@ -150,7 +157,7 @@ public:
     // kind=link abre no navegador local.
     Q_INVOKABLE void downloadItem(const QString& id, const QString& url, const QString& name, const QString& kind);
     // (interno) polling do download na VM
-    void pollVmDownload(const QString& itemId, const QString& name, int attempt);
+    void pollVmDownload(const QString& itemId, const QString& name, const QString& machineId, quint64 generation, int attempt);
     // Licença NVIDIA vGPU (RTX Virtual Workstation) da T4: o cliente baixa o
     // driver novo (aba Downloads) e APLICA a licença por aqui — o backend
     // empurra o token .tok direto pra VM (nunca URL pública). Emite
@@ -162,7 +169,7 @@ public:
     Q_INVOKABLE void installEmulator(const QString& emulatorId);
     Q_INVOKABLE void launchEmulator(const QString& emulatorId);
     // (interno) polling do install assíncrono
-    void pollEmulatorInstall(const QString& emulatorId, int attempt);
+    void pollEmulatorInstall(const QString& emulatorId, const QString& machineId, quint64 generation, int attempt);
     // Progresso do install em andamento (0-100; -1 = nenhum). O install NÃO
     // usa o busy global: o usuário pode continuar usando o app (inclusive
     // entrar na VM) enquanto baixa/instala — antes o busy travava tudo e
@@ -233,6 +240,8 @@ signals:
     void savedEmailChanged();
     void errorMessageChanged();
     void statusChanged();
+    void machineStatusReceived(QString machineId, QJsonObject status);
+    void machineRequestFailed(QString machineId, QString message);
     void machinesChanged();
     void loginSucceeded();
     void twoFactorRequired();
@@ -255,9 +264,11 @@ signals:
     void downloadItemFinished(bool success, QString message);
     void gpuLicenseStatusChanged();
     void gpuLicenseApplied(bool success, QString message);
-    void diskTransferFinished(bool success, QString message);
+    void managementChanged();
+    void managementActionFinished(bool success, QString message);
+    void backgroundNotice(QString message);
     void machineDeleteFinished(bool success, QString message);
-    void machinePasswordFinished(bool success, QString message, QString applied);
+    void machinePasswordFinished(bool success, QString message, QString applied, QString machineId);
 
 private:
     using ResponseHandler = std::function<void(int, const QJsonObject&)>;
@@ -280,8 +291,7 @@ private:
     void sendPairAttempt(const QString& pin, const QString& machineId, int attempt, quint64 generation);
     void sendFriendPairAttempt(const QString& machineId, const QString& pin, int attempt, quint64 generation);
     QString deviceId() const;
-    // VM alvo das ações (fila/conexão/encerrar): a da sessão ativa, se houver;
-    // senão a selecionada no seletor. Vazio = backend decide (comportamento antigo).
+    // Selection is independent of every other powered-on VM.
     QString effectiveMachineId() const;
     // Tipo de host (teto de bitrate) da VM em uso — ver backend/launcherbitrate.h.
     LauncherBitrate::Detection detectBitrate() const;
@@ -293,6 +303,19 @@ private:
     quint64 m_ConnectionGeneration = 0;
     bool m_ConnectionBusy = false;
     QTimer m_RefreshTimer;
+    QTimer m_ManagementTimer;
+    QVariantMap m_Management;
+    QString m_ManagementError;
+    bool m_ManagementBusy = false;
+    bool m_ManagementLoading = false;
+    bool m_NoticesInitialized = false;
+    QSet<QString> m_SeenNotices;
+    QSet<QString> m_WaitingBoot;
+    QSet<QString> m_OwnOperations;
+    quint64 m_AuthGeneration = 0;
+    quint64 m_StatusGeneration = 0;
+    quint64 m_ToolGeneration = 0;
+    quint64 m_MachinePasswordGeneration = 0;
     RecaptchaFetcher m_Recaptcha;
     QString m_AccessToken;
     QString m_RefreshToken;
@@ -325,7 +348,7 @@ private:
     QVariantList m_Machines;
     QVariantList m_CreatablePlans;
     QString m_SelectedMachineId;
-    // Máquina da sessão ativa reportada pelo /status (prioriza sobre a seleção).
+    // Status of the selected machine, never a replacement for selection.
     QString m_StatusMachineId;
     // Amigos
     QVariantList m_Friends;

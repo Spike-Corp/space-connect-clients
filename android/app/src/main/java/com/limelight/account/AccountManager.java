@@ -196,21 +196,30 @@ public final class AccountManager {
 
     public static Future<?> getStatus(Context context, String machineId, RequestScope scope,
             ResultCallback<SpaceConnectApiClient.StatusResponse> callback) {
+        return executeScoped(context, scope, (api, token) -> api.getStatus(token, machineId), callback);
+    }
+
+    private interface ScopedOperation<T> {
+        T run(SpaceConnectApiClient api, String token) throws Exception;
+    }
+
+    private static <T> Future<?> executeScoped(Context context, RequestScope scope,
+            ScopedOperation<T> operation, ResultCallback<T> callback) {
         Context appContext = context.getApplicationContext();
         SpaceConnectApiClient api = API.withScope(scope);
         return EXECUTOR.submit(() -> {
             try {
                 scope.checkCancelled();
                 SecureSessionStore.Session session = validSession(appContext, api, scope);
-                SpaceConnectApiClient.StatusResponse result;
+                T result;
                 try {
-                    result = api.getStatus(session.accessToken, machineId);
+                    result = operation.run(api, session.accessToken);
                 } catch (SpaceConnectApiClient.ApiException e) {
                     if (e.status != 401) throw e;
                     session = refresh(appContext, session, api, scope);
-                    result = api.getStatus(session.accessToken, machineId);
+                    result = operation.run(api, session.accessToken);
                 }
-                SpaceConnectApiClient.StatusResponse response = result;
+                T response = result;
                 post(() -> { if (!scope.isCancelled()) callback.onSuccess(response); });
             } catch (Exception e) {
                 post(() -> { if (!scope.isCancelled()) callback.onError(userMessage(e)); });
@@ -221,14 +230,14 @@ public final class AccountManager {
     public static void joinQueue(
             Context context,
             ResultCallback<SpaceConnectApiClient.StatusResponse> callback) {
-        executeAuthenticated(context, token -> API.joinQueue(token, 24, "proxmox"), callback);
+        executeAuthenticated(context, token -> API.joinQueue(token, 24, null), callback);
     }
 
     public static void joinQueue(
             Context context,
             String machineId,
             ResultCallback<SpaceConnectApiClient.StatusResponse> callback) {
-        executeAuthenticated(context, token -> API.joinQueue(token, 24, "proxmox", machineId), callback);
+        executeAuthenticated(context, token -> API.joinQueue(token, 24, null, machineId), callback);
     }
 
     public static void leaveQueue(
@@ -286,7 +295,7 @@ public final class AccountManager {
 
         public SpaceConnectApiClient.StatusResponse joinQueue() throws Exception {
             if (friend) throw new IllegalStateException("Cannot power on a friend's machine");
-            return execute(token -> api.joinQueue(token, 24, "proxmox", machineId));
+            return execute(token -> api.joinQueue(token, 24, null, machineId));
         }
 
         public SpaceConnectApiClient.StatusResponse leaveQueue() throws Exception {
@@ -330,6 +339,21 @@ public final class AccountManager {
             Context context,
             ResultCallback<SpaceConnectApiClient.MachinesResponse> callback) {
         executeAuthenticated(context, API::getMachines, callback);
+    }
+
+    public static Future<?> getManagement(Context context, RequestScope scope,
+            ResultCallback<SpaceConnectApiClient.ManagementResponse> callback) {
+        return executeScoped(context, scope, (api, token) -> api.getManagement(token), callback);
+    }
+
+    public static void machineAction(Context context, String machineId, SpaceConnectApiClient.MachineAction input,
+            ResultCallback<SpaceConnectApiClient.OperationResponse> callback) {
+        executeAuthenticated(context, token -> API.machineAction(token, machineId, input), callback);
+    }
+
+    public static void retryOperation(Context context, String operationId,
+            ResultCallback<SpaceConnectApiClient.OperationResponse> callback) {
+        executeAuthenticated(context, token -> API.retryOperation(token, operationId), callback);
     }
 
     // Só chama o backend se a VM for do usuário (dono renomeando); pra VM de
@@ -390,8 +414,9 @@ public final class AccountManager {
     // Fire-and-forget: callback pode ser null.
     public static void ensureMicBridge(
             Context context,
+            String machineId,
             ResultCallback<SpaceConnectApiClient.MicEnsureResponse> callback) {
-        executeAuthenticated(context, API::ensureMicBridge, callback);
+        executeAuthenticated(context, token -> API.ensureMicBridge(token, machineId), callback);
     }
 
     // Biblioteca de downloads (aba Downloads do app).
@@ -406,15 +431,17 @@ public final class AccountManager {
     public static void startVmDownload(
             Context context,
             String itemId,
+            String machineId,
             ResultCallback<SpaceConnectApiClient.VmDownloadStartResponse> callback) {
-        executeAuthenticated(context, token -> API.startVmDownload(token, itemId), callback);
+        executeAuthenticated(context, token -> API.startVmDownload(token, itemId, machineId), callback);
     }
 
     public static void getVmDownloadStatus(
             Context context,
             String itemId,
+            String machineId,
             ResultCallback<SpaceConnectApiClient.VmDownloadStatusResponse> callback) {
-        executeAuthenticated(context, token -> API.getVmDownloadStatus(token, itemId), callback);
+        executeAuthenticated(context, token -> API.getVmDownloadStatus(token, itemId, machineId), callback);
     }
 
     // Licença NVIDIA vGPU (RTX Virtual Workstation) da T4 — o cliente aplica
@@ -427,8 +454,9 @@ public final class AccountManager {
 
     public static void applyGpuLicense(
             Context context,
+            String machineId,
             ResultCallback<SpaceConnectApiClient.GpuLicenseApplyResponse> callback) {
-        executeAuthenticated(context, API::applyGpuLicense, callback);
+        executeAuthenticated(context, token -> API.applyGpuLicense(token, machineId), callback);
     }
 
     // Exclui a VM de VERDADE (wipe total na nuvem). Irreversível.
@@ -562,20 +590,20 @@ public final class AccountManager {
         executeAuthenticated(context, API::getEmulators, callback);
     }
 
-    public static void getEmulatorStatus(Context context, ResultCallback<SpaceConnectApiClient.EmulatorStatusResponse> callback) {
-        executeAuthenticated(context, API::getEmulatorStatus, callback);
+    public static void getEmulatorStatus(Context context, String machineId, ResultCallback<SpaceConnectApiClient.EmulatorStatusResponse> callback) {
+        executeAuthenticated(context, token -> API.getEmulatorStatus(token, machineId), callback);
     }
 
-    public static void installEmulator(Context context, String emulatorId, ResultCallback<SpaceConnectApiClient.EmulatorActionResponse> callback) {
-        executeAuthenticated(context, token -> API.installEmulator(token, emulatorId), callback);
+    public static void installEmulator(Context context, String emulatorId, String machineId, ResultCallback<SpaceConnectApiClient.EmulatorActionResponse> callback) {
+        executeAuthenticated(context, token -> API.installEmulator(token, emulatorId, machineId), callback);
     }
 
-    public static void getEmulatorInstallStatus(Context context, String emulatorId, ResultCallback<SpaceConnectApiClient.EmulatorInstallStatusResponse> callback) {
-        executeAuthenticated(context, token -> API.getEmulatorInstallStatus(token, emulatorId), callback);
+    public static void getEmulatorInstallStatus(Context context, String emulatorId, String machineId, ResultCallback<SpaceConnectApiClient.EmulatorInstallStatusResponse> callback) {
+        executeAuthenticated(context, token -> API.getEmulatorInstallStatus(token, emulatorId, machineId), callback);
     }
 
-    public static void launchEmulator(Context context, String emulatorId, ResultCallback<SpaceConnectApiClient.EmulatorActionResponse> callback) {
-        executeAuthenticated(context, token -> API.launchEmulator(token, emulatorId), callback);
+    public static void launchEmulator(Context context, String emulatorId, String machineId, ResultCallback<SpaceConnectApiClient.EmulatorActionResponse> callback) {
+        executeAuthenticated(context, token -> API.launchEmulator(token, emulatorId, machineId), callback);
     }
 
     // ── Amigos (beta) ───────────────────────────────────────────────────────
@@ -633,6 +661,7 @@ public final class AccountManager {
     }
 
     public static void logout(Context context) {
+        context.stopService(new android.content.Intent(context, VmMonitorService.class));
         SESSION_STORE.clear(context.getApplicationContext());
     }
 

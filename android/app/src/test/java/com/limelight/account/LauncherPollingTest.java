@@ -74,6 +74,24 @@ public class LauncherPollingTest {
         return response;
     }
 
+    @Test public void choosingAnotherMachineOnlyChangesSelectionAndDropsOldStatus() {
+        ActivityController<Launcher> controller = Robolectric.buildActivity(Launcher.class).setup();
+        Launcher launcher = controller.get();
+        SpaceConnectApiClient.MachineListItem machine = new SpaceConnectApiClient.MachineListItem();
+        machine.id = "507f1f77bcf86cd799439022";
+        machine.name = "Second machine";
+        ReflectionHelpers.callInstanceMethod(launcher, "onMachineChosen",
+                ReflectionHelpers.ClassParameter.from(SpaceConnectApiClient.MachineListItem.class, machine),
+                ReflectionHelpers.ClassParameter.from(String.class, "507f1f77bcf86cd799439011"));
+        assertTrue(launcher.scopes.get(0).isCancelled());
+        assertEquals(2, launcher.callbacks.size());
+        launcher.callbacks.get(0).onSuccess(queued());
+        assertNull(ReflectionHelpers.getField(launcher, "lastStatus"));
+        assertEquals(machine.id, ReflectionHelpers.getField(launcher, "selectedMachineId"));
+        assertNull(shadowOf(launcher).getNextStartedActivity());
+        controller.pause().stop().destroy();
+    }
+
     @Test public void queuedAndBootingDashboardOpenTheLoadingFlow() {
         for (String state : new String[]{"queued", "starting"}) {
             ActivityController<Launcher> controller = Robolectric.buildActivity(Launcher.class).setup();

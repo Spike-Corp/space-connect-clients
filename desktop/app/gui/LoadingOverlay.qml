@@ -6,8 +6,16 @@ Rectangle {
     id: overlay
     property string statusText: ""
     property bool reducedMotion: false
+    property var tips: []
+    property int tipIndex: 0
+    property var fallbackTips: [
+        qsTr("Switching machines does not shut down your other VM. Each one uses its own plan."),
+        qsTr("Send files to your VM using Upload. Use a wired connection or 5 GHz Wi-Fi for smoother video.")
+    ]
+    property var activeTips: tips && tips.length ? tips : fallbackTips
+    BrandTheme { id: brand }
     signal cancelRequested()
-    color: "#08080b"
+    color: brand.background
     Material.theme: Material.Dark
     Material.accent: "#ffffff"
     focus: true
@@ -20,9 +28,9 @@ Rectangle {
 
     Image {
         id: logo
-        source: Qt.resolvedUrl("../res/spaceconnect_icon_256.png")
-        width: Math.min(112, parent.height * 0.22)
-        height: width
+        source: Qt.resolvedUrl("../res/spacecloud_wordmark.png")
+        width: Math.min(260, parent.width * 0.42)
+        height: Math.min(190, parent.height * 0.3)
         anchors.centerIn: parent
         anchors.verticalCenterOffset: -parent.height * 0.08
         fillMode: Image.PreserveAspectFit
@@ -79,6 +87,21 @@ Rectangle {
             text: overlay.statusText
             reducedMotion: overlay.reducedMotion
         }
+        StatusTicker {
+            id: tip
+            width: parent.width
+            height: implicitHeight
+            text: overlay.activeTips[overlay.tipIndex % overlay.activeTips.length]
+            textColor: brand.muted
+            fontPixelSize: 14
+            reducedMotion: overlay.reducedMotion
+        }
+    }
+    Timer {
+        interval: 7000
+        running: overlay.visible && overlay.activeTips.length > 1
+        repeat: true
+        onTriggered: overlay.tipIndex++
     }
     Button {
         id: cancelButton

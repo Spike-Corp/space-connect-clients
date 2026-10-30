@@ -64,7 +64,8 @@ public class BugReportActivity extends Activity {
         }
 
         sendButton.setEnabled(false);
-        AccountManager.reportBug(this, description, email,
+        String diagnostic = com.limelight.session.SessionLog.diagnostic();
+        AccountManager.reportBug(this, description + (diagnostic.isEmpty() ? "" : "\n\n" + getString(R.string.vm_diagnostic, diagnostic)), email,
                 new AccountManager.ResultCallback<SpaceConnectApiClient.SimpleResponse>() {
             @Override
             public void onSuccess(SpaceConnectApiClient.SimpleResponse result) {

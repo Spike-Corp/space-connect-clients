@@ -14,6 +14,16 @@ Item {
     property string pendingConnectAddress: ""
     property string pendingConnectName: ""
     property string connectionErrorText: qsTr("Não foi possível alcançar o host de streaming. Tente novamente em alguns segundos.")
+    property var powerRequest: null
+    property bool powerSubmitting: false
+
+    function submitPower(kind) {
+        var id = LauncherApi.selectedMachineId || LauncherApi.statusMachineId
+        if (!powerRequest || powerRequest.machineId !== id || powerRequest.kind !== kind)
+            powerRequest = {machineId: id, kind: kind, requestId: LauncherApi.newOperationRequestId()}
+        powerSubmitting = true
+        LauncherApi.machineAction(id, kind, {requestId: powerRequest.requestId})
+    }
 
     // Dicas curtas que rodam enquanto a VM liga/entra na fila — ensinam a usar a
     // SpaceCloud do jeito certo. Trocam sozinhas (ver Timer mais abaixo).
@@ -68,7 +78,7 @@ Item {
     function pendingMachine() {
         var list = LauncherApi.machines
         if (!list || list.length === 0) return null
-        var id = LauncherApi.statusMachineId || LauncherApi.selectedMachineId
+        var id = LauncherApi.selectedMachineId || LauncherApi.statusMachineId
         var m = null
         for (var i = 0; i < list.length; i++) {
             if (list[i].id === id) { m = list[i]; break }
@@ -108,8 +118,11 @@ Item {
             createMachineDialog.open()
             return
         }
-        if (LauncherApi.state === "queued" || LauncherApi.state === "ready"
-                || LauncherApi.state === "idle" || LauncherApi.state === "starting")
+        if (LauncherApi.state === "idle") {
+            submitPower("power_on")
+            return
+        }
+        if (LauncherApi.state === "queued" || LauncherApi.state === "ready" || LauncherApi.state === "starting")
             sessionOrchestrator.startDesktopSession()
     }
 
@@ -168,6 +181,7 @@ Item {
     function primaryText() {
         if (activationPending()) return qsTr("Ativação em %1").arg(pendingActivationDate())
         if (needsMachine()) return qsTr("Create your VM")
+        if (LauncherApi.state === "idle") return qsTranslate("MachineManagementView", "Power on")
         if (LauncherApi.state === "queued" || LauncherApi.state === "starting"
                 || LauncherApi.state === "ready" || LauncherApi.state === "idle")
             return qsTr("Open machine")
@@ -191,7 +205,7 @@ Item {
     function planHoursText() {
         var list = LauncherApi.machines
         var lines = []
-        var id = LauncherApi.statusMachineId || LauncherApi.selectedMachineId
+        var id = LauncherApi.selectedMachineId || LauncherApi.statusMachineId
         var m = null
         for (var i = 0; list && i < list.length; i++) {
             if (list[i].id === id) {
@@ -261,9 +275,12 @@ Item {
             bugResultDialog.text = message
             bugResultDialog.open()
         }
-        function onDiskTransferFinished(success, message) {
+        function onManagementActionFinished(success, message) {
+            if (!launcherView.powerSubmitting) return
+            launcherView.powerSubmitting = false
+            if (success) launcherView.powerRequest = null
             bugResultDialog.isError = !success
-            bugResultDialog.customTitle = success ? qsTr("Disco transferido") : ""
+            bugResultDialog.customTitle = "SpaceCloud"
             bugResultDialog.text = message
             bugResultDialog.open()
         }
@@ -517,6 +534,7 @@ Item {
                     visible: LauncherApi.hasMachine && LauncherApi.creatablePlans.length > 0
                     text: qsTr("Criar nova VM")
                     enabled: !LauncherApi.busy
+                             && !LauncherApi.managementBusy
                     Layout.fillWidth: true
                     onClicked: createMachineDialog.open()
                 }
@@ -525,6 +543,7 @@ Item {
                     text: primaryText()
                     highlighted: true
                     enabled: !LauncherApi.busy
+                             && !LauncherApi.managementBusy
                              && !sessionOrchestrator.busy
                              && !addingComputer
                              && !activationPending()
@@ -538,11 +557,18 @@ Item {
                 }
 
                 Button {
-                    text: qsTr("End session")
+                    text: qsTranslate("MachineManagementView", "Shut down")
                     visible: LauncherApi.state === "ready"
                     enabled: !LauncherApi.busy
                     Layout.fillWidth: true
-                    onClicked: LauncherApi.endSession()
+                    onClicked: shutdownDialog.open()
+                }
+
+                Button {
+                    text: qsTranslate("MachineManagementView", "Machines and storage")
+                    visible: LauncherApi.hasMachine
+                    Layout.fillWidth: true
+                    onClicked: navigateTo("qrc:/gui/MachineManagementView.qml", "MachineManagementView")
                 }
 
                 Button {
@@ -589,10 +615,10 @@ Item {
 
                     Button {
                         // Transferir disco entre VMs (só com 2+ máquinas Proxmox).
-                        visible: countProxmoxMachines() >= 2
-                        text: qsTr("Transferir disco")
+                        visible: LauncherApi.hasMachine
+                        text: qsTranslate("MachineManagementView", "Transfer this additional disk")
                         Layout.fillWidth: true
-                        onClicked: transferDiskDialog.open()
+                        onClicked: navigateTo("qrc:/gui/MachineManagementView.qml", "MachineManagementView")
                     }
 
                     Button {
@@ -711,134 +737,21 @@ Item {
         }
     }
 
-    // Quantas máquinas Proxmox o usuário tem (a transferência de disco só faz
-    // sentido com 2+, e só entre Proxmox).
-    function countProxmoxMachines() {
-        var n = 0
-        for (var i = 0; i < LauncherApi.machines.length; i++) {
-            if (LauncherApi.machines[i].provider === "proxmox") n++
-        }
-        return n
-    }
-
-    // Dialog de transferência de disco entre VMs: exclui a de origem e soma o
-    // disco dela (inteiro) na de destino. Avisa que é irreversível.
     Dialog {
-        id: transferDiskDialog
-        title: qsTr("Transferir disco entre máquinas")
-        standardButtons: Dialog.Cancel
+        id: shutdownDialog
+        title: qsTranslate("MachineManagementView", "Shut down")
+        standardButtons: Dialog.Ok | Dialog.Cancel
         parent: Overlay.overlay
+        width: Math.min(520, parent.width - 32)
         x: Math.round((parent.width - width) / 2)
         y: Math.round((parent.height - height) / 2)
         modal: true
-
-        property string sourceId: ""
-        property string targetId: ""
-
-        function proxmoxMachines() {
-            var out = []
-            for (var i = 0; i < LauncherApi.machines.length; i++) {
-                var m = LauncherApi.machines[i]
-                if (m.provider === "proxmox") out.push(m)
-            }
-            return out
+        contentItem: Label {
+            text: qsTranslate("MachineManagementView", "Shut down only %1? Save your work. Other machines remain powered on.").arg(LauncherApi.machineName)
+            textFormat: Text.PlainText
+            wrapMode: Text.WordWrap
         }
-
-        ColumnLayout {
-            width: 400
-            spacing: 12
-
-            Label {
-                text: qsTr("Excluir uma máquina e aproveitar o espaço dela na outra. A de origem é EXCLUÍDA pra sempre (jogos, arquivos, tudo) e a de destino ganha o espaço.")
-                wrapMode: Text.WordWrap
-                color: "#cfc8e3"
-                Layout.fillWidth: true
-            }
-
-            Label { text: qsTr("Excluir esta máquina (o disco dela vai embora):"); color: "#9793aa"; font.pixelSize: 11 }
-            SpaceComboBox {
-                id: transferSourceCombo
-                Layout.fillWidth: true
-                textRole: "text"
-                model: ListModel { id: transferSourceModel }
-                function rebuild() {
-                    transferSourceModel.clear()
-                    transferSourceModel.append({"text": qsTr("Escolher…"), "machineId": ""})
-                    var ms = transferDiskDialog.proxmoxMachines()
-                    for (var i = 0; i < ms.length; i++) {
-                        transferSourceModel.append({
-                            "text": (ms[i].name || ms[i].id) + " (" + (ms[i].diskGb || "?") + " GB)",
-                            "machineId": ms[i].id
-                        })
-                    }
-                    currentIndex = 0
-                    recalculateWidth()
-                }
-                onActivated: transferDiskDialog.sourceId = transferSourceModel.get(currentIndex).machineId
-                Component.onCompleted: rebuild()
-            }
-
-            Label { text: qsTr("Receber o espaço nesta máquina:"); color: "#9793aa"; font.pixelSize: 11 }
-            SpaceComboBox {
-                id: transferTargetCombo
-                Layout.fillWidth: true
-                textRole: "text"
-                model: ListModel { id: transferTargetModel }
-                function rebuild() {
-                    transferTargetModel.clear()
-                    transferTargetModel.append({"text": qsTr("Escolher…"), "machineId": ""})
-                    var ms = transferDiskDialog.proxmoxMachines()
-                    for (var i = 0; i < ms.length; i++) {
-                        transferTargetModel.append({
-                            "text": (ms[i].name || ms[i].id) + " (" + (ms[i].diskGb || "?") + " GB)",
-                            "machineId": ms[i].id
-                        })
-                    }
-                    currentIndex = 0
-                    recalculateWidth()
-                }
-                onActivated: transferDiskDialog.targetId = transferTargetModel.get(currentIndex).machineId
-                Component.onCompleted: rebuild()
-            }
-
-            Label {
-                id: transferConfirmLabel
-                visible: false
-                text: qsTr("⚠️ Isso é irreversível. A máquina de origem vai ser excluída pra sempre. Confirma?")
-                wrapMode: Text.WordWrap
-                color: "#f87171"
-                Layout.fillWidth: true
-            }
-
-            Button {
-                id: transferConfirmButton
-                highlighted: true
-                Layout.fillWidth: true
-                enabled: transferDiskDialog.sourceId !== "" && transferDiskDialog.targetId !== "" && transferDiskDialog.sourceId !== transferDiskDialog.targetId
-                property bool armed: false
-                text: armed ? qsTr("Confirmar exclusão e transferência") : qsTr("Transferir disco")
-                onClicked: {
-                    if (!armed) {
-                        armed = true
-                        transferConfirmLabel.visible = true
-                    } else {
-                        LauncherApi.transferDisk(transferDiskDialog.sourceId, transferDiskDialog.targetId)
-                        armed = false
-                        transferConfirmLabel.visible = false
-                        transferDiskDialog.close()
-                    }
-                }
-            }
-        }
-
-        onOpened: {
-            transferSourceCombo.rebuild()
-            transferTargetCombo.rebuild()
-            sourceId = ""
-            targetId = ""
-            transferConfirmLabel.visible = false
-            transferConfirmButton.armed = false
-        }
+        onAccepted: launcherView.submitPower("power_off")
     }
 
     Dialog {

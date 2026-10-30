@@ -18,7 +18,7 @@
 #define MyAppExeName "XDConsole.exe"
 
 #define DeployDir AddBackslash(SourcePath) + "..\deploy-xd"
-#define IconFile AddBackslash(SourcePath) + "..\app\moonlight.ico"
+#define IconFile AddBackslash(SourcePath) + "..\app\spaceconnect.ico"
 #define VcRedistExe AddBackslash(SourcePath) + "..\vcredist\VC_redist.x64.exe"
 
 [Setup]
