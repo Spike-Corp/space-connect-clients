@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="stream_side_handle_size">48dp</dimen>
+    <dimen name="stream_side_panel_width">88dp</dimen>
+    <dimen name="stream_side_top_offset">24dp</dimen>
+    <dimen name="stream_side_gap">8dp</dimen>
+    <dimen name="stream_side_text_size">12sp</dimen>
+    <style name="StreamSideAction" parent="android:style/Widget.Material.Button.Borderless">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">64dp</item>
+        <item name="android:minWidth">48dp</item>
+        <item name="android:padding">4dp</item>
+        <item name="android:drawablePadding">4dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textSize">@dimen/stream_side_text_size</item>
+        <item name="android:textColor">@color/moonlight_foreground</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:background">@drawable/bg_stream_side_action</item>
+    </style>
+</resources>

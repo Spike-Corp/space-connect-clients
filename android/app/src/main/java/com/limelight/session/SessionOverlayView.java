@@ -7,7 +7,6 @@ import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.database.ContentObserver;
-import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
@@ -95,7 +94,7 @@ public final class SessionOverlayView extends FrameLayout {
                     Math.max(safe, insets.getSystemWindowInsetBottom()));
             return insets;
         });
-        reducedMotion = isMotionReduced(context);
+        reducedMotion = UiHelper.isMotionReduced(context);
     }
 
     public void setTips(String[] remote) {
@@ -180,15 +179,9 @@ public final class SessionOverlayView extends FrameLayout {
         return !disposed && getVisibility() == VISIBLE;
     }
 
-    static boolean isMotionReduced(Context context) {
-        return Settings.Global.getFloat(context.getContentResolver(), Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
-                || Settings.Global.getFloat(context.getContentResolver(), Settings.Global.TRANSITION_ANIMATION_SCALE, 1f) == 0f
-                || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !ValueAnimator.areAnimatorsEnabled());
-    }
-
     private void updateMotion() {
         if (disposed) return;
-        reducedMotion = isMotionReduced(getContext());
+        reducedMotion = UiHelper.isMotionReduced(getContext());
         stopLoops();
         if (reducedMotion) {
             if (textFade != null) {

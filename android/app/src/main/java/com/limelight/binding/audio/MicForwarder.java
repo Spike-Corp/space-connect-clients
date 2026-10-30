@@ -6,6 +6,8 @@ import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 
 import com.limelight.LimeLog;
 
@@ -22,6 +24,23 @@ import java.net.InetAddress;
 public class MicForwarder {
     public static final int DEFAULT_PORT = 48100;
 
+    public enum State { STOPPED, STARTING, RUNNING, STOPPING }
+
+    public interface Listener {
+        void onStateChanged(State state, boolean failed);
+    }
+
+    private static final class CaptureAttempt {
+        final long generation;
+        volatile boolean cancelled;
+        volatile DatagramSocket socket;
+        Thread thread;
+
+        CaptureAttempt(long generation) {
+            this.generation = generation;
+        }
+    }
+
     private static final int SAMPLE_RATE = 16000;
     private static final int CHANNELS = 1;
     private static final byte PROTOCOL_VERSION = 1;
@@ -35,8 +54,11 @@ public class MicForwarder {
     // Only actually used on API 23+ (see MicDeviceCompat); ignored entirely on older devices.
     private final String deviceId;
 
-    private Thread captureThread;
-    private volatile boolean running;
+    private final Handler callbacks = new Handler(Looper.getMainLooper());
+    private CaptureAttempt capture;
+    private volatile State state = State.STOPPED;
+    private volatile long generation;
+    private volatile Listener listener;
     private volatile float currentLevel;
 
     public MicForwarder(Context context, String hostAddress, int port, String deviceId) {
@@ -47,62 +69,76 @@ public class MicForwarder {
     }
 
     public synchronized void start() {
-        if (running) {
-            return;
-        }
-        running = true;
-
-        captureThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                runCaptureLoop();
-            }
-        }, "MicForwarder");
-        captureThread.start();
+        if (capture != null) return;
+        CaptureAttempt attempt = new CaptureAttempt(++generation);
+        capture = attempt;
+        currentLevel = 0f;
+        state = State.STARTING;
+        notifyState(attempt, State.STARTING, false);
+        attempt.thread = new Thread(() -> runCaptureLoop(attempt), "MicForwarder");
+        attempt.thread.start();
     }
 
-    public synchronized void stop() {
-        running = false;
-        if (captureThread != null) {
-            try {
-                captureThread.join(500);
-            }
-            catch (InterruptedException ignored) {}
-            captureThread = null;
+    public void stop() {
+        CaptureAttempt attempt;
+        synchronized (this) {
+            attempt = capture;
+            if (attempt == null || attempt.cancelled) return;
+            attempt.cancelled = true;
+            state = State.STOPPING;
+            currentLevel = 0f;
+            notifyState(attempt, State.STOPPING, false);
         }
+        if (attempt.socket != null) attempt.socket.close();
+        attempt.thread.interrupt();
     }
 
     public boolean isRunning() {
-        return running;
+        return state == State.RUNNING;
+    }
+
+    public State getState() {
+        return state;
+    }
+
+    public void setListener(Listener value) {
+        callbacks.removeCallbacksAndMessages(null);
+        listener = value;
+    }
+
+    private void notifyState(CaptureAttempt attempt, State expected, boolean failed) {
+        callbacks.post(() -> {
+            Listener current = listener;
+            if (current != null && generation == attempt.generation && state == expected) {
+                current.onStateChanged(expected, failed);
+            }
+        });
     }
 
     // Normalized microphone input level, roughly 0.0 (silence) to 1.0 (loud) - updated on every
     // captured buffer. Used by the in-stream overlay to show a live "is my mic picking up sound"
     // indicator. Returns 0 if forwarding isn't currently running.
     public float getCurrentLevel() {
-        return running ? currentLevel : 0f;
+        return isRunning() ? currentLevel : 0f;
     }
 
     // Caller (Game.java) is responsible for checking/requesting the RECORD_AUDIO runtime
     // permission before calling start() - this class assumes it has already been granted.
     @SuppressLint("MissingPermission")
-    private void runCaptureLoop() {
-        int minBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
-        if (minBufferSize <= 0) {
-            LimeLog.warning("MicForwarder: unable to determine AudioRecord buffer size");
-            running = false;
-            return;
-        }
-
+    private void runCaptureLoop(CaptureAttempt attempt) {
         AudioRecord audioRecord = null;
-        DatagramSocket socket = null;
+        boolean failed = false;
         try {
+            if (attempt.cancelled) return;
+            InetAddress address = InetAddress.getByName(hostAddress);
+            if (attempt.cancelled) return;
+            int minBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
+            if (minBufferSize <= 0) throw new IllegalStateException("AudioRecord buffer size unavailable");
             audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE,
                     AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, minBufferSize * 2);
 
             if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
-                LimeLog.warning("MicForwarder: AudioRecord failed to initialize");
-                return;
+                throw new IllegalStateException("AudioRecord failed to initialize");
             }
 
             // Picking the wrong input device (e.g. a webcam mic instead of a headset mic) is a
@@ -115,8 +151,8 @@ public class MicForwarder {
                 MicDeviceCompat.applyPreferredDevice(context, audioRecord, deviceId);
             }
 
-            InetAddress address = InetAddress.getByName(hostAddress);
-            socket = new DatagramSocket();
+            attempt.socket = new DatagramSocket();
+            if (attempt.cancelled) return;
 
             byte[] audioBuffer = new byte[minBufferSize];
             byte[] packetBuffer = new byte[HEADER_SIZE + minBufferSize];
@@ -129,10 +165,20 @@ public class MicForwarder {
             writeIntLE(packetBuffer, 8, SAMPLE_RATE);
 
             audioRecord.startRecording();
+            if (audioRecord.getRecordingState() != AudioRecord.RECORDSTATE_RECORDING) {
+                throw new IllegalStateException("AudioRecord did not start recording");
+            }
+            synchronized (this) {
+                if (attempt.cancelled) return;
+                state = State.RUNNING;
+                notifyState(attempt, State.RUNNING, false);
+            }
 
-            while (running) {
-                int bytesRead = audioRecord.read(audioBuffer, 0, audioBuffer.length);
-                if (bytesRead <= 0) {
+            while (!attempt.cancelled) {
+                int bytesRead = audioRecord.read(audioBuffer, 0, audioBuffer.length, AudioRecord.READ_NON_BLOCKING);
+                if (bytesRead < 0) throw new IOException("AudioRecord read failed: " + bytesRead);
+                if (bytesRead == 0) {
+                    Thread.sleep(10);
                     continue;
                 }
 
@@ -140,24 +186,37 @@ public class MicForwarder {
 
                 System.arraycopy(audioBuffer, 0, packetBuffer, HEADER_SIZE, bytesRead);
                 DatagramPacket packet = new DatagramPacket(packetBuffer, HEADER_SIZE + bytesRead, address, port);
-                socket.send(packet);
+                attempt.socket.send(packet);
             }
         }
-        catch (IOException e) {
-            LimeLog.warning("MicForwarder: " + e.getMessage());
+        catch (IOException | IllegalStateException | IllegalArgumentException | SecurityException e) {
+            failed = !attempt.cancelled;
+            if (failed) LimeLog.warning("MicForwarder: " + e.getMessage());
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            failed = !attempt.cancelled;
+            if (failed) LimeLog.warning("MicForwarder: capture interrupted");
         }
         finally {
             if (audioRecord != null) {
                 try {
                     audioRecord.stop();
                 }
-                catch (IllegalStateException ignored) {}
+                catch (IllegalStateException e) {
+                    LimeLog.warning("MicForwarder: recorder was already stopped");
+                }
                 audioRecord.release();
             }
-            if (socket != null) {
-                socket.close();
+            if (attempt.socket != null) attempt.socket.close();
+            synchronized (this) {
+                if (capture == attempt) {
+                    capture = null;
+                    state = State.STOPPED;
+                    currentLevel = 0f;
+                    notifyState(attempt, State.STOPPED, failed && !attempt.cancelled);
+                }
             }
-            running = false;
         }
     }
 

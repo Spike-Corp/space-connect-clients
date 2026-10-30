@@ -1,5 +1,6 @@
 package com.limelight.utils;
 
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.GameManager;
@@ -15,6 +16,7 @@ import android.graphics.Typeface;
 import android.os.Build;
 import android.os.LocaleList;
 import android.preference.PreferenceManager;
+import android.provider.Settings;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.WindowInsets;
@@ -93,6 +95,12 @@ public class UiHelper {
             bodyTypeface = Typeface.createFromAsset(context.getAssets(), "fonts/inter_regular.ttf");
         }
         return bodyTypeface;
+    }
+
+    public static boolean isMotionReduced(Context context) {
+        return Settings.Global.getFloat(context.getContentResolver(), Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+                || Settings.Global.getFloat(context.getContentResolver(), Settings.Global.TRANSITION_ANIMATION_SCALE, 1f) == 0f
+                || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !ValueAnimator.areAnimatorsEnabled());
     }
 
     // Resolves a custom theme color attribute (e.g. R.attr.appForegroundColor) against the

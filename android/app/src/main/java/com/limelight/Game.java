@@ -32,6 +32,7 @@ import com.limelight.nvstream.jni.MoonBridge;
 import com.limelight.preferences.GlPreferences;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.ui.GameGestures;
+import com.limelight.ui.StreamSideMenu;
 import com.limelight.ui.StreamView;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.ServerHelper;
@@ -54,7 +55,6 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
-import android.content.pm.PackageManager;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Point;
@@ -131,8 +131,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private ControllerHandler controllerHandler;
     private KeyboardTranslator keyboardTranslator;
     private VirtualController virtualController;
-    // Custom-drawn full on-screen keyboard (own F1-F12 row, no reliance on the system IME/Gboard)
-    // - toggled via the specialKeysButton overlay button. See KeyBoardLayoutController.
     private KeyBoardLayoutController fullKeyboardController;
     private boolean wasFullKeyboardVisibleBeforePiP = false;
 
@@ -191,6 +189,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private MicForwarder micForwarder;
     private static final int MIC_PERMISSION_REQUEST_CODE = 4200;
+    private boolean micPermissionPending;
+    private StreamSideMenu streamSideMenu;
+    private boolean menuBackCaptured;
+    private static final String STATE_SIDE_MENU_OPEN = "stream-side-menu-open";
+    private static final String STATE_CONTROLS_HIDDEN = "stream-controls-hidden";
 
     private long sessionStartTimeMs;
     private boolean perfOverlayExpanded = true;
@@ -301,6 +304,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         // Read the stream preferences
         prefConfig = PreferenceConfiguration.readPreferences(this);
         tombstonePrefs = Game.this.getSharedPreferences("DecoderTombstone", 0);
+        onScreenControlsHidden = savedInstanceState != null
+                && savedInstanceState.getBoolean(STATE_CONTROLS_HIDDEN);
 
         // Ported from Artemis: track the current orientation for rotateScreen()/auto-orientation
         // support. Defaults to landscape unless the user has opted into auto-orientation, in
@@ -365,21 +370,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         performanceOverlayView = findViewById(R.id.performanceOverlay);
 
-        findViewById(R.id.specialKeysButton).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                toggleFullKeyboard();
-            }
-        });
-
-        // Ported from Artemis: in-stream quick menu (rotate screen, pan/zoom toggle, quit, etc.)
         gameMenu = new GameMenu(this);
-        findViewById(R.id.gameMenuButton).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                gameMenu.showMenu();
-            }
-        });
 
         // Ported from Artemis: pinch-to-zoom/pan handler for the stream view, toggled on/off
         // via the game menu (see isPanZoomMode/toggleZoomMode()).
@@ -526,6 +517,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 sessionOverlay.onFirstFrameRendered(() -> {
                     if (connectionClosed || isFinishing() || !sessionAttempt.isActive()) return;
                     sessionOverlay.dispose();
+                    updateStreamSideMenu();
                     streamView.requestFocus();
                     if (connected) setInputGrabState(true);
                     checkAndPushClipboard();
@@ -666,18 +658,16 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     (FrameLayout)streamView.getParent(),
                     this);
             virtualController.refreshLayout();
-            virtualController.show();
+            if (!onScreenControlsHidden) virtualController.show();
         }
 
-        // Custom-drawn full on-screen keyboard (its own F1-F12 row, no system IME involved).
-        // Always created (unlike the OSC above, it's opt-in per-touch via specialKeysButton, not
-        // permanently on-screen) and starts hidden until the user taps the keyboard button.
         fullKeyboardController = new KeyBoardLayoutController(
                 (FrameLayout) streamView.getParent(),
                 this,
                 prefConfig);
         fullKeyboardController.refreshLayout();
         fullKeyboardController.hide();
+        initializeStreamSideMenu(savedInstanceState);
 
         if (prefConfig.usbDriver) {
             // Start the USB driver
@@ -854,7 +844,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
                 // Restore overlays to previous state when leaving PiP
 
-                if (virtualController != null) {
+                if (virtualController != null && !onScreenControlsHidden) {
                     virtualController.show();
                 }
 
@@ -874,6 +864,50 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 // Update GameManager state to indicate we're out of PiP (gaming, non-interruptible)
                 UiHelper.notifyStreamExitingPiP(this);
             }
+        }
+        updateStreamSideMenu();
+        if (streamSideMenu != null) streamSideMenu.bringToFront();
+        if (isSessionOverlayVisible()) sessionOverlay.bringToFront();
+    }
+
+    private void initializeStreamSideMenu(Bundle savedInstanceState) {
+        streamSideMenu = new StreamSideMenu(this);
+        streamSideMenu.setActions(new StreamSideMenu.Actions() {
+            @Override public void keyboard() { toggleFullKeyboard(); }
+            @Override public void options() { gameMenu.showMenu(); }
+            @Override public void microphone() { toggleMicForwarding(); }
+        });
+        addContentView(streamSideMenu, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        if (virtualController != null) {
+            streamSideMenu.setBoundsListener(bounds ->
+                    virtualController.setSafeArea(bounds, streamSideMenu.getReservedWidth()));
+            virtualController.setStateListener(this::updateStreamSideMenu);
+        }
+        streamSideMenu.setOpen(savedInstanceState != null && savedInstanceState.getBoolean(STATE_SIDE_MENU_OPEN), false);
+        updateStreamSideMenu();
+    }
+
+    private void updateStreamSideMenu() {
+        if (streamSideMenu == null) return;
+        streamSideMenu.setControllerState(virtualController != null && virtualController.isVirtualGamepadVisible(),
+                virtualController != null && virtualController.getControllerMode() != VirtualController.ControllerMode.Active);
+        streamSideMenu.setAvailable(connected && !connectionClosed && !isHidingOverlays && !isSessionOverlayVisible());
+    }
+
+    @Override protected void onSaveInstanceState(Bundle state) {
+        if (streamSideMenu != null) state.putBoolean(STATE_SIDE_MENU_OPEN, streamSideMenu.isOpen());
+        state.putBoolean(STATE_CONTROLS_HIDDEN, onScreenControlsHidden);
+        super.onSaveInstanceState(state);
+    }
+
+    @Override public boolean dispatchTouchEvent(MotionEvent event) {
+        StreamSideMenu menu = streamSideMenu;
+        if (menu != null) menu.observeTouch(event);
+        try {
+            return super.dispatchTouchEvent(event);
+        } finally {
+            if (menu != null) menu.afterTouchDispatch(event);
         }
     }
 
@@ -1373,6 +1407,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     @Override
     protected void onDestroy() {
         stopConnection();
+        if (streamSideMenu != null) streamSideMenu.dispose();
+        if (virtualController != null) virtualController.dispose();
+        if (gameMenu != null) gameMenu.hideMenu();
         streamCallbacks.removeCallbacksAndMessages(null);
         if (sessionOverlay != null) sessionOverlay.dispose();
         if (decoderRenderer != null) decoderRenderer.clearOnFirstFrameRendered();
@@ -1897,19 +1934,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
     }
 
-    // Shows/hides the custom-drawn full on-screen keyboard (own F1-F12 row, etc.) - unlike
-    // toggleKeyboard() above, this doesn't involve the system IME/Gboard at all. Used by the
-    // specialKeysButton overlay button and the game menu's "Full keyboard" entry.
     public void toggleFullKeyboard() {
         if (fullKeyboardController != null) {
             fullKeyboardController.toggleVisibility();
         }
     }
 
-    // Estado do toggle "Ocultar controles da tela" (opção do game menu). Quando ativo, esconde o
-    // gamepad virtual, o teclado completo e o botão de teclas especiais, deixando a imagem limpa
-    // (útil pra quem joga com controle/teclado físico, ou só quer ver a tela sem os overlays). O
-    // botão de menu (gameMenuButton) continua visível de propósito, pra sempre dar pra reverter.
     private boolean onScreenControlsHidden = false;
 
     public boolean areOnScreenControlsHidden() {
@@ -1927,19 +1957,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 if (fullKeyboardController != null) {
                     fullKeyboardController.hide();
                 }
-                View specialKeys = findViewById(R.id.specialKeysButton);
-                if (specialKeys != null) {
-                    specialKeys.setVisibility(View.GONE);
-                }
             } else {
-                if (virtualController != null && prefConfig.onscreenController) {
+                if (virtualController != null && prefConfig.onscreenController && !isHidingOverlays) {
                     virtualController.show();
                 }
-                View specialKeys = findViewById(R.id.specialKeysButton);
-                if (specialKeys != null) {
-                    specialKeys.setVisibility(View.VISIBLE);
-                }
             }
+            updateStreamSideMenu();
         });
     }
 
@@ -2257,27 +2280,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             }
         });
 
-        final Button micForwardButton = view.findViewById(R.id.micForwardButton);
-        micForwardButton.setText(micForwarder != null && micForwarder.isRunning() ?
-                R.string.game_mic_forward_on : R.string.game_mic_forward_off);
-        micForwardButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (micForwarder != null && micForwarder.isRunning()) {
-                    micForwarder.stop();
-                    micForwardButton.setText(R.string.game_mic_forward_off);
-                    Toast.makeText(Game.this, R.string.game_mic_forward_stopped, Toast.LENGTH_SHORT).show();
-                }
-                else if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                    startMicForwarding();
-                    micForwardButton.setText(R.string.game_mic_forward_on);
-                }
-                else {
-                    requestPermissions(new String[] { Manifest.permission.RECORD_AUDIO }, MIC_PERMISSION_REQUEST_CODE);
-                }
-            }
-        });
-
         GridLayout grid = view.findViewById(R.id.specialKeysGrid);
         float density = getResources().getDisplayMetrics().density;
         for (final SpecialKeyAction action : SPECIAL_KEYS) {
@@ -2309,8 +2311,35 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 .show();
     }
 
+    private void updateMicrophoneState() {
+        MicForwarder.State state = micForwarder != null ? micForwarder.getState() : MicForwarder.State.STOPPED;
+        if (streamSideMenu != null) streamSideMenu.setMicrophoneState(state == MicForwarder.State.RUNNING,
+                micPermissionPending || state == MicForwarder.State.STARTING || state == MicForwarder.State.STOPPING);
+        TextView stats = findViewById(R.id.perfOverlayExtra);
+        if (stats != null) stats.setText(buildExtraOverlayText());
+    }
+
+    private void toggleMicForwarding() {
+        if (connectionClosed || !connected || isFinishing() || isDestroyed() || micPermissionPending) return;
+        MicForwarder.State state = micForwarder != null ? micForwarder.getState() : MicForwarder.State.STOPPED;
+        if (state == MicForwarder.State.RUNNING) {
+            micForwarder.stop();
+        } else if (state == MicForwarder.State.STOPPED) {
+            if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                startMicForwarding();
+            } else {
+                micPermissionPending = true;
+                requestPermissions(new String[] { Manifest.permission.RECORD_AUDIO }, MIC_PERMISSION_REQUEST_CODE);
+            }
+        }
+        updateMicrophoneState();
+    }
+
     private void startMicForwarding() {
+        if (connectionClosed || !connected || isFinishing() || isDestroyed()) return;
         if (hostAddress == null) {
+            LimeLog.warning("MicForwarder: stream host unavailable");
+            Toast.makeText(this, R.string.stream_side_mic_failed, Toast.LENGTH_LONG).show();
             return;
         }
         // Garante que o MicBridge está RODANDO na VM antes de mandar áudio —
@@ -2324,21 +2353,35 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 : MicForwarder.DEFAULT_PORT;
         if (micForwarder == null) {
             micForwarder = new MicForwarder(this, hostAddress, micPort, prefConfig.micForwardingDevice);
+            micForwarder.setListener((state, failed) -> {
+                if (connectionClosed || isFinishing() || isDestroyed()) return;
+                updateMicrophoneState();
+                if (failed) {
+                    Toast.makeText(this, R.string.stream_side_mic_failed, Toast.LENGTH_LONG).show();
+                } else if (state == MicForwarder.State.RUNNING || state == MicForwarder.State.STOPPED) {
+                    Toast.makeText(this, state == MicForwarder.State.RUNNING
+                            ? R.string.game_mic_forward_started : R.string.game_mic_forward_stopped, Toast.LENGTH_SHORT).show();
+                }
+            });
         }
         micForwarder.start();
-        Toast.makeText(this, R.string.game_mic_forward_started, Toast.LENGTH_SHORT).show();
+        updateMicrophoneState();
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == MIC_PERMISSION_REQUEST_CODE) {
+            boolean requested = micPermissionPending;
+            micPermissionPending = false;
+            if (!requested || connectionClosed || !connected || isFinishing() || isDestroyed()) return;
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 startMicForwarding();
             }
             else {
                 Toast.makeText(this, R.string.game_mic_forward_denied, Toast.LENGTH_LONG).show();
             }
+            updateMicrophoneState();
         }
     }
 
@@ -3098,6 +3141,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private void stopConnection() {
         if (connectionClosed) return;
         connectionClosed = true;
+        micPermissionPending = false;
+        if (micForwarder != null) {
+            micForwarder.setListener(null);
+            micForwarder.stop();
+        }
+        if (streamSideMenu != null) streamSideMenu.setAvailable(false);
         if (sessionAttempt != null) sessionAttempt.cancel();
         streamCallbacks.removeCallbacksAndMessages(null);
         getWindow().getDecorView().removeCallbacks(hideSystemUi);
@@ -3140,6 +3189,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override public void onBackPressed() {
         if (isSessionOverlayVisible()) cancelManagedSession();
+        else if (streamSideMenu != null && streamSideMenu.isPanelShowing()) streamSideMenu.setOpen(false, true);
         else super.onBackPressed();
     }
 
@@ -3147,6 +3197,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (isSessionOverlayVisible() && (event.getKeyCode() == KeyEvent.KEYCODE_BACK
                 || event.getKeyCode() == KeyEvent.KEYCODE_ESCAPE || event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_B)) {
             if (event.getAction() == KeyEvent.ACTION_UP) cancelManagedSession();
+            return true;
+        }
+        if ((event.getKeyCode() == KeyEvent.KEYCODE_BACK || event.getKeyCode() == KeyEvent.KEYCODE_ESCAPE)
+                && (menuBackCaptured || (streamSideMenu != null && streamSideMenu.isPanelShowing()))) {
+            menuBackCaptured = event.getAction() == KeyEvent.ACTION_DOWN;
+            if (event.getAction() == KeyEvent.ACTION_UP && streamSideMenu != null) streamSideMenu.setOpen(false, true);
             return true;
         }
         return super.dispatchKeyEvent(event);
@@ -3347,6 +3403,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
                 connected = true;
                 connecting = false;
+                updateStreamSideMenu();
                 updatePipAutoEnter();
 
                 // Hide the mouse cursor now after a short delay.

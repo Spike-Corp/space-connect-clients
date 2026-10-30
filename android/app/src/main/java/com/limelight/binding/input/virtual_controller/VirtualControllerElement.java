@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.util.DisplayMetrics;
 import android.view.MotionEvent;
 import android.view.View;
@@ -74,8 +75,9 @@ public abstract class VirtualControllerElement extends View {
 
         FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) getLayoutParams();
 
-        layoutParams.leftMargin = newPos_x > 0 ? newPos_x : 0;
-        layoutParams.topMargin = newPos_y > 0 ? newPos_y : 0;
+        Rect bounds = virtualController.getUsableBounds();
+        layoutParams.leftMargin = Math.max(bounds.left, Math.min(newPos_x, bounds.right - layoutParams.width));
+        layoutParams.topMargin = Math.max(bounds.top, Math.min(newPos_y, bounds.bottom - layoutParams.height));
         layoutParams.rightMargin = 0;
         layoutParams.bottomMargin = 0;
 
@@ -88,8 +90,11 @@ public abstract class VirtualControllerElement extends View {
         int newHeight = height + (startSize_y - pressed_y);
         int newWidth = width + (startSize_x - pressed_x);
 
-        layoutParams.height = newHeight > 20 ? newHeight : 20;
-        layoutParams.width = newWidth > 20 ? newWidth : 20;
+        Rect bounds = virtualController.getUsableBounds();
+        layoutParams.leftMargin = Math.max(bounds.left, Math.min(layoutParams.leftMargin, bounds.right - 20));
+        layoutParams.topMargin = Math.max(bounds.top, Math.min(layoutParams.topMargin, bounds.bottom - 20));
+        layoutParams.height = Math.min(Math.max(20, newHeight), bounds.bottom - layoutParams.topMargin);
+        layoutParams.width = Math.min(Math.max(20, newWidth), bounds.right - layoutParams.leftMargin);
 
         requestLayout();
     }

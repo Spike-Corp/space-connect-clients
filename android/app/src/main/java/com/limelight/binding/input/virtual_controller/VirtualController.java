@@ -5,9 +5,12 @@
 package com.limelight.binding.input.virtual_controller;
 
 import android.content.Context;
+import android.graphics.Rect;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.util.DisplayMetrics;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
@@ -58,32 +61,45 @@ public class VirtualController {
     private Button buttonConfigure = null;
 
     private List<VirtualControllerElement> elements = new ArrayList<>();
+    private final Rect usableBounds = new Rect();
+    private boolean visible;
+    private boolean adjustmentNotified;
+    private Runnable stateListener;
 
     public VirtualController(final ControllerHandler controllerHandler, FrameLayout layout, final Context context) {
         this.controllerHandler = controllerHandler;
         this.frame_layout = layout;
         this.context = context;
         this.handler = new Handler(Looper.getMainLooper());
+        DisplayMetrics screen = context.getResources().getDisplayMetrics();
+        usableBounds.set(0, 0, Math.max(1, screen.widthPixels
+                - context.getResources().getDimensionPixelSize(R.dimen.stream_side_handle_size)), screen.heightPixels);
 
         buttonConfigure = new Button(context);
         buttonConfigure.setAlpha(0.25f);
         buttonConfigure.setFocusable(false);
         buttonConfigure.setBackgroundResource(R.drawable.ic_settings);
+        buttonConfigure.setContentDescription(context.getString(R.string.stream_side_edit_move));
         buttonConfigure.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                String message;
+                int message;
 
                 if (currentMode == ControllerMode.Active){
+                    releaseInputs();
                     currentMode = ControllerMode.MoveButtons;
-                    message = "Entering configuration mode (Move buttons)";
+                    message = R.string.stream_side_edit_move;
                 } else if (currentMode == ControllerMode.MoveButtons) {
                     currentMode = ControllerMode.ResizeButtons;
-                    message = "Entering configuration mode (Resize buttons)";
+                    message = R.string.stream_side_edit_resize;
                 } else {
+                    if (!isLayoutInsideBounds()) {
+                        Toast.makeText(context, R.string.stream_side_layout_conflict, Toast.LENGTH_LONG).show();
+                        return;
+                    }
                     currentMode = ControllerMode.Active;
                     VirtualControllerConfigurationLoader.saveProfile(VirtualController.this, context);
-                    message = "Exiting configuration mode";
+                    message = R.string.stream_side_edit_saved;
                 }
 
                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
@@ -93,6 +109,7 @@ public class VirtualController {
                 for (VirtualControllerElement element : elements) {
                     element.invalidate();
                 }
+                notifyStateChanged();
             }
         });
 
@@ -103,19 +120,87 @@ public class VirtualController {
     }
 
     public void hide() {
+        if (visible) releaseInputs();
+        visible = false;
         for (VirtualControllerElement element : elements) {
             element.setVisibility(View.INVISIBLE);
         }
 
         buttonConfigure.setVisibility(View.INVISIBLE);
+        notifyStateChanged();
     }
 
     public void show() {
+        visible = true;
         for (VirtualControllerElement element : elements) {
             element.setVisibility(View.VISIBLE);
         }
 
         buttonConfigure.setVisibility(View.VISIBLE);
+        notifyStateChanged();
+    }
+
+    public boolean isVirtualGamepadVisible() {
+        return visible && !elements.isEmpty();
+    }
+
+    public void setStateListener(Runnable listener) {
+        stateListener = listener;
+        notifyStateChanged();
+    }
+
+    private void notifyStateChanged() {
+        if (stateListener != null) stateListener.run();
+    }
+
+    public Rect getUsableBounds() {
+        return new Rect(usableBounds);
+    }
+
+    public void setSafeArea(Rect safeArea, int reservedWidth) {
+        Rect next = new Rect(safeArea);
+        next.right = Math.max(next.left + 1, next.right - reservedWidth);
+        if (next.equals(usableBounds) || next.isEmpty()) return;
+        usableBounds.set(next);
+        fitLayout();
+    }
+
+    private boolean isLayoutInsideBounds() {
+        for (VirtualControllerElement element : elements) {
+            FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) element.getLayoutParams();
+            if (params.width <= 0 || params.height <= 0 || !usableBounds.contains(
+                    params.leftMargin, params.topMargin, params.leftMargin + params.width,
+                    params.topMargin + params.height)) return false;
+        }
+        return true;
+    }
+
+    private void fitLayout() {
+        int result = VirtualControllerConfigurationLoader.fitToBounds(elements, usableBounds);
+        if (result < 0) {
+            releaseInputs();
+            currentMode = ControllerMode.MoveButtons;
+            Toast.makeText(context, R.string.stream_side_layout_conflict, Toast.LENGTH_LONG).show();
+        } else if (result > 0 && !adjustmentNotified) {
+            adjustmentNotified = true;
+            Toast.makeText(context, R.string.stream_side_layout_adjusted, Toast.LENGTH_LONG).show();
+        }
+        buttonConfigure.bringToFront();
+        notifyStateChanged();
+    }
+
+    private void releaseInputs() {
+        long now = SystemClock.uptimeMillis();
+        MotionEvent cancel = MotionEvent.obtain(now, now, MotionEvent.ACTION_CANCEL, 0, 0, 0);
+        for (VirtualControllerElement element : elements) element.dispatchTouchEvent(cancel);
+        cancel.recycle();
+        inputContext = new ControllerInputContext();
+        sendControllerInputContext();
+    }
+
+    public void dispose() {
+        stateListener = null;
+        handler.removeCallbacksAndMessages(null);
     }
 
     public void removeElements() {
@@ -140,6 +225,7 @@ public class VirtualController {
         layoutParams.setMargins(x, y, 0, 0);
 
         frame_layout.addView(element, layoutParams);
+        element.setVisibility(visible ? View.VISIBLE : View.INVISIBLE);
     }
 
     public List<VirtualControllerElement> getElements() {
@@ -162,12 +248,14 @@ public class VirtualController {
         params.leftMargin = 15;
         params.topMargin = 15;
         frame_layout.addView(buttonConfigure, params);
+        buttonConfigure.setVisibility(visible ? View.VISIBLE : View.INVISIBLE);
 
         // Start with the default layout
         VirtualControllerConfigurationLoader.createDefaultLayout(this, context);
 
         // Apply user preferences onto the default layout
         VirtualControllerConfigurationLoader.loadFromPreferences(this, context);
+        fitLayout();
     }
 
     public ControllerMode getControllerMode() {

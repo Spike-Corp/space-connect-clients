@@ -7,13 +7,18 @@ package com.limelight.binding.input.virtual_controller;
 import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.Rect;
 import android.util.DisplayMetrics;
+import android.widget.FrameLayout;
 
 import com.limelight.nvstream.input.ControllerPacket;
 import com.limelight.preferences.PreferenceConfiguration;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class VirtualControllerConfigurationLoader {
     public static final String OSC_PREFERENCE = "OSC";
@@ -205,7 +210,7 @@ public class VirtualControllerConfigurationLoader {
         PreferenceConfiguration config = PreferenceConfiguration.readPreferences(context);
 
         // Displace controls on the right by this amount of pixels to account for different aspect ratios
-        int rightDisplacement = screen.widthPixels - screen.heightPixels * 16 / 9;
+        int rightDisplacement = controller.getUsableBounds().right - screen.heightPixels * 16 / 9;
 
         int height = screen.heightPixels;
 
@@ -400,6 +405,71 @@ public class VirtualControllerConfigurationLoader {
                     pref.edit().remove(prefKey).apply();
                 }
             }
+
         }
+    }
+
+    static int fitToBounds(List<VirtualControllerElement> elements, Rect bounds) {
+        List<Rect> positions = new ArrayList<>();
+        for (VirtualControllerElement element : elements) {
+            FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) element.getLayoutParams();
+            if (params.width <= 0 || params.height <= 0
+                    || params.width > bounds.width() || params.height > bounds.height()) return -1;
+            positions.add(new Rect(params.leftMargin, params.topMargin,
+                    params.leftMargin + params.width, params.topMargin + params.height));
+        }
+        if (!fitAxis(positions, bounds, true) || !fitAxis(positions, bounds, false)) return -1;
+        int moved = 0;
+        for (int i = 0; i < elements.size(); i++) {
+            FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) elements.get(i).getLayoutParams();
+            Rect position = positions.get(i);
+            if (params.leftMargin != position.left || params.topMargin != position.top) {
+                params.leftMargin = position.left;
+                params.topMargin = position.top;
+                elements.get(i).requestLayout();
+                moved++;
+            }
+        }
+        return moved;
+    }
+
+    private static boolean fitAxis(List<Rect> positions, Rect bounds, boolean horizontal) {
+        for (int index = 0; index < positions.size(); index++) {
+            Rect position = positions.get(index);
+            int minimum = horizontal ? bounds.left : bounds.top;
+            int maximum = horizontal ? bounds.right : bounds.bottom;
+            if ((horizontal ? position.left : position.top) >= minimum
+                    && (horizontal ? position.right : position.bottom) <= maximum) continue;
+            boolean[] group = new boolean[positions.size()];
+            group[index] = true;
+            boolean added;
+            int offset;
+            do {
+                Rect union = new Rect(position);
+                for (int i = 0; i < group.length; i++) if (group[i]) union.union(positions.get(i));
+                int start = horizontal ? union.left : union.top;
+                int end = horizontal ? union.right : union.bottom;
+                if (end - start > maximum - minimum) return false;
+                offset = Math.max(minimum - start, Math.min(0, maximum - end));
+                added = false;
+                for (int i = 0; i < group.length; i++) {
+                    if (!group[i]) continue;
+                    Rect shifted = new Rect(positions.get(i));
+                    shifted.offset(horizontal ? offset : 0, horizontal ? 0 : offset);
+                    for (int j = 0; j < group.length; j++) {
+                        // Move newly conflicting neighbors together, preserving their spacing.
+                        if (!group[j] && Rect.intersects(shifted, positions.get(j))
+                                && !Rect.intersects(positions.get(i), positions.get(j))) {
+                            group[j] = true;
+                            added = true;
+                        }
+                    }
+                }
+            } while (added);
+            for (int i = 0; i < group.length; i++) {
+                if (group[i]) positions.get(i).offset(horizontal ? offset : 0, horizontal ? 0 : offset);
+            }
+        }
+        return true;
     }
 }

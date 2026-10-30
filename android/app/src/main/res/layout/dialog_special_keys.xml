@@ -20,17 +20,6 @@
             android:textAllCaps="false"
             android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/micForwardButton"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_marginBottom="16dp"
-            android:background="@drawable/bg_button_orange"
-            android:text="@string/game_mic_forward_off"
-            android:textColor="@color/moonlight_gold_foreground"
-            android:textAllCaps="false"
-            android:textStyle="bold" />
-
         <GridLayout
             android:id="@+id/specialKeysGrid"
             android:layout_width="match_parent"

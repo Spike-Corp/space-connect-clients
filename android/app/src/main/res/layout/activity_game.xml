@@ -90,34 +90,4 @@
         android:preferKeepClear="true"
         android:visibility="gone" />
 
-    <ImageButton
-        android:id="@+id/gameMenuButton"
-        android:layout_width="52dp"
-        android:layout_height="52dp"
-        android:layout_gravity="bottom|right"
-        android:layout_marginRight="14dp"
-        android:layout_marginBottom="76dp"
-        android:padding="12dp"
-        android:scaleType="centerInside"
-        android:alpha="0.55"
-        android:background="@drawable/bg_button_purple"
-        android:src="@drawable/ic_game_menu"
-        android:contentDescription="@string/game_menu_button_desc"
-        android:preferKeepClear="true" />
-
-    <ImageButton
-        android:id="@+id/specialKeysButton"
-        android:layout_width="52dp"
-        android:layout_height="52dp"
-        android:layout_gravity="bottom|right"
-        android:layout_marginRight="14dp"
-        android:layout_marginBottom="14dp"
-        android:padding="12dp"
-        android:scaleType="centerInside"
-        android:alpha="0.55"
-        android:background="@drawable/bg_button_teal"
-        android:src="@drawable/ic_keyboard"
-        android:contentDescription="@string/game_special_keys_button_desc"
-        android:preferKeepClear="true" />
-
 </merge>
