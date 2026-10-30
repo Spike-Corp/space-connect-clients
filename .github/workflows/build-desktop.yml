@@ -381,7 +381,10 @@ jobs:
           QT_QUICK_CONTROLS_STYLE: Material
         run: |
           set QT_QPA_FONTDIR=%WINDIR%\Fonts
-          "%QT_ROOT_DIR%\bin\qmltestrunner.exe" -input app\tests\qml -import app\tests\qml || exit /b 1
+          "%QT_ROOT_DIR%\bin\qmltestrunner.exe" -input app\tests\qml -import app\tests\qml -o qt5-tests.txt,txt
+          set TEST_EXIT=%ERRORLEVEL%
+          type qt5-tests.txt
+          exit /b %TEST_EXIT%
 
       - name: Build (Release, x64, Qt5)
         shell: cmd

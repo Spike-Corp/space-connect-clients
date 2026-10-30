@@ -70,7 +70,6 @@ TestCase {
     }
     function test_transfer_keeps_provider_and_erases_only_additional_disk() {
         var view = openView()
-        grabImage(view).save("completeapp-management-preview.png")
         mouseClick(findChild(view, "extra:transfer"))
         var confirmation = findChild(view, "volumeTransfer")
         tryCompare(confirmation, "visible", true)
