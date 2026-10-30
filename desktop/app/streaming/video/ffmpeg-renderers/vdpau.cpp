@@ -628,4 +628,6 @@ void VDPAURenderer::renderFrame(AVFrame* frame)
                      m_VdpGetErrorString(status));
         return;
     }
+    if (Session::get())
+        Session::get()->notifyFirstVideoFrame();
 }

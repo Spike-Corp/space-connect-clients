@@ -102,6 +102,9 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Locale;
+import com.limelight.account.LauncherActivity;
+import com.limelight.session.SessionOrchestrator;
+import com.limelight.session.SessionOverlayView;
 
 
 public class Game extends Activity implements SurfaceHolder.Callback,
@@ -138,6 +141,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private NvConnection conn;
     private SpinnerDialog spinner;
+    private final Handler streamCallbacks = new Handler(Looper.getMainLooper());
+    private SessionOrchestrator sessionAttempt;
+    private SessionOverlayView sessionOverlay;
+    private boolean managedSession;
+    private volatile boolean connectionClosed;
+    private final Runnable firstFrameTimeout = () -> failManagedSession("first-frame timeout", 0);
 
     // Local clipboard -> host clipboard sync (see setUpClipboardSync()/checkAndPushClipboard()
     // below). Uses a dedicated NvHTTP instance because NvConnection doesn't expose the
@@ -228,12 +237,28 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     public static final String EXTRA_PC_NAME = "PcName";
     public static final String EXTRA_APP_HDR = "HDR";
     public static final String EXTRA_SERVER_CERT = "ServerCert";
+    public static final String EXTRA_SESSION_ATTEMPT = "SessionAttempt";
+    public static final String EXTRA_SESSION_NEWLY_PAIRED = "SessionNewlyPaired";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         UiHelper.setLocale(this);
+        String attemptId = getIntent().getStringExtra(EXTRA_SESSION_ATTEMPT);
+        managedSession = attemptId != null;
+        if (managedSession) {
+            sessionAttempt = SessionOrchestrator.find(attemptId);
+            if (sessionAttempt == null || !sessionAttempt.attachStream(() -> {
+                if (conn != null) conn.interrupt();
+                streamCallbacks.post(() -> {
+                    if (!connectionClosed && !isDestroyed()) cancelManagedSession();
+                });
+            })) {
+                finish();
+                return;
+            }
+        }
 
         // We don't want a title bar
         requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -261,9 +286,17 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         // Inflate the content
         setContentView(R.layout.activity_game);
 
-        // Start the spinner (mensagem amigável de boot da VM)
-        spinner = SpinnerDialog.displayDialog(this, getResources().getString(R.string.conn_establishing_title),
-                getResources().getString(R.string.conn_establishing_msg_secure), true);
+        if (managedSession) {
+            getWindow().setBackgroundDrawableResource(android.R.color.black);
+            sessionOverlay = new SessionOverlayView(this);
+            addContentView(sessionOverlay, new ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            sessionOverlay.showMessage(getString(R.string.session_waiting_frame));
+            sessionOverlay.setOnCancel(this::cancelManagedSession);
+        } else {
+            spinner = SpinnerDialog.displayDialog(this, getResources().getString(R.string.conn_establishing_title),
+                    getResources().getString(R.string.conn_establishing_msg_secure), true);
+        }
 
         // Read the stream preferences
         prefConfig = PreferenceConfiguration.readPreferences(this);
@@ -486,6 +519,19 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 willStreamHdr,
                 glPrefs.glRenderer,
                 this);
+        if (managedSession) {
+            decoderRenderer.setOnFirstFrameRendered(() -> streamCallbacks.post(() -> {
+                if (connectionClosed || isFinishing() || isDestroyed() || !sessionAttempt.onFirstFrameRendered()) return;
+                streamCallbacks.removeCallbacks(firstFrameTimeout);
+                sessionOverlay.onFirstFrameRendered(() -> {
+                    if (connectionClosed || isFinishing() || !sessionAttempt.isActive()) return;
+                    sessionOverlay.dispose();
+                    streamView.requestFocus();
+                    if (connected) setInputGrabState(true);
+                    checkAndPushClipboard();
+                });
+            }));
+        }
 
         // Don't stream HDR if the decoder can't support it
         if (willStreamHdr && !decoderRenderer.isHevcMain10Hdr10Supported() && !decoderRenderer.isAv1Main10Supported()) {
@@ -573,6 +619,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 .setLaunchRefreshRate(prefConfig.fps)
                 .setRefreshRate(chosenFrameRate)
                 .setApp(app)
+                .setAllowAppSwitch(!managedSession)
+                .setHostAuthorizationWaitMs(managedSession && getIntent().getBooleanExtra(EXTRA_SESSION_NEWLY_PAIRED, false) ? 20_000 : 0)
                 .setBitrate(prefConfig.bitrate)
                 .setEnableSops(prefConfig.enableSops)
                 .enableLocalAudioPlayback(prefConfig.playHostAudio)
@@ -638,6 +686,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
 
         if (!decoderRenderer.isHevcSupported() && !decoderRenderer.isAv1Supported()) {
+            if (managedSession) {
+                failManagedSession("decoder unavailable", 0);
+                return;
+            }
             if (spinner != null) {
                 spinner.dismiss();
                 spinner = null;
@@ -961,7 +1013,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     // the host. Safe to call at any time - clipboard access failing silently while we don't
     // have focus (Android 10+ restriction) just results in a no-op.
     private void checkAndPushClipboard() {
-        if (clipboardHttp == null || clipboardManager == null) {
+        if (connectionClosed || isSessionOverlayVisible() || clipboardHttp == null || clipboardManager == null) {
             return;
         }
 
@@ -1009,7 +1061,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         // With Android native pointer capture, capture is lost when focus is lost,
         // so it must be requested again when focus is regained.
-        inputCaptureProvider.onWindowFocusChanged(hasFocus);
+        if (inputCaptureProvider != null && !connectionClosed && !isSessionOverlayVisible()) {
+            inputCaptureProvider.onWindowFocusChanged(hasFocus);
+        }
 
         // This is the one guaranteed moment we're back in the foreground after
         // potentially copying something in another app, so re-check the clipboard here
@@ -1318,6 +1372,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     protected void onDestroy() {
+        stopConnection();
+        streamCallbacks.removeCallbacksAndMessages(null);
+        if (sessionOverlay != null) sessionOverlay.dispose();
+        if (decoderRenderer != null) decoderRenderer.clearOnFirstFrameRendered();
+        if (streamView != null) streamView.getHolder().removeCallback(this);
+        getWindow().getDecorView().removeCallbacks(hideSystemUi);
         super.onDestroy();
 
         // Ported from Artemis: dismiss the external display presentation, if any, to avoid
@@ -1359,11 +1419,17 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
 
         // Destroy the capture provider
-        inputCaptureProvider.destroy();
+        if (inputCaptureProvider != null) inputCaptureProvider.destroy();
     }
 
     @Override
     protected void onPause() {
+        if (managedSession && sessionOverlay != null && sessionOverlay.isCoveringStream()) {
+            // Permission dialogs are not requested by startup. Losing the foreground here
+            // means the loading attempt must not later capture input or reveal the stream.
+            stopConnection();
+            finish();
+        }
         if (isFinishing()) {
             // Stop any further input device notifications before we lose focus (and pointer capture)
             if (controllerHandler != null) {
@@ -1380,6 +1446,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     @Override
     protected void onStop() {
         super.onStop();
+        stopConnection();
 
         SpinnerDialog.closeDialogs(this);
         Dialog.closeDialogs();
@@ -1451,6 +1518,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void setInputGrabState(boolean grab) {
+        if (inputCaptureProvider == null) return;
         // Grab/ungrab the mouse cursor
         if (grab) {
             inputCaptureProvider.enableCapture();
@@ -1608,6 +1676,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public boolean handleKeyDown(KeyEvent event) {
+        if (isSessionOverlayVisible() || connectionClosed) return false;
         // Pass-through virtual navigation keys
         if ((event.getFlags() & KeyEvent.FLAG_VIRTUAL_HARD_KEY) != 0) {
             return false;
@@ -1698,6 +1767,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public boolean handleKeyUp(KeyEvent event) {
+        if (isSessionOverlayVisible() || connectionClosed) return false;
         // Pass-through virtual navigation keys
         if ((event.getFlags() & KeyEvent.FLAG_VIRTUAL_HARD_KEY) != 0) {
             return false;
@@ -2549,6 +2619,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     // Returns true if the event was consumed
     // NB: View is only present if called from a view callback
     private boolean handleMotionEvent(View view, MotionEvent event) {
+        if (connectionClosed || isSessionOverlayVisible()) return false;
         // Pass through mouse/touch/joystick input if we're not grabbing
         if (!grabbedInput) {
             return false;
@@ -2971,12 +3042,14 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public boolean onGenericMotion(View view, MotionEvent event) {
+        if (isSessionOverlayVisible() || connectionClosed) return true;
         return handleMotionEvent(view, event);
     }
 
     @SuppressLint("ClickableViewAccessibility")
     @Override
     public boolean onTouch(View view, MotionEvent event) {
+        if (isSessionOverlayVisible() || connectionClosed) return true;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
                 // Tell the OS not to buffer input events for us
@@ -2991,9 +3064,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public void stageStarting(final String stage) {
-        runOnUiThread(new Runnable() {
+        streamCallbacks.post(new Runnable() {
             @Override
             public void run() {
+                if (connectionClosed || isFinishing()) return;
                 if (spinner != null) {
                     spinner.setMessage(getResources().getString(R.string.conn_starting) + " " + friendlyStage(stage));
                 }
@@ -3020,11 +3094,21 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void stopConnection() {
-        if (connecting || connected) {
+        if (connectionClosed) return;
+        connectionClosed = true;
+        if (sessionAttempt != null) sessionAttempt.cancel();
+        streamCallbacks.removeCallbacksAndMessages(null);
+        getWindow().getDecorView().removeCallbacks(hideSystemUi);
+        if (sessionOverlay != null) sessionOverlay.dispose();
+        if (decoderRenderer != null) decoderRenderer.clearOnFirstFrameRendered();
+        if (clipboardHttp != null) clipboardHttp.cancelPendingRequests();
+        if (conn != null) {
             connecting = connected = false;
             updatePipAutoEnter();
 
-            controllerHandler.stop();
+            if (controllerHandler != null) controllerHandler.stop();
+            conn.interrupt();
+            if (attemptedConnection && decoderRenderer != null) decoderRenderer.prepareForStop();
 
             // Update GameManager state to indicate we're no longer in game
             UiHelper.notifyStreamEnded(this);
@@ -3034,7 +3118,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             // thread to keep things smooth for the UI. Inside moonlight-common,
             // we prevent another thread from starting a connection before and
             // during the process of stopping this one.
-            new Thread() {
+            new Thread("NvConnection-stop") {
                 public void run() {
                     conn.stop();
                 }
@@ -3042,8 +3126,49 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
     }
 
+    private boolean isSessionOverlayVisible() {
+        return sessionOverlay != null && sessionOverlay.isCoveringStream();
+    }
+
+    private void cancelManagedSession() {
+        stopConnection();
+        finish();
+        overridePendingTransition(0, 0);
+    }
+
+    @Override public void onBackPressed() {
+        if (isSessionOverlayVisible()) cancelManagedSession();
+        else super.onBackPressed();
+    }
+
+    @Override public boolean dispatchKeyEvent(KeyEvent event) {
+        if (isSessionOverlayVisible() && (event.getKeyCode() == KeyEvent.KEYCODE_BACK
+                || event.getKeyCode() == KeyEvent.KEYCODE_ESCAPE || event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_B)) {
+            if (event.getAction() == KeyEvent.ACTION_UP) cancelManagedSession();
+            return true;
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
+    private void failManagedSession(String stage, int code) {
+        if (!managedSession || connectionClosed) return;
+        LimeLog.warning("Session stream failure: " + stage + " (" + code + ")");
+        streamCallbacks.post(() -> {
+            if (connectionClosed || isFinishing() || isDestroyed() || sessionAttempt == null || !sessionAttempt.isActive()) return;
+            Toast.makeText(this, code == 409 ? R.string.session_host_busy : R.string.session_connection_failed, Toast.LENGTH_LONG).show();
+            stopConnection();
+            startActivity(new Intent(this, LauncherActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+            finish();
+        });
+    }
+
     @Override
     public void stageFailed(final String stage, final int portFlags, final int errorCode) {
+        if (managedSession) {
+            failManagedSession(stage, errorCode);
+            return;
+        }
         // Perform a connection test if the failure could be due to a blocked port
         // This does network I/O, so don't do it on the main thread.
         final int portTestResult = MoonBridge.testClientConnectivity(ServerHelper.CONNECTION_TEST_SERVER, 443, portFlags);
@@ -3084,6 +3209,14 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public void connectionTerminated(final int errorCode) {
+        if (managedSession) {
+            if (errorCode == MoonBridge.ML_ERROR_GRACEFUL_TERMINATION) {
+                streamCallbacks.post(() -> { if (!connectionClosed) cancelManagedSession(); });
+            } else {
+                failManagedSession("terminated", errorCode);
+            }
+            return;
+        }
         // Perform a connection test if the failure could be due to a blocked port
         // This does network I/O, so don't do it on the main thread.
         final int portFlags = MoonBridge.getPortFlagsFromTerminationErrorCode(errorCode);
@@ -3167,9 +3300,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public void connectionStatusUpdate(final int connectionStatus) {
-        runOnUiThread(new Runnable() {
+        streamCallbacks.post(new Runnable() {
             @Override
             public void run() {
+                if (connectionClosed) return;
                 if (prefConfig.disableWarnings) {
                     return;
                 }
@@ -3197,9 +3331,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public void connectionStarted() {
-        runOnUiThread(new Runnable() {
+        if (connectionClosed) return;
+        streamCallbacks.post(new Runnable() {
             @Override
             public void run() {
+                if (connectionClosed || isFinishing() || isDestroyed()
+                        || (managedSession && !sessionAttempt.isActive())) return;
                 if (spinner != null) {
                     spinner.dismiss();
                     spinner = null;
@@ -3214,11 +3351,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 // when the spinner gets displayed. On Android Q, even now
                 // is too early to capture. We will delay a second to allow
                 // the spinner to dismiss before capturing.
-                Handler h = new Handler();
-                h.postDelayed(new Runnable() {
+                streamCallbacks.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        setInputGrabState(true);
+                        if (!connectionClosed && connected && !isSessionOverlayVisible()) setInputGrabState(true);
                     }
                 }, 500);
 
@@ -3246,21 +3382,27 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public void displayMessage(final String message) {
-        runOnUiThread(new Runnable() {
+        if (managedSession) {
+            // A technical message is followed by stageFailed. Never surface host/HTTP text
+            // (which may contain addresses or secrets) instead of the localized error.
+            return;
+        }
+        streamCallbacks.post(new Runnable() {
             @Override
             public void run() {
-                Toast.makeText(Game.this, message, Toast.LENGTH_LONG).show();
+                if (!connectionClosed) Toast.makeText(Game.this, message, Toast.LENGTH_LONG).show();
             }
         });
     }
 
     @Override
     public void displayTransientMessage(final String message) {
+        if (connectionClosed || isSessionOverlayVisible()) return;
         if (!prefConfig.disableWarnings) {
-            runOnUiThread(new Runnable() {
+            streamCallbacks.post(new Runnable() {
                 @Override
                 public void run() {
-                    Toast.makeText(Game.this, message, Toast.LENGTH_LONG).show();
+                    if (!connectionClosed) Toast.makeText(Game.this, message, Toast.LENGTH_LONG).show();
                 }
             });
         }
@@ -3298,6 +3440,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+        if (connectionClosed || isFinishing()) return;
         if (!surfaceCreated) {
             throw new IllegalStateException("Surface changed before creation!");
         }
@@ -3308,11 +3451,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         if (!attemptedConnection) {
             attemptedConnection = true;
+            connecting = true;
 
             // Update GameManager state to indicate we're "loading" while connecting
             UiHelper.notifyStreamConnecting(Game.this);
 
             decoderRenderer.setRenderTarget(holder);
+            if (managedSession) streamCallbacks.postDelayed(firstFrameTimeout, 75_000);
             conn.start(new AndroidAudioRenderer(Game.this, prefConfig.enableAudioFx),
                     decoderRenderer, Game.this);
         }
@@ -3320,6 +3465,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
+        if (connectionClosed || isFinishing()) return;
         float desiredFrameRate;
 
         surfaceCreated = true;
@@ -3356,17 +3502,15 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
-        if (!surfaceCreated) {
-            throw new IllegalStateException("Surface destroyed before creation!");
-        }
+        if (!surfaceCreated) return;
+        surfaceCreated = false;
 
         if (attemptedConnection) {
             // Let the decoder know immediately that the surface is gone
             decoderRenderer.prepareForStop();
 
-            if (connected) {
-                stopConnection();
-            }
+            stopConnection();
+            if (managedSession) finish();
         }
     }
 

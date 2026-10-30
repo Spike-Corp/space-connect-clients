@@ -26,6 +26,7 @@ import com.limelight.nvstream.mdns.MdnsDiscoveryListener;
 import com.limelight.utils.CacheHelper;
 import com.limelight.utils.NetHelper;
 import com.limelight.utils.ServerHelper;
+import com.limelight.utils.RequestScope;
 
 import android.app.Service;
 import android.content.ComponentName;
@@ -299,6 +300,42 @@ public class ComputerManagerService extends Service {
             }
 
             return null;
+        }
+
+        public ComputerDetails getSessionComputer(String machineId, ComputerDetails.AddressTuple address) {
+            synchronized (pollingTuples) {
+                for (PollingTuple tuple : pollingTuples) {
+                    ComputerDetails computer = tuple.computer;
+                    if (machineId.equals(computer.scMachineId)
+                            || address.equals(computer.manualAddress) || address.equals(computer.activeAddress)) {
+                        ComputerDetails copy = new ComputerDetails(computer);
+                        copy.hasCustomName = computer.hasCustomName;
+                        return copy;
+                    }
+                }
+            }
+            return null;
+        }
+
+        /** Persist a host already verified by the scoped session handshake; no extra polling. */
+        public void saveSessionComputer(ComputerDetails computer, RequestScope scope) throws IOException {
+            scope.checkCancelled();
+            if (!getLocalDatabaseReference()) throw new IOException("Computer database unavailable");
+            try {
+                synchronized (pollingTuples) {
+                    scope.checkCancelled();
+                    if (!dbManager.updateComputer(computer)) throw new IOException("Cannot save paired host");
+                    addTuple(computer);
+                    for (PollingTuple tuple : pollingTuples) {
+                        if (computer.uuid.equals(tuple.computer.uuid)) {
+                            tuple.computer.name = computer.name;
+                            tuple.computer.hasCustomName = computer.hasCustomName;
+                        }
+                    }
+                }
+            } finally {
+                releaseLocalDatabaseReference();
+            }
         }
 
         public void invalidateStateForComputer(String uuid) {

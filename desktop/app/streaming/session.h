@@ -11,6 +11,7 @@
 #include "audio/renderers/renderer.h"
 #include "video/overlaymanager.h"
 #include "backend/micforwarder.h"
+#include "backend/connectioncancel.h"
 
 class SupportedVideoFormatList : public QList<int>
 {
@@ -101,12 +102,16 @@ class Session : public QObject
 
 public:
     explicit Session(NvComputer* computer, NvApp& app, StreamingPreferences *preferences = nullptr);
+    Session(std::shared_ptr<NvComputer> computer, NvApp& app, bool freshlyPaired = false);
 
     // NB: This may not get destroyed for a long time! Don't put any cleanup here.
     // Use Session::exec() or DeferredSessionCleanupTask instead.
     virtual ~Session() {};
 
     Q_INVOKABLE void exec(QWindow* qtWindow);
+    Q_INVOKABLE void cancel();
+    Q_INVOKABLE void completeReveal();
+    void notifyFirstVideoFrame();
 
     static
     void getDecoderInfo(SDL_Window* window,
@@ -131,6 +136,8 @@ signals:
     void stageFailed(QString stage, int errorCode, QString failingPorts);
 
     void connectionStarted();
+    void firstFramePresented();
+    void streamWindowCreated();
 
     void displayLaunchError(QString text);
 
@@ -248,6 +255,12 @@ private:
     DECODER_RENDERER_CALLBACKS m_VideoCallbacks;
     AUDIO_RENDERER_CALLBACKS m_AudioCallbacks;
     NvComputer* m_Computer;
+    std::shared_ptr<NvComputer> m_OwnedComputer;
+    ConnectionCancellation m_ConnectionCancellation = std::make_shared<std::atomic_bool>(false);
+    std::atomic_bool m_FirstFramePresented{false};
+    std::atomic_bool m_RevealComplete{true};
+    bool m_ManagedDesktop = false;
+    bool m_FreshlyPaired = false;
     NvApp m_App;
     SDL_Window* m_Window;
     IVideoDecoder* m_VideoDecoder;

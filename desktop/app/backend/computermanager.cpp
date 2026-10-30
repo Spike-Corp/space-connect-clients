@@ -567,32 +567,62 @@ class PendingPairingTask : public QObject, public QRunnable
     Q_OBJECT
 
 public:
-    PendingPairingTask(ComputerManager* computerManager, NvComputer* computer, QString pin)
+    PendingPairingTask(ComputerManager* computerManager, NvComputer* computer, QString pin,
+                       const ConnectionCancellation& cancellation, quint64 attempt)
         : m_ComputerManager(computerManager),
           m_Computer(computer),
-          m_Pin(pin)
+          m_Pin(pin),
+          m_Cancellation(cancellation)
     {
-        connect(this, &PendingPairingTask::pairingCompleted,
-                computerManager, &ComputerManager::pairingCompleted);
+        if (attempt) {
+            {
+                QReadLocker lock(&computer->lock);
+                m_WorkingCopy.reset(new NvComputer(*computer));
+            }
+            const QString uuid = m_WorkingCopy->uuid;
+            connect(this, &PendingPairingTask::pairingCompleted, computerManager,
+                    [computerManager, attempt, uuid](NvComputer* host, const QString& error,
+                                               const QByteArray& certificate) {
+                // Cancellation allows navigation/removal while the worker winds
+                // down. Only update a host that is still registered on the UI thread.
+                if (!computerManager->getComputers().contains(host) || host->uuid != uuid)
+                    return;
+                if (error.isEmpty()) {
+                    {
+                        QWriteLocker lock(&host->lock);
+                        host->serverCert = QSslCertificate(certificate);
+                    }
+                    computerManager->saveHost(host);
+                }
+                emit computerManager->sessionPairingCompleted(attempt, host, error);
+            });
+        }
+        else {
+            connect(this, &PendingPairingTask::pairingCompleted,
+                    computerManager, &ComputerManager::pairingCompleted);
+        }
     }
 
 signals:
-    void pairingCompleted(NvComputer* computer, QString error);
+    void pairingCompleted(NvComputer* computer, QString error, QByteArray certificate = QByteArray());
 
 private:
     void run()
     {
-        NvPairingManager pairingManager(m_Computer);
+        if (connectionCancelled(m_Cancellation))
+            return;
+        NvComputer* working = m_WorkingCopy ? m_WorkingCopy.get() : m_Computer;
+        NvPairingManager pairingManager(working, m_Cancellation);
 
         try {
-           NvPairingManager::PairState result = pairingManager.pair(m_Computer->appVersion, m_Pin, m_Computer->serverCert);
+           NvPairingManager::PairState result = pairingManager.pair(working->appVersion, m_Pin, working->serverCert);
            switch (result)
            {
            case NvPairingManager::PairState::PIN_WRONG:
                emit pairingCompleted(m_Computer, tr("The PIN from the PC didn't match. Please try again."));
                break;
            case NvPairingManager::PairState::FAILED:
-               if (m_Computer->currentGameId != 0) {
+               if (working->currentGameId != 0) {
                    emit pairingCompleted(m_Computer, tr("You cannot pair while a previous session is still running on the host PC. Quit any running games or reboot the host PC, then try pairing again."));
                }
                else {
@@ -604,9 +634,10 @@ private:
                break;
            case NvPairingManager::PairState::PAIRED:
                // Persist the newly pinned server certificate for this host
-               m_ComputerManager->saveHost(m_Computer);
+               if (!m_WorkingCopy)
+                   m_ComputerManager->saveHost(m_Computer);
 
-               emit pairingCompleted(m_Computer, nullptr);
+               emit pairingCompleted(m_Computer, QString(), working->serverCert.toPem());
                break;
            }
         } catch (const GfeHttpResponseException& e) {
@@ -618,14 +649,17 @@ private:
 
     ComputerManager* m_ComputerManager;
     NvComputer* m_Computer;
+    std::unique_ptr<NvComputer> m_WorkingCopy;
     QString m_Pin;
+    ConnectionCancellation m_Cancellation;
 };
 
-void ComputerManager::pairHost(NvComputer* computer, QString pin)
+void ComputerManager::pairHost(NvComputer* computer, QString pin,
+                               const ConnectionCancellation& cancellation, quint64 attempt)
 {
     // Punt to a worker thread to avoid stalling the
     // UI while waiting for pairing to complete
-    PendingPairingTask* pairing = new PendingPairingTask(this, computer, pin);
+    PendingPairingTask* pairing = new PendingPairingTask(this, computer, pin, cancellation, attempt);
     QThreadPool::globalInstance()->start(pairing);
 }
 
@@ -825,17 +859,27 @@ class PendingAddTask : public QObject, public QRunnable
 
 public:
     PendingAddTask(ComputerManager* computerManager, NvAddress address, NvAddress mdnsIpv6Address, bool mdns,
-                   QString scMachineId = QString(), QString scOrigin = QString())
+                   QString scMachineId, QString scOrigin,
+                   const ConnectionCancellation& cancellation, quint64 attempt)
         : m_ComputerManager(computerManager),
           m_Address(address),
           m_MdnsIpv6Address(mdnsIpv6Address),
           m_Mdns(mdns),
           m_ScMachineId(scMachineId),
           m_ScOrigin(scOrigin),
-          m_AboutToQuit(false)
+          m_AboutToQuit(false),
+          m_Cancellation(cancellation)
     {
-        connect(this, &PendingAddTask::computerAddCompleted,
-                computerManager, &ComputerManager::computerAddCompleted);
+        if (attempt) {
+            connect(this, &PendingAddTask::computerAddCompleted, computerManager,
+                    [computerManager, attempt](QVariant success, QVariant) {
+                emit computerManager->sessionHostPrepared(attempt, success.toBool());
+            });
+        }
+        else {
+            connect(this, &PendingAddTask::computerAddCompleted,
+                    computerManager, &ComputerManager::computerAddCompleted);
+        }
         connect(this, &PendingAddTask::computerStateChanged,
                 computerManager, &ComputerManager::handleComputerStateChanged);
         connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit,
@@ -858,7 +902,7 @@ private:
         QString serverInfo;
 
         // Do nothing if we're quitting
-        if (m_AboutToQuit) {
+        if (m_AboutToQuit || connectionCancelled(m_Cancellation)) {
             return QString();
         }
 
@@ -872,7 +916,8 @@ private:
             } catch (const QtNetworkReplyException& e) {
                 if (e.getError() == QNetworkReply::ServiceUnavailableError) {
                     qWarning() << "Retrying request in 5 seconds after ServiceUnavailableError";
-                    QThread::sleep(5);
+                    for (int i = 0; i < 50 && !connectionCancelled(m_Cancellation); ++i)
+                        QThread::msleep(100);
                     serverInfo = http.getServerInfo(NvHTTP::NVLL_VERBOSE);
                     qInfo() << "Retry successful";
                 }
@@ -883,10 +928,10 @@ private:
             }
             return serverInfo;
         } catch (...) {
-            if (!m_Mdns && reportFailure) {
+            if (!m_Mdns && reportFailure && !connectionCancelled(m_Cancellation)) {
                 unsigned int portTestResult;
 
-                if (m_ComputerManager->m_Prefs->detectNetworkBlocking) {
+                if (!m_Cancellation && m_ComputerManager->m_Prefs->detectNetworkBlocking) {
                     // We failed to connect to the specified PC. Let's test to make sure this network
                     // isn't blocking Moonlight, so we can tell the user about it.
                     portTestResult = LiTestClientConnectivity("qt.conntest.moonlight-stream.org", 443,
@@ -905,6 +950,7 @@ private:
     void run()
     {
         NvHTTP http(m_Address, 0, QSslCertificate());
+        http.setCancellation(m_Cancellation);
 
         qInfo() << "Processing new PC at" << m_Address.toString() << "from" << (m_Mdns ? "mDNS" : "user") << "with IPv6 address" << m_MdnsIpv6Address.toString();
 
@@ -946,6 +992,7 @@ private:
             serverInfo = fetchServerInfo(http, !trustedLauncherHost);
             if (serverInfo.isEmpty()) {
                 if (!trustedLauncherHost) {
+                    delete newComputer;
                     return;
                 }
 
@@ -976,6 +1023,11 @@ private:
                 }
                 newComputer->update(httpsComputer);
             }
+        }
+
+        if (connectionCancelled(m_Cancellation)) {
+            delete newComputer;
+            return;
         }
 
         // Update addresses depending on the context
@@ -1101,14 +1153,17 @@ private:
     QString m_ScMachineId;
     QString m_ScOrigin;
     bool m_AboutToQuit;
+    ConnectionCancellation m_Cancellation;
 };
 
 void ComputerManager::addNewHost(NvAddress address, bool mdns, NvAddress mdnsIpv6Address,
-                                 QString scMachineId, QString scOrigin)
+                                 QString scMachineId, QString scOrigin,
+                                 const ConnectionCancellation& cancellation, quint64 attempt)
 {
     // Punt to a worker thread to avoid stalling the
     // UI while waiting for serverinfo query to complete
-    PendingAddTask* addTask = new PendingAddTask(this, address, mdnsIpv6Address, mdns, scMachineId, scOrigin);
+    PendingAddTask* addTask = new PendingAddTask(this, address, mdnsIpv6Address, mdns,
+                                               scMachineId, scOrigin, cancellation, attempt);
     QThreadPool::globalInstance()->start(addTask);
 }
 

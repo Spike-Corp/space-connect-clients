@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="session_preparing">A preparar a sua sessão</string>
+    <string name="session_connecting">A ligar ao seu computador</string>
+    <string name="session_pairing">A ligar o seu dispositivo em segurança</string>
+    <string name="session_waiting_frame">A iniciar a transmissão</string>
+    <string name="session_cancel">Cancelar</string>
+    <string name="session_connection_failed">Não foi possível estabelecer a ligação. Tente novamente no painel.</string>
+    <string name="session_pair_failed">Não foi possível ligar este dispositivo em segurança. Tente novamente.</string>
+    <string name="session_desktop_missing">O Desktop não está disponível neste computador. Contacte o suporte para o ativar.</string>
+    <string name="session_host_busy">Está aberta outra aplicação neste computador. Feche-a no computador remoto antes de ligar ao Desktop.</string>
+</resources>

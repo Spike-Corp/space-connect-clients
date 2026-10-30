@@ -188,6 +188,7 @@ SOURCES += \
     backend/micforwarder.cpp \
     backend/micleveltester.cpp \
     backend/launcherapi.cpp \
+    backend/sessionorchestrator.cpp \
     backend/xdapi.cpp \
     backend/latencytester.cpp \
     backend/launcherjson.cpp \
@@ -237,6 +238,9 @@ HEADERS += \
     backend/micforwarder.h \
     backend/micleveltester.h \
     backend/launcherapi.h \
+    backend/sessionorchestrator.h \
+    backend/connectioncancel.h \
+    backend/desktoplaunch.h \
     backend/launcherbitrate.h \
     backend/xdapi.h \
     backend/latencytester.h \

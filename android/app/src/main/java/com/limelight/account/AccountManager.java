@@ -1,6 +1,7 @@
 package com.limelight.account;
 
 import com.limelight.BuildConfig;
+import com.limelight.utils.RequestScope;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -14,6 +15,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.locks.ReentrantLock;
 
 public final class AccountManager {
     private static final String API_BASE_URL = "https://spacecloud.gg/api/launcher/v1/";
@@ -24,6 +27,7 @@ public final class AccountManager {
     private static final SecureSessionStore SESSION_STORE = new SecureSessionStore();
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
+    private static final ReentrantLock SESSION_LOCK = new ReentrantLock();
 
     // Liga host -> (machineId, apelido de conta) pra sessão atual do processo —
     // preenchido a cada connect/connectFriend bem-sucedido, consultado pelo
@@ -190,6 +194,30 @@ public final class AccountManager {
         executeAuthenticated(context, token -> API.getStatus(token, machineId), callback);
     }
 
+    public static Future<?> getStatus(Context context, String machineId, RequestScope scope,
+            ResultCallback<SpaceConnectApiClient.StatusResponse> callback) {
+        Context appContext = context.getApplicationContext();
+        SpaceConnectApiClient api = API.withScope(scope);
+        return EXECUTOR.submit(() -> {
+            try {
+                scope.checkCancelled();
+                SecureSessionStore.Session session = validSession(appContext, api, scope);
+                SpaceConnectApiClient.StatusResponse result;
+                try {
+                    result = api.getStatus(session.accessToken, machineId);
+                } catch (SpaceConnectApiClient.ApiException e) {
+                    if (e.status != 401) throw e;
+                    session = refresh(appContext, session, api, scope);
+                    result = api.getStatus(session.accessToken, machineId);
+                }
+                SpaceConnectApiClient.StatusResponse response = result;
+                post(() -> { if (!scope.isCancelled()) callback.onSuccess(response); });
+            } catch (Exception e) {
+                post(() -> { if (!scope.isCancelled()) callback.onError(userMessage(e)); });
+            }
+        });
+    }
+
     public static void joinQueue(
             Context context,
             ResultCallback<SpaceConnectApiClient.StatusResponse> callback) {
@@ -207,6 +235,95 @@ public final class AccountManager {
             Context context,
             ResultCallback<SpaceConnectApiClient.StatusResponse> callback) {
         executeAuthenticated(context, API::leaveQueue, callback);
+    }
+
+    public static void leaveQueue(Context context, String machineId,
+            ResultCallback<SpaceConnectApiClient.StatusResponse> callback) {
+        executeAuthenticated(context, token -> API.leaveQueue(token, machineId), callback);
+    }
+
+    /**
+     * Synchronous, attempt-owned requests. Call on the session worker, never the UI thread.
+     * The selected VM and ownership cannot change while pairing or cancelling.
+     */
+    public static final class SessionRequests implements AutoCloseable {
+        private final Context context;
+        private final String machineId;
+        private final boolean friend;
+        private final RequestScope scope;
+        private final SpaceConnectApiClient api;
+
+        private SessionRequests(Context context, String machineId, boolean friend, RequestScope scope) {
+            if (machineId == null || !machineId.matches("^[a-fA-F0-9]{24}$")) {
+                throw new IllegalArgumentException("Invalid machine ID");
+            }
+            this.context = context.getApplicationContext();
+            this.machineId = machineId;
+            this.friend = friend;
+            this.scope = scope;
+            this.api = API.withScope(scope);
+        }
+
+        private <T> T execute(AuthenticatedOperation<T> operation) throws Exception {
+            scope.checkCancelled();
+            SecureSessionStore.Session session = validSession(context, api, scope);
+            T result;
+            try {
+                result = operation.run(session.accessToken);
+            } catch (SpaceConnectApiClient.ApiException e) {
+                if (e.status != 401) throw e;
+                scope.checkCancelled();
+                session = refresh(context, session, api, scope);
+                result = operation.run(session.accessToken);
+            }
+            scope.checkCancelled();
+            return result;
+        }
+
+        public SpaceConnectApiClient.StatusResponse status() throws Exception {
+            return execute(token -> api.getStatus(token, machineId));
+        }
+
+        public SpaceConnectApiClient.StatusResponse joinQueue() throws Exception {
+            if (friend) throw new IllegalStateException("Cannot power on a friend's machine");
+            return execute(token -> api.joinQueue(token, 24, "proxmox", machineId));
+        }
+
+        public SpaceConnectApiClient.StatusResponse leaveQueue() throws Exception {
+            if (friend) throw new IllegalStateException("Cannot leave a friend's queue");
+            return execute(token -> api.leaveQueue(token, machineId));
+        }
+
+        public SpaceConnectApiClient.ConnectionResponse connection() throws Exception {
+            return execute(token -> friend ? api.getFriendConnection(token, machineId)
+                    : api.getConnection(token, machineId));
+        }
+
+        public SpaceConnectApiClient.PairResponse submitPairPin(String pin) throws Exception {
+            for (int attempt = 0; ; attempt++) {
+                scope.checkCancelled();
+                try {
+                    SpaceConnectApiClient.PairResponse result = execute(token -> friend
+                            ? api.pairFriend(token, machineId, pin) : api.pair(token, pin, machineId));
+                    // This is an acknowledgement only. PairingManager must finish the handshake.
+                    if (result != null && (result.paired || result.viaAgent || result.viaQemu)) return result;
+                    throw new java.io.IOException("Pair request not accepted");
+                } catch (Exception e) {
+                    scope.checkCancelled();
+                    if (attempt >= 7 || (e instanceof SpaceConnectApiClient.ApiException
+                            && (((SpaceConnectApiClient.ApiException) e).status == 401
+                                || ((SpaceConnectApiClient.ApiException) e).status == 403))) throw e;
+                    Thread.sleep(500);
+                }
+            }
+        }
+
+        @Override public void close() { scope.close(); }
+    }
+
+    public static SessionRequests sessionRequests(Context context, String machineId,
+            boolean friend, RequestScope scope) {
+        return new SessionRequests(context, machineId, friend, scope);
     }
 
     public static void getMachines(
@@ -544,27 +661,57 @@ public final class AccountManager {
     }
 
     private static SecureSessionStore.Session validSession(Context context) throws Exception {
-        SecureSessionStore.Session session = SESSION_STORE.load(context);
-        if (session == null) throw new IllegalStateException("Faça login novamente");
-        if (session.accessExpiresAt <= System.currentTimeMillis() + 60_000L) {
-            session = refresh(context, session);
+        return validSession(context, API, null);
+    }
+
+    private static SecureSessionStore.Session validSession(Context context,
+            SpaceConnectApiClient api, RequestScope scope) throws Exception {
+        SESSION_LOCK.lockInterruptibly();
+        try {
+            if (scope != null) scope.checkCancelled();
+            SecureSessionStore.Session session = SESSION_STORE.load(context);
+            if (session == null) throw new IllegalStateException("Faça login novamente");
+            if (session.accessExpiresAt <= System.currentTimeMillis() + 60_000L) {
+                session = refresh(context, session, api, scope);
+            }
+            return session;
+        } finally {
+            SESSION_LOCK.unlock();
         }
-        return session;
     }
 
     private static SecureSessionStore.Session refresh(
             Context context,
             SecureSessionStore.Session session) throws Exception {
+        return refresh(context, session, API, null);
+    }
+
+    private static SecureSessionStore.Session refresh(Context context, SecureSessionStore.Session session,
+            SpaceConnectApiClient api, RequestScope scope) throws Exception {
+        SESSION_LOCK.lockInterruptibly();
         try {
-            SpaceConnectApiClient.AuthResponse auth =
-                    API.refresh(session.refreshToken, session.deviceId);
-            SESSION_STORE.save(context, auth, session.deviceId);
-            SecureSessionStore.Session refreshed = SESSION_STORE.load(context);
-            if (refreshed == null) throw new IllegalStateException("Sessão inválida");
-            return refreshed;
-        } catch (Exception e) {
-            SESSION_STORE.clear(context);
-            throw e;
+            if (scope != null) scope.checkCancelled();
+            SecureSessionStore.Session current = SESSION_STORE.load(context);
+            if (current == null) throw new IllegalStateException("Faça login novamente");
+            if (!current.accessToken.equals(session.accessToken)) return current;
+            try {
+                SpaceConnectApiClient.AuthResponse auth = api.refresh(session.refreshToken, session.deviceId);
+                // A cancelled refresh may have rotated the token on the server already.
+                // Persist a received replacement before observing cancellation.
+                SESSION_STORE.save(context, auth, session.deviceId);
+                SecureSessionStore.Session refreshed = SESSION_STORE.load(context);
+                if (refreshed == null) throw new IllegalStateException("Sessão inválida");
+                return refreshed;
+            } catch (Exception e) {
+                // Cancelling a session's I/O must not log out other screens.
+                if (e instanceof SpaceConnectApiClient.ApiException
+                        && ((SpaceConnectApiClient.ApiException) e).status == 401) {
+                    SESSION_STORE.clear(context);
+                }
+                throw e;
+            }
+        } finally {
+            SESSION_LOCK.unlock();
         }
     }
 

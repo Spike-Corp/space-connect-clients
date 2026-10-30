@@ -590,6 +590,9 @@ ReadbackRetry:
 
     SDL_RenderPresent(m_Renderer);
 
+    if (Session::get())
+        Session::get()->notifyFirstVideoFrame();
+
 Exit:
     if (swFrame != nullptr) {
         av_frame_free(&swFrame);

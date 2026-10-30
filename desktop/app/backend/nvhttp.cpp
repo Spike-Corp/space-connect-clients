@@ -5,6 +5,7 @@
 #include <QUuid>
 #include <QtNetwork/QNetworkReply>
 #include <QEventLoop>
+#include <QElapsedTimer>
 #include <QTimer>
 #include <QXmlStreamReader>
 #include <QSslKey>
@@ -195,42 +196,75 @@ NvHTTP::startApp(QString verb,
                  bool localAudio,
                  int gamepadMask,
                  bool persistGameControllersOnDisconnect,
-                 QString& rtspSessionUrl)
+                 QString& rtspSessionUrl,
+                 bool desktopSession,
+                 bool freshlyPaired)
 {
     int riKeyId;
 
     memcpy(&riKeyId, streamConfig->remoteInputAesIv, sizeof(riKeyId));
     riKeyId = qFromBigEndian(riKeyId);
 
-    QString response =
-            openConnectionToString(m_BaseUrlHttps,
-                                   verb,
-                                   "appid="+QString::number(appId)+
-                                   "&mode="+QString::number(streamConfig->width)+"x"+
-                                   QString::number(streamConfig->height)+"x"+
-                                   // Using an FPS value over 60 causes SOPS to default to 720p60,
-                                   // so force it to 0 to ensure the correct resolution is set. We
-                                   // used to use 60 here but that locked the frame rate to 60 FPS
-                                   // on GFE 3.20.3. We don't need this hack for Sunshine.
-                                   QString::number((streamConfig->fps > 60 && isGfe) ? 0 : streamConfig->fps)+
-                                   "&additionalStates=1&sops="+QString::number(sops ? 1 : 0)+
-                                   "&rikey="+QByteArray(streamConfig->remoteInputAesKey, sizeof(streamConfig->remoteInputAesKey)).toHex()+
-                                   "&rikeyid="+QString::number(riKeyId)+
-                                   ((streamConfig->supportedVideoFormats & VIDEO_FORMAT_MASK_10BIT) ?
-                                       "&hdrMode=1&clientHdrCapVersion=0&clientHdrCapSupportedFlagsInUint32=0&clientHdrCapMetaDataId=NV_STATIC_METADATA_TYPE_1&clientHdrCapDisplayData=0x0x0x0x0x0x0x0x0x0x0" :
-                                        "")+
-                                   "&localAudioPlayMode="+QString::number(localAudio ? 1 : 0)+
-                                   "&surroundAudioInfo="+QString::number(SURROUNDAUDIOINFO_FROM_AUDIO_CONFIGURATION(streamConfig->audioConfiguration))+
-                                   "&remoteControllersBitmap="+QString::number(gamepadMask)+
-                                   "&gcmap="+QString::number(gamepadMask)+
-                                   "&gcpersist="+QString::number(persistGameControllersOnDisconnect ? 1 : 0)+
-                                   LiGetLaunchUrlQueryParameters(),
-                                   LAUNCH_TIMEOUT_MS);
+    const QString arguments =
+        "appid="+QString::number(appId)+
+        "&mode="+QString::number(streamConfig->width)+"x"+
+        QString::number(streamConfig->height)+"x"+
+        // Using an FPS value over 60 causes SOPS to default to 720p60,
+        // so force it to 0 to ensure the correct resolution is set. We
+        // used to use 60 here but that locked the frame rate to 60 FPS
+        // on GFE 3.20.3. We don't need this hack for Sunshine.
+        QString::number((streamConfig->fps > 60 && isGfe) ? 0 : streamConfig->fps)+
+        "&additionalStates=1&sops="+QString::number(sops ? 1 : 0)+
+        "&rikey="+QByteArray(streamConfig->remoteInputAesKey, sizeof(streamConfig->remoteInputAesKey)).toHex()+
+        "&rikeyid="+QString::number(riKeyId)+
+        ((streamConfig->supportedVideoFormats & VIDEO_FORMAT_MASK_10BIT) ?
+            "&hdrMode=1&clientHdrCapVersion=0&clientHdrCapSupportedFlagsInUint32=0&clientHdrCapMetaDataId=NV_STATIC_METADATA_TYPE_1&clientHdrCapDisplayData=0x0x0x0x0x0x0x0x0x0x0" :
+             "")+
+        "&localAudioPlayMode="+QString::number(localAudio ? 1 : 0)+
+        "&surroundAudioInfo="+QString::number(SURROUNDAUDIOINFO_FROM_AUDIO_CONFIGURATION(streamConfig->audioConfiguration))+
+        "&remoteControllersBitmap="+QString::number(gamepadMask)+
+        "&gcmap="+QString::number(gamepadMask)+
+        "&gcpersist="+QString::number(persistGameControllersOnDisconnect ? 1 : 0)+
+        (desktopSession ? "&virtualDisplay=0" : "")+
+        LiGetLaunchUrlQueryParameters();
 
-    qInfo() << "Launch response:" << response;
+    QString response;
+    QElapsedTimer permissionWait;
+    permissionWait.start();
+    const bool waitForPermissions = desktopSession && freshlyPaired;
+    for (;;) {
+        const int remaining = qMax(1, 20000 - int(permissionWait.elapsed()));
+        try {
+            response = openConnectionToString(m_BaseUrlHttps, verb, arguments,
+                waitForPermissions ? qMin(LAUNCH_TIMEOUT_MS, remaining) : LAUNCH_TIMEOUT_MS);
+            verifyResponseStatus(response);
+            break;
+        }
+        catch (const GfeHttpResponseException& error) {
+            if (!waitForPermissions || error.getStatusCode() != 403 || permissionWait.elapsed() >= 20000)
+                throw;
+        }
+        catch (const QtNetworkReplyException& error) {
+            if (!waitForPermissions || error.getError() != QNetworkReply::ContentAccessDenied ||
+                permissionWait.elapsed() >= 20000)
+                throw;
+        }
 
-    // Throws if the request failed
-    verifyResponseStatus(response);
+        // The agent grants this certificate's launch permission after the PIN
+        // handshake. Only a newly paired managed session can wait for that ACK.
+        QEventLoop wait;
+        QTimer::singleShot(qMin(500, qMax(1, 20000 - int(permissionWait.elapsed()))),
+                          &wait, &QEventLoop::quit);
+        QTimer cancellation;
+        connect(&cancellation, &QTimer::timeout, &wait, [this, &wait]() {
+            if (connectionCancelled(m_Cancellation))
+                wait.quit();
+        });
+        cancellation.start(25);
+        wait.exec(QEventLoop::ExcludeUserInputEvents);
+    }
+
+    qInfo() << "Launch accepted for app" << appId;
 
     rtspSessionUrl = getXmlString(response, "sessionUrl0");
 }
@@ -518,6 +552,10 @@ NvHTTP::openConnection(QUrl baseUrl,
                        int timeoutMs,
                        NvLogLevel logLevel)
 {
+    if (connectionCancelled(m_Cancellation)) {
+        throw QtNetworkReplyException(QNetworkReply::OperationCanceledError, tr("Connection cancelled"));
+    }
+
     // Port must be set
     Q_ASSERT(baseUrl.port(0) != 0);
 
@@ -556,11 +594,19 @@ NvHTTP::openConnection(QUrl baseUrl,
     QEventLoop loop;
     connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
     connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit, &loop, &QEventLoop::quit);
+    QTimer cancelTimer;
+    if (m_Cancellation) {
+        connect(&cancelTimer, &QTimer::timeout, &loop, [&]() {
+            if (connectionCancelled(m_Cancellation))
+                reply->abort();
+        });
+        cancelTimer.start(25);
+    }
     if (timeoutMs) {
         QTimer::singleShot(timeoutMs, &loop, &QEventLoop::quit);
     }
     if (logLevel >= NvLogLevel::NVLL_VERBOSE) {
-        qInfo() << "Executing request:" << url.toString();
+        qInfo() << "Executing request:" << url.toString(QUrl::RemoveQuery);
     }
     loop.exec(QEventLoop::ExcludeUserInputEvents);
 
@@ -568,7 +614,7 @@ NvHTTP::openConnection(QUrl baseUrl,
     if (!reply->isFinished())
     {
         if (logLevel >= NvLogLevel::NVLL_ERROR) {
-            qWarning() << "Aborting timed out request for" << url.toString();
+            qWarning() << "Aborting timed out request for" << url.toString(QUrl::RemoveQuery);
         }
         reply->abort();
     }
@@ -592,12 +638,15 @@ NvHTTP::openConnection(QUrl baseUrl,
             throw exception;
         }
         else if (reply->error() == QNetworkReply::OperationCanceledError) {
-            QtNetworkReplyException exception(QNetworkReply::TimeoutError, "Request timed out");
+            const bool cancelled = connectionCancelled(m_Cancellation);
+            QtNetworkReplyException exception(cancelled ? QNetworkReply::OperationCanceledError : QNetworkReply::TimeoutError,
+                                              cancelled ? tr("Connection cancelled") : tr("Request timed out"));
             delete reply;
             throw exception;
         }
         else {
-            QtNetworkReplyException exception(reply->error(), reply->errorString());
+            const QString error = reply->errorString().replace(url.toString(), url.toString(QUrl::RemoveQuery));
+            QtNetworkReplyException exception(reply->error(), error);
             delete reply;
             throw exception;
         }

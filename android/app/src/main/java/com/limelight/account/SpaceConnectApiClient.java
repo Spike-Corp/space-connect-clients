@@ -3,6 +3,7 @@ package com.limelight.account;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 import com.limelight.BuildConfig;
+import com.limelight.utils.RequestScope;
 
 import java.io.IOException;
 import java.net.URLEncoder;
@@ -22,6 +23,7 @@ public final class SpaceConnectApiClient {
     private final String baseUrl;
     private final OkHttpClient httpClient;
     private final Gson gson;
+    private final RequestScope requestScope;
 
     public SpaceConnectApiClient(String baseUrl) {
         this(baseUrl, new OkHttpClient.Builder()
@@ -32,9 +34,22 @@ public final class SpaceConnectApiClient {
     }
 
     SpaceConnectApiClient(String baseUrl, OkHttpClient httpClient) {
+        this(baseUrl, httpClient, null);
+    }
+
+    private SpaceConnectApiClient(String baseUrl, OkHttpClient httpClient, RequestScope requestScope) {
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
         this.httpClient = httpClient;
         this.gson = new Gson();
+        this.requestScope = requestScope;
+    }
+
+    public SpaceConnectApiClient withScope(RequestScope scope) {
+        return new SpaceConnectApiClient(baseUrl, httpClient, scope);
+    }
+
+    private Response execute(OkHttpClient client, Request request) throws IOException {
+        return requestScope == null ? client.newCall(request).execute() : requestScope.execute(client, request);
     }
 
     public AuthResponse login(String email, String password, DeviceInfo device, String recaptchaToken)
@@ -106,6 +121,10 @@ public final class SpaceConnectApiClient {
         return delete("queue", accessToken, StatusResponse.class);
     }
 
+    public StatusResponse leaveQueue(String accessToken, String machineId) throws IOException, ApiException {
+        return delete("queue?machineId=" + safeMachineId(machineId), accessToken, StatusResponse.class);
+    }
+
     public MachinesResponse getMachines(String accessToken) throws IOException, ApiException {
         return get("machines", accessToken, MachinesResponse.class);
     }
@@ -157,8 +176,13 @@ public final class SpaceConnectApiClient {
     }
 
     public PairResponse pair(String accessToken, String pin) throws IOException, ApiException {
+        return pair(accessToken, pin, null);
+    }
+
+    public PairResponse pair(String accessToken, String pin, String machineId) throws IOException, ApiException {
         PairRequest input = new PairRequest();
         input.pin = pin;
+        input.machineId = machineId == null ? null : safeMachineId(machineId);
         return post("pair", input, accessToken, PairResponse.class);
     }
 
@@ -368,7 +392,7 @@ public final class SpaceConnectApiClient {
                 .header("Authorization", "Bearer " + accessToken)
                 .build();
 
-        try (Response response = uploadClient.newCall(request).execute()) {
+        try (Response response = execute(uploadClient, request)) {
             ResponseBody responseBody = response.body();
             String json = responseBody != null ? responseBody.string() : "";
             if (!response.isSuccessful()) {
@@ -394,7 +418,7 @@ public final class SpaceConnectApiClient {
             request.header("Authorization", "Bearer " + accessToken);
         }
 
-        try (Response response = httpClient.newCall(request.build()).execute()) {
+        try (Response response = execute(httpClient, request.build())) {
             ResponseBody responseBody = response.body();
             String json = responseBody != null ? responseBody.string() : "";
             if (!response.isSuccessful()) {
@@ -420,7 +444,7 @@ public final class SpaceConnectApiClient {
             request.header("Authorization", "Bearer " + accessToken);
         }
 
-        try (Response response = httpClient.newCall(request.build()).execute()) {
+        try (Response response = execute(httpClient, request.build())) {
             ResponseBody responseBody = response.body();
             String json = responseBody != null ? responseBody.string() : "";
             if (!response.isSuccessful()) {
@@ -446,7 +470,7 @@ public final class SpaceConnectApiClient {
             request.header("Authorization", "Bearer " + accessToken);
         }
 
-        try (Response response = httpClient.newCall(request.build()).execute()) {
+        try (Response response = execute(httpClient, request.build())) {
             ResponseBody responseBody = response.body();
             String json = responseBody != null ? responseBody.string() : "";
             if (!response.isSuccessful()) {
@@ -472,7 +496,7 @@ public final class SpaceConnectApiClient {
             request.header("Authorization", "Bearer " + accessToken);
         }
 
-        try (Response response = httpClient.newCall(request.build()).execute()) {
+        try (Response response = execute(httpClient, request.build())) {
             ResponseBody responseBody = response.body();
             String json = responseBody != null ? responseBody.string() : "";
             if (!response.isSuccessful()) {
@@ -498,7 +522,7 @@ public final class SpaceConnectApiClient {
             request.header("Authorization", "Bearer " + accessToken);
         }
 
-        try (Response response = httpClient.newCall(request.build()).execute()) {
+        try (Response response = execute(httpClient, request.build())) {
             ResponseBody responseBody = response.body();
             String json = responseBody != null ? responseBody.string() : "";
             if (!response.isSuccessful()) {
@@ -555,6 +579,7 @@ public final class SpaceConnectApiClient {
 
     private static final class PairRequest {
         String pin;
+        String machineId;
     }
 
     private static final class CreateMachineRequest {
@@ -802,6 +827,7 @@ public final class SpaceConnectApiClient {
     }
 
     public static final class QueueStatus {
+        public String machineId;
         public int position;
         public int total;
         public int priority;

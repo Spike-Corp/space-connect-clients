@@ -248,11 +248,13 @@ public:
     Q_INVOKABLE QString getPrimaryGpuModel();
 
     void addNewHost(NvAddress address, bool mdns, NvAddress mdnsIpv6Address = NvAddress(),
-                    QString scMachineId = QString(), QString scOrigin = QString());
+                    QString scMachineId = QString(), QString scOrigin = QString(),
+                    const ConnectionCancellation& cancellation = {}, quint64 attempt = 0);
 
     QString generatePinString();
 
-    void pairHost(NvComputer* computer, QString pin);
+    void pairHost(NvComputer* computer, QString pin,
+                  const ConnectionCancellation& cancellation = {}, quint64 attempt = 0);
 
     void quitRunningApp(NvComputer* computer);
 
@@ -271,6 +273,8 @@ signals:
     void pairingCompleted(NvComputer* computer, QString error);
 
     void computerAddCompleted(QVariant success, QVariant detectedPortBlocking);
+    void sessionHostPrepared(quint64 attempt, bool success);
+    void sessionPairingCompleted(quint64 attempt, NvComputer* computer, QString error);
 
     // Emitido quando um PC é removido da lista (deleteHost) — o model precisa
     // resetar pra não segurar ponteiro de objeto já deletado.

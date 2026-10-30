@@ -18,7 +18,7 @@ const context = vm.createContext({
   activationPending: () => false, needsMachine: () => false,
 });
 vm.runInContext('function qsTr(text) { return text; } String.prototype.arg = function(value) { return this.replace(/%\\d/, value); };', context);
-for (const name of ["bootText", "queueTitle", "statusTitle", "creationPhaseLabel", "statusDetails", "currentBootTip"]) {
+for (const name of ["bootText", "queueTitle", "statusTitle", "creationPhaseLabel", "statusDetails", "currentBootTip", "primaryAction", "primaryText"]) {
   const found = source.match(new RegExp(`    function ${name}\\([^]*?\\n    }`));
   assert.ok(found, `missing QML handler ${name}`);
   vm.runInContext(found[0], context);
@@ -35,4 +35,13 @@ context.bootTips = ["Uma dica"];
 assert.equal(context.currentBootTip(), "Uma dica", "index is bounded after config refresh");
 context.remoteBootTexts = {};
 assert.equal(context.creationPhaseLabel("starting"), "Starting the operating system", "old server retains translated fallback");
+let opened = 0;
+context.sessionOrchestrator = { startDesktopSession: () => opened++ };
+context.LauncherApi.leaveQueue = () => { throw new Error("Open machine must not cancel an existing queue"); };
+for (const state of ["idle", "queued", "starting", "ready"]) {
+  context.LauncherApi.state = state;
+  assert.equal(context.primaryText(), "Open machine");
+  context.primaryAction();
+}
+assert.equal(opened, 4, "queued/booting dashboards resume the loading flow");
 console.log("PASS: actual QML handlers use admin titles, phases, reasons and empty tips safely");

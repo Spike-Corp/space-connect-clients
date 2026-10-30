@@ -830,7 +830,7 @@ VAAPIRenderer::renderFrame(AVFrame* frame)
 
         // This will draw the surface and any associated subpictures
         // NB: This can take a full VBlank period to complete!
-        vaPutSurface(vaDeviceContext->display,
+        const VAStatus presentStatus = vaPutSurface(vaDeviceContext->display,
                      surface,
                      m_XWindow,
                      0, 0,
@@ -838,6 +838,8 @@ VAAPIRenderer::renderFrame(AVFrame* frame)
                      dst.x, dst.y,
                      dst.w, dst.h,
                      NULL, 0, flags);
+        if (presentStatus == VA_STATUS_SUCCESS && Session::get())
+            Session::get()->notifyFirstVideoFrame();
 
         SDL_LockMutex(m_OverlayMutex);
 

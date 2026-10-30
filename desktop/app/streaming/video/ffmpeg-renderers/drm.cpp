@@ -1364,6 +1364,8 @@ void DrmRenderer::renderFrame(AVFrame* frame)
 
     // Free the previous FB object which has now been superseded
     drmModeRmFB(m_DrmFd, lastFbId);
+    if (Session::get())
+        Session::get()->notifyFirstVideoFrame();
 }
 
 bool DrmRenderer::needsTestFrame()

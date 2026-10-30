@@ -17,7 +17,7 @@ public:
         ALREADY_IN_PROGRESS
     };
 
-    explicit NvPairingManager(NvComputer* computer);
+    explicit NvPairingManager(NvComputer* computer, const ConnectionCancellation& cancellation = {});
 
     ~NvPairingManager();
 

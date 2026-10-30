@@ -674,6 +674,8 @@ void D3D11VARenderer::renderFrame(AVFrame* frame)
         SDL_PushEvent(&event);
         return;
     }
+    if (Session::get())
+        Session::get()->notifyFirstVideoFrame();
 }
 
 void D3D11VARenderer::renderOverlay(Overlay::OverlayType type)

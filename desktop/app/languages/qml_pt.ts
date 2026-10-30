@@ -202,6 +202,8 @@
 </context>
 <context>
     <name>NvHTTP</name>
+    <message><source>Connection cancelled</source><translation>Conexão cancelada</translation></message>
+    <message><source>Request timed out</source><translation>A solicitação demorou para responder</translation></message>
     <message>
         <location filename="../backend/nvhttp.cpp" line="359"/>
         <source>Missing audio capture device. Reinstalling GeForce Experience should resolve this error.</source>
@@ -469,6 +471,10 @@ Para eliminar a VM de verdade e libertar o disco, utilize o painel (spacecloud.g
 </context>
 <context>
     <name>Session</name>
+    <message><source>Your device is not authorized to open Desktop. Try again or contact support.</source><translation>Seu dispositivo não está autorizado a abrir a área de trabalho. Tente novamente ou fale com o suporte.</translation></message>
+    <message><source>Desktop is not available on this machine. Please contact support.</source><translation>A área de trabalho não está disponível nesta máquina. Entre em contato com o suporte.</translation></message>
+    <message><source>Another app is running on this machine. Close it before opening Desktop.</source><translation>Outro aplicativo está aberto nesta máquina. Feche-o antes de abrir a área de trabalho.</translation></message>
+    <message><source>No video frame arrived. Check your connection and try again.</source><translation>A imagem não chegou. Confira sua conexão e tente novamente.</translation></message>
     <message>
         <location filename="../streaming/session.cpp" line="112"/>
         <source>No video received from host.</source>
@@ -677,6 +683,7 @@ Para eliminar a VM de verdade e libertar o disco, utilize o painel (spacecloud.g
 </context>
 <context>
     <name>SettingsView</name>
+    <message><source>Reduce connection animations</source><translation>Reduzir animações de conexão</translation></message>
     <message>
         <location filename="../gui/SettingsView.qml" line="13"/>
         <source>Settings</source>
@@ -1200,6 +1207,7 @@ Para eliminar a VM de verdade e libertar o disco, utilize o painel (spacecloud.g
 </context>
 <context>
     <name>StreamSegue</name>
+    <message><source>Could not start the video. Check your connection and try again.</source><translation>Não foi possível iniciar o vídeo. Confira sua conexão e tente novamente.</translation></message>
     <message>
         <location filename="../gui/StreamSegue.qml" line="11"/>
         <source>Resuming %1...</source>
@@ -1337,5 +1345,33 @@ Para eliminar a VM de verdade e libertar o disco, utilize o painel (spacecloud.g
         <source>Enter the IP address of your host PC:</source>
         <translation type="unfinished"></translation>
     </message>
+</context>
+<context>
+    <name>LauncherApi</name>
+    <message><source>Automatic pairing failed. Please try again.</source><translation>Não foi possível parear automaticamente. Tente novamente.</translation></message>
+    <message><source>Could not join the queue. Please try again.</source><translation>Não foi possível entrar na fila. Tente novamente.</translation></message>
+    <message><source>Could not leave the queue. Check your connection and try again.</source><translation>Não foi possível sair da fila. Confira sua conexão e tente novamente.</translation></message>
+    <message><source>Could not connect to your machine. Please try again.</source><translation>Não foi possível conectar à sua máquina. Tente novamente.</translation></message>
+</context>
+<context>
+    <name>LoadingOverlay</name>
+    <message><source>Cancel connection</source><translation>Cancelar conexão</translation></message>
+    <message><source>Return without turning off your machine</source><translation>Voltar sem desligar sua máquina</translation></message>
+</context>
+<context>
+    <name>SessionOrchestrator</name>
+    <message><source>Your machine did not respond. Please try connecting again.</source><translation>Sua máquina não respondeu. Tente conectar novamente.</translation></message>
+    <message><source>Automatic pairing failed. Please try again.</source><translation>Não foi possível parear automaticamente. Tente novamente.</translation></message>
+    <message><source>Select a machine before connecting.</source><translation>Selecione uma máquina antes de conectar.</translation></message>
+    <message><source>Finding your machine...</source><translation>Procurando sua máquina...</translation></message>
+    <message><source>You are #%1 in queue</source><translation>Você está na posição %1 da fila</translation></message>
+    <message><source>Booting your machine...</source><translation>Ligando sua máquina...</translation></message>
+    <message><source>Connecting securely...</source><translation>Conectando com segurança...</translation></message>
+    <message><source>Authenticating your device...</source><translation>Autenticando seu dispositivo...</translation></message>
+    <message><source>Waiting for the first video frame...</source><translation>Preparando a imagem...</translation></message>
+    <message><source>Connected</source><translation>Conectado</translation></message>
+    <message><source>This session is ending. Wait for it to finish before connecting again.</source><translation>Esta sessão está encerrando. Aguarde antes de conectar novamente.</translation></message>
+    <message><source>Desktop is not available on this machine. Please contact support.</source><translation>A área de trabalho não está disponível nesta máquina. Entre em contato com o suporte.</translation></message>
+    <message><source>Another app is running on this machine. Close it before opening Desktop.</source><translation>Outro aplicativo está aberto nesta máquina. Feche-o antes de abrir a área de trabalho.</translation></message>
 </context>
 </TS>

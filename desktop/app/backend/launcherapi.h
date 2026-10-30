@@ -8,6 +8,8 @@
 #include <QNetworkAccessManager>
 #include <QObject>
 #include <QTimer>
+#include <QSet>
+#include <QUrl>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -69,7 +71,8 @@ class LauncherApi : public QObject
     Q_PROPERTY(QVariantList myMachines READ myMachines NOTIFY friendsChanged)
 
 public:
-    explicit LauncherApi(QObject* parent = nullptr);
+    explicit LauncherApi(QObject* parent = nullptr,
+                         const QUrl& apiBase = QUrl(QStringLiteral("https://spacecloud.gg/api/launcher/v1/")));
 
     bool busy() const { return m_Busy; }
     bool loggedIn() const { return m_LoggedIn; }
@@ -117,10 +120,10 @@ public:
 
     Q_INVOKABLE void login(const QString& email, const QString& password);
     Q_INVOKABLE void verifyTwoFactor(const QString& code);
-    Q_INVOKABLE void refreshStatus();
-    Q_INVOKABLE void joinQueue();
-    Q_INVOKABLE void leaveQueue();
-    Q_INVOKABLE void requestConnection();
+    Q_INVOKABLE void refreshStatus(const QString& machineId = QString());
+    Q_INVOKABLE void joinQueue(const QString& machineId = QString());
+    Q_INVOKABLE void leaveQueue(const QString& machineId = QString());
+    Q_INVOKABLE void requestConnection(const QString& machineId = QString());
     Q_INVOKABLE void endSession();
     // Provisiona a VM dedicada do usuário (self-service), igual ao botão
     // "Criar VM" do site. Necessário antes de conseguir entrar na fila —
@@ -128,6 +131,8 @@ public:
     Q_INVOKABLE void createMachine(const QString& password, const QString& balanceId = QString());
     Q_INVOKABLE void fetchMachines();
     Q_INVOKABLE void submitPairPin(const QString& pin);
+    void submitPairPinForMachine(const QString& pin, const QString& machineId);
+    void cancelConnectionRequests();
     Q_INVOKABLE void uploadFileToVm(const QString& filePath);
     // Emuladores: catálogo oficial + instalar/lançar na VM (o backend usa o
     // guest agent do Proxmox — nao precisa de versao nova do agent Windows).
@@ -262,7 +267,9 @@ private:
         const QString& path,
         const QJsonObject& body,
         bool authenticated,
-        ResponseHandler handler);
+        ResponseHandler handler,
+        bool connectionRequest = false,
+        int timeoutMs = 0);
     void attemptLogin(const QString& email, const QString& password, const QString& recaptchaToken);
     void handleAuthResponse(int status, const QJsonObject& root);
     void scheduleRefresh(int expiresInSeconds);
@@ -270,8 +277,8 @@ private:
     void applyStatus(const QJsonObject& root);
     void setBusy(bool busy);
     void setError(const QString& message);
-    void sendPairAttempt(const QString& pin, const QString& machineId, int attempt);
-    void sendFriendPairAttempt(const QString& machineId, const QString& pin, int attempt);
+    void sendPairAttempt(const QString& pin, const QString& machineId, int attempt, quint64 generation);
+    void sendFriendPairAttempt(const QString& machineId, const QString& pin, int attempt, quint64 generation);
     QString deviceId() const;
     // VM alvo das ações (fila/conexão/encerrar): a da sessão ativa, se houver;
     // senão a selecionada no seletor. Vazio = backend decide (comportamento antigo).
@@ -280,7 +287,11 @@ private:
     LauncherBitrate::Detection detectBitrate() const;
     static QString platformName();
 
+    const QUrl m_ApiBase;
     QNetworkAccessManager m_Network;
+    QSet<QNetworkReply*> m_ConnectionReplies;
+    quint64 m_ConnectionGeneration = 0;
+    bool m_ConnectionBusy = false;
     QTimer m_RefreshTimer;
     RecaptchaFetcher m_Recaptcha;
     QString m_AccessToken;

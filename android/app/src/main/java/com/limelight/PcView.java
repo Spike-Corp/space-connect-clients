@@ -15,6 +15,7 @@ import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.http.PairingManager;
 import com.limelight.account.AccountManager;
+import com.limelight.session.SessionLoadingActivity;
 import com.limelight.account.LauncherActivity;
 import com.limelight.account.SpaceConnectApiClient;
 import com.limelight.nvstream.http.PairingManager.PairState;
@@ -87,6 +88,9 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
     private boolean freezeUpdates, runningPolling, inForeground, completeOnCreateCalled;
     private String autoOpenAddress;
     private boolean autoOpenDone;
+    private volatile Thread pairingThread;
+    private volatile NvHTTP pairingHttp;
+    private volatile int pairingEpoch;
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder binder) {
             final ComputerManagerService.ComputerManagerBinder localBinder =
@@ -359,6 +363,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
 
     @Override
     public void onDestroy() {
+        cancelManualPairing();
         super.onDestroy();
 
         if (managerBinder != null) {
@@ -379,6 +384,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
 
     @Override
     protected void onPause() {
+        cancelManualPairing();
         super.onPause();
 
         inForeground = false;
@@ -462,6 +468,12 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
     }
 
     private void doPair(final ComputerDetails computer) {
+        String machineId = computer.scMachineId != null ? computer.scMachineId : machineIdForComputer(computer);
+        if (machineId != null && machineId.matches("^[a-fA-F0-9]{24}$")) {
+            startActivity(SessionLoadingActivity.intent(this, machineId,
+                    computer.hasCustomName ? computer.name : null, "friend".equals(computer.scOrigin)));
+            return;
+        }
         if (computer.state == ComputerDetails.State.OFFLINE || computer.activeAddress == null) {
             Toast.makeText(PcView.this, getResources().getString(R.string.pair_pc_offline), Toast.LENGTH_SHORT).show();
             return;
@@ -471,8 +483,11 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             return;
         }
 
+        cancelManualPairing();
+        final int epoch = pairingEpoch;
+        final ComputerManagerService.ComputerManagerBinder binder = managerBinder;
         Toast.makeText(PcView.this, getResources().getString(R.string.pairing), Toast.LENGTH_SHORT).show();
-        new Thread(new Runnable() {
+        pairingThread = new Thread(new Runnable() {
             @Override
             public void run() {
                 NvHTTP httpConn;
@@ -483,8 +498,13 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                     stopComputerUpdates(true);
 
                     httpConn = new NvHTTP(ServerHelper.getCurrentAddressFromComputer(computer),
-                            computer.httpsPort, managerBinder.getUniqueId(), computer.serverCert,
+                            computer.httpsPort, binder.getUniqueId(), computer.serverCert,
                             PlatformBinding.getCryptoProvider(PcView.this));
+                    pairingHttp = httpConn;
+                    if (epoch != pairingEpoch || Thread.currentThread().isInterrupted()) {
+                        httpConn.cancelPendingRequests();
+                        return;
+                    }
                     if (httpConn.getPairState() == PairState.PAIRED) {
                         // Don't display any toast, but open the app list
                         message = null;
@@ -492,7 +512,6 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                     }
                     else {
                         final String pinStr = PairingManager.generatePinString();
-                        AccountManager.submitPairPin(PcView.this, pinStr);
 
                         // Spin the dialog off in a thread because it blocks
                         Dialog.displayDialog(PcView.this, getResources().getString(R.string.pair_pairing_title),
@@ -502,6 +521,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                         PairingManager pm = httpConn.getPairingManager();
 
                         PairState pairState = pm.pair(httpConn.getServerInfo(true), pinStr);
+                        if (epoch != pairingEpoch || Thread.currentThread().isInterrupted()) return;
                         if (pairState == PairState.PIN_WRONG) {
                             message = getResources().getString(R.string.pair_incorrect_pin);
                         }
@@ -522,11 +542,11 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                             success = true;
 
                             // Pin this certificate for later HTTPS use
-                            managerBinder.getComputer(computer.uuid).serverCert = pm.getPairedCert();
+                            binder.getComputer(computer.uuid).serverCert = pm.getPairedCert();
 
                             // Invalidate reachability information after pairing to force
                             // a refresh before reading pair state again
-                            managerBinder.invalidateStateForComputer(computer.uuid);
+                            binder.invalidateStateForComputer(computer.uuid);
                         }
                         else {
                             // Should be no other values
@@ -542,6 +562,7 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                     message = e.getMessage();
                 }
 
+                if (epoch != pairingEpoch || Thread.currentThread().isInterrupted()) return;
                 Dialog.closeDialogs();
 
                 final String toastMessage = message;
@@ -549,6 +570,9 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
+                        if (epoch != pairingEpoch || !inForeground || isFinishing() || isDestroyed()) return;
+                        pairingThread = null;
+                        pairingHttp = null;
                         if (toastMessage != null) {
                             Toast.makeText(PcView.this, toastMessage, Toast.LENGTH_LONG).show();
                         }
@@ -564,7 +588,18 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                     }
                 });
             }
-        }).start();
+        }, "Manual-PC-pairing");
+        pairingThread.start();
+    }
+
+    private void cancelManualPairing() {
+        pairingEpoch++;
+        NvHTTP http = pairingHttp;
+        pairingHttp = null;
+        if (http != null) http.cancelPendingRequests();
+        Thread thread = pairingThread;
+        pairingThread = null;
+        if (thread != null) thread.interrupt();
     }
 
     // Liga a VM na nuvem do usuário (entra na fila/inicia a sessão) - substitui o antigo

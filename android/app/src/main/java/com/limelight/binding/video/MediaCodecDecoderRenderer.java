@@ -27,6 +27,7 @@ import android.media.MediaCodec.CodecException;
 import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Looper;
 import android.os.Process;
 import android.os.SystemClock;
 import android.util.Range;
@@ -58,7 +59,9 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
     private Context context;
     private Activity activity;
-    private MediaCodec videoDecoder;
+    private volatile MediaCodec videoDecoder;
+    private final FirstFrameSignal firstFrameSignal = new FirstFrameSignal();
+    private final Handler frameRenderedHandler = new Handler(Looper.getMainLooper());
     private Thread rendererThread;
     private boolean adaptivePlayback, directSubmit, fusedIdrFrame;
     private boolean refFrameInvalidationHevc, refFrameInvalidationAv1;
@@ -594,10 +597,12 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
             }
         }
 
-        if (USE_FRAME_RENDER_TIME && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             videoDecoder.setOnFrameRenderedListener(new MediaCodec.OnFrameRenderedListener() {
                 @Override
                 public void onFrameRendered(MediaCodec mediaCodec, long presentationTimeUs, long renderTimeNanos) {
+                    if (stopping || mediaCodec != videoDecoder || presentationTimeUs == Long.MAX_VALUE) return;
+                    firstFrameSignal.onFrameRendered();
                     long delta = (renderTimeNanos / 1000000L) - (presentationTimeUs / 1000);
                     if (delta >= 0 && delta < 1000) {
                         if (USE_FRAME_RENDER_TIME) {
@@ -605,10 +610,19 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                         }
                     }
                 }
-            }, null);
+            }, frameRenderedHandler);
         }
 
         return 0;
+    }
+
+    public void setOnFirstFrameRendered(Runnable listener) {
+        firstFrameSignal.setListener(listener);
+    }
+
+    public void clearOnFirstFrameRendered() {
+        firstFrameSignal.cancel();
+        frameRenderedHandler.removeCallbacksAndMessages(null);
     }
 
     @Override
@@ -1146,6 +1160,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
     // !!! May be called even if setup()/start() fails !!!
     public void prepareForStop() {
+        clearOnFirstFrameRendered();
         // Let the decoding code know to ignore codec exceptions now
         stopping = true;
 
@@ -1209,7 +1224,11 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
     @Override
     public void cleanup() {
-        videoDecoder.release();
+        clearOnFirstFrameRendered();
+        if (videoDecoder != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) videoDecoder.setOnFrameRenderedListener(null, null);
+            videoDecoder.release();
+        }
     }
 
     @Override

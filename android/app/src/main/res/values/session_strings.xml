@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="session_preparing">Getting your session ready</string>
+    <string name="session_connecting">Connecting to your computer</string>
+    <string name="session_pairing">Securely connecting your device</string>
+    <string name="session_waiting_frame">Starting your stream</string>
+    <string name="session_cancel">Cancel</string>
+    <string name="session_connection_failed">We couldn’t connect. Please try again from your dashboard.</string>
+    <string name="session_pair_failed">We couldn’t securely connect this device. Please try again.</string>
+    <string name="session_desktop_missing">Desktop isn’t available on this computer. Contact support to enable it.</string>
+    <string name="session_host_busy">Another app is running on this computer. Close it on the host before connecting to Desktop.</string>
+</resources>

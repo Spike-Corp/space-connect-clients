@@ -14,6 +14,7 @@
 #include "../backend/launcherjson.h"
 #include "../backend/nvcomputer.h"
 #include "../backend/nvpairingmanager.h"
+#include "../backend/desktoplaunch.h"
 
 class PairingHost
 {
@@ -23,6 +24,12 @@ public:
     int cleanupStatus = 404;
     int cleanupRequests = 0;
     QByteArray challenge;
+    bool stallRequests = false;
+    int requests = 0;
+    int disconnects = 0;
+    int launchDenials = 0;
+    int launchRequests = 0;
+    QUrl lastLaunch;
 
     PairingHost()
     {
@@ -30,15 +37,27 @@ public:
             QTcpSocket* socket = server.nextPendingConnection();
             auto input = std::make_shared<QByteArray>();
             QObject::connect(socket, &QTcpSocket::disconnected, socket, &QObject::deleteLater);
+            QObject::connect(socket, &QTcpSocket::disconnected, &server, [this]() { disconnects++; });
             QObject::connect(socket, &QTcpSocket::readyRead, &server, [this, socket, input]() {
                 input->append(socket->readAll());
                 if (!input->contains("\r\n\r\n"))
+                    return;
+                requests++;
+                if (stallRequests)
                     return;
                 const QUrl url = QUrl::fromEncoded(input->split(' ').at(1));
                 const QUrlQuery query(url);
                 int status = 200;
                 QByteArray body = "<root status_code=\"200\"><paired>0</paired></root>";
-                if (url.path() == QStringLiteral("/unpair")) {
+                if (url.path() == QStringLiteral("/launch")) {
+                    lastLaunch = url;
+                    launchRequests++;
+                    if (launchRequests <= launchDenials)
+                        body = "<root status_code=\"403\" status_message=\"Permission pending\"/>";
+                    else
+                        body = "<root status_code=\"200\"><sessionUrl0>rtsp://127.0.0.1/fixture</sessionUrl0></root>";
+                }
+                else if (url.path() == QStringLiteral("/unpair")) {
                     cleanupRequests++;
                     status = cleanupStatus;
                 }
@@ -92,6 +111,65 @@ private slots:
         QTest::newRow("cleanup-500") << 500;
     }
 
+    void abortsPendingNativeHandshake()
+    {
+        PairingHost host;
+        host.stallRequests = true;
+        NvComputer computer = host.computer();
+        const auto cancelled = std::make_shared<std::atomic_bool>(false);
+        NvPairingManager pairing(&computer, cancelled);
+        QSslCertificate certificate;
+        QTimer::singleShot(60, this, [cancelled]() { cancelled->store(true); });
+        QElapsedTimer elapsed;
+        elapsed.start();
+        try {
+            pairing.pair(QStringLiteral("7.1.431.1"), QStringLiteral("1234"), certificate);
+            QFAIL("Pending pairing must be interrupted");
+        }
+        catch (const QtNetworkReplyException& error) {
+            QCOMPARE(error.getError(), QNetworkReply::OperationCanceledError);
+        }
+        QVERIFY(elapsed.elapsed() < 1000);
+        QCOMPARE(host.requests, 1);
+        QTRY_COMPARE(host.disconnects, 1);
+        QVERIFY(certificate.isNull());
+    }
+
+    void cancelledAttemptNeverContactsHost()
+    {
+        PairingHost host;
+        NvComputer computer = host.computer();
+        const auto cancelled = std::make_shared<std::atomic_bool>(true);
+        NvPairingManager pairing(&computer, cancelled);
+        QSslCertificate certificate;
+        try {
+            pairing.pair(QStringLiteral("7.1.431.1"), QStringLiteral("1234"), certificate);
+            QFAIL("An obsolete attempt must not pair");
+        }
+        catch (const QtNetworkReplyException& error) {
+            QCOMPARE(error.getError(), QNetworkReply::OperationCanceledError);
+        }
+        QCOMPARE(host.requests, 0);
+    }
+
+    void selectsRealDesktopIdWithoutGameFallback()
+    {
+        NvApp game;
+        game.name = QStringLiteral("Steam");
+        game.id = 99;
+        game.directLaunch = true;
+        NvApp desktop;
+        desktop.name = QStringLiteral("Desktop");
+        desktop.id = 4321;
+        QVector<NvApp> apps{game, desktop};
+        const int chosen = DesktopLaunch::appIndex(apps);
+        QCOMPARE(chosen, 1);
+        QCOMPARE(apps[chosen].id, 4321);
+        QCOMPARE(DesktopLaunch::appIndex(QVector<NvApp>{game}), -1);
+        desktop.id = 0;
+        QCOMPARE(DesktopLaunch::appIndex(QVector<NvApp>{desktop}), -1);
+    }
+
     void preservesOriginalFailure()
     {
         QFETCH(int, cleanupStatus);
@@ -105,6 +183,72 @@ private slots:
                  NvPairingManager::ALREADY_IN_PROGRESS);
         QCOMPARE(host.cleanupRequests, 1);
         QVERIFY(certificate.isNull());
+    }
+
+    void waitsForNewPairPermissionWithoutChangingDesktopConfig()
+    {
+        PairingHost host;
+        host.launchDenials = 1;
+        NvComputer computer = host.computer();
+        NvHTTP http(&computer);
+        http.m_BaseUrlHttps.setScheme(QStringLiteral("http"));
+        STREAM_CONFIGURATION config{};
+        config.width = 1920;
+        config.height = 1080;
+        config.fps = 60;
+        config.audioConfiguration = AUDIO_CONFIGURATION_STEREO;
+        QString rtsp;
+        http.startApp(QStringLiteral("launch"), false, 4321, &config,
+                      false, false, 0, false, rtsp, true, true);
+        QCOMPARE(host.launchRequests, 2);
+        QCOMPARE(rtsp, QStringLiteral("rtsp://127.0.0.1/fixture"));
+        const QUrlQuery query(host.lastLaunch);
+        QCOMPARE(query.queryItemValue(QStringLiteral("appid")), QStringLiteral("4321"));
+        QCOMPARE(query.queryItemValue(QStringLiteral("virtualDisplay")), QStringLiteral("0"));
+        QCOMPARE(query.queryItemValue(QStringLiteral("localAudioPlayMode")), QStringLiteral("0"));
+    }
+
+    void cancelsPermissionWaitBeforeRetry()
+    {
+        PairingHost host;
+        host.launchDenials = 100;
+        NvComputer computer = host.computer();
+        NvHTTP http(&computer);
+        http.m_BaseUrlHttps.setScheme(QStringLiteral("http"));
+        const auto cancelled = std::make_shared<std::atomic_bool>(false);
+        http.setCancellation(cancelled);
+        STREAM_CONFIGURATION config{};
+        QString rtsp;
+        QTimer::singleShot(100, this, [cancelled]() { cancelled->store(true); });
+        try {
+            http.startApp(QStringLiteral("launch"), false, 4321, &config,
+                          false, false, 0, false, rtsp, true, true);
+            QFAIL("Cancelling must interrupt the permission wait");
+        }
+        catch (const QtNetworkReplyException& error) {
+            QCOMPARE(error.getError(), QNetworkReply::OperationCanceledError);
+        }
+        QCOMPARE(host.launchRequests, 1);
+    }
+
+    void neverRetriesPermissionsForPreviouslyPairedHost()
+    {
+        PairingHost host;
+        host.launchDenials = 100;
+        NvComputer computer = host.computer();
+        NvHTTP http(&computer);
+        http.m_BaseUrlHttps.setScheme(QStringLiteral("http"));
+        STREAM_CONFIGURATION config{};
+        QString rtsp;
+        try {
+            http.startApp(QStringLiteral("launch"), false, 4321, &config,
+                          false, false, 0, false, rtsp, true);
+            QFAIL("An existing host's permission denial must surface immediately");
+        }
+        catch (const GfeHttpResponseException& error) {
+            QCOMPARE(error.getStatusCode(), 403);
+        }
+        QCOMPARE(host.launchRequests, 1);
     }
 
     void preservesBinaryKeyWhenHashContainsZero()

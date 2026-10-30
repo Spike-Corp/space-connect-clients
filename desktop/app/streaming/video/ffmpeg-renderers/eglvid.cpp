@@ -894,6 +894,9 @@ void EGLRenderer::renderFrame(AVFrame* frame)
 
     SDL_GL_SwapWindow(m_Window);
 
+    if (Session::get())
+        Session::get()->notifyFirstVideoFrame();
+
     if (m_BlockingSwapBuffers) {
         // This glClear() requires the new back buffer to complete. This ensures
         // our eglClientWaitSync() or glFinish() call in waitToRender() will not

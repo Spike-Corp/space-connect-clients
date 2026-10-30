@@ -34,16 +34,20 @@
 #include <stdexcept>
 
 namespace {
-const QUrl kApiBase(QStringLiteral("https://spacecloud.gg/api/launcher/v1/"));
-
 QJsonObject errorObject(const QJsonObject& root)
 {
     return root.value(QStringLiteral("error")).toObject();
 }
+
+QString responseErrorMessage(const QJsonObject& root, const QString& fallback)
+{
+    const QString message = errorObject(root).value(QStringLiteral("message")).toString().trimmed();
+    return message.isEmpty() ? fallback : message;
+}
 }
 
-LauncherApi::LauncherApi(QObject* parent)
-    : QObject(parent)
+LauncherApi::LauncherApi(QObject* parent, const QUrl& apiBase)
+    : QObject(parent), m_ApiBase(apiBase)
 {
     m_RefreshTimer.setSingleShot(true);
     connect(&m_RefreshTimer, &QTimer::timeout, this, &LauncherApi::refreshTokens);
@@ -209,7 +213,7 @@ void LauncherApi::handleAuthResponse(int status, const QJsonObject& root)
         QStringLiteral("Não foi possível entrar na SpaceCloud")));
 }
 
-void LauncherApi::refreshStatus()
+void LauncherApi::refreshStatus(const QString& machineId)
 {
     if (!m_LoggedIn || m_Busy)
         return;
@@ -219,8 +223,9 @@ void LauncherApi::refreshStatus()
     // não localizava a entrada e o app voltava pro estado "idle", como se o usuário
     // tivesse saído da fila sozinho.
     QString statusPath = QStringLiteral("status");
-    if (!effectiveMachineId().isEmpty())
-        statusPath += QStringLiteral("?machineId=") + effectiveMachineId();
+    const QString targetMachineId = machineId.isEmpty() ? effectiveMachineId() : machineId;
+    if (!targetMachineId.isEmpty())
+        statusPath += QStringLiteral("?machineId=") + targetMachineId;
     request("GET", statusPath, QJsonObject(), true,
             [this](int status, const QJsonObject& root) {
                 setBusy(false);
@@ -247,10 +252,10 @@ void LauncherApi::refreshStatus()
                     refreshTokens();
                 }
                 else {
-                    setError(errorObject(root).value(QStringLiteral("message")).toString(
+                    setError(responseErrorMessage(root,
                         QStringLiteral("Não foi possível atualizar o status")));
                 }
-            });
+            }, false, 30000);
 }
 
 void LauncherApi::fetchMachines()
@@ -519,7 +524,7 @@ void LauncherApi::createMachine(const QString& password, const QString& balanceI
             });
 }
 
-void LauncherApi::joinQueue()
+void LauncherApi::joinQueue(const QString& machineId)
 {
     if (!m_LoggedIn || m_Busy)
         return;
@@ -531,8 +536,9 @@ void LauncherApi::joinQueue()
     };
     // Multi-máquina: entra na fila da VM escolhida no seletor (backend sem
     // machineId assumia a sessão "padrão" e podia abrir a máquina errada).
-    if (!effectiveMachineId().isEmpty())
-        body.insert(QStringLiteral("machineId"), effectiveMachineId());
+    const QString targetMachineId = machineId.isEmpty() ? effectiveMachineId() : machineId;
+    if (!targetMachineId.isEmpty())
+        body.insert(QStringLiteral("machineId"), targetMachineId);
     request("POST", QStringLiteral("queue"),
             body,
             true,
@@ -541,44 +547,50 @@ void LauncherApi::joinQueue()
                 if (status >= 200 && status < 300)
                     applyStatus(root);
                 else
-                    setError(errorObject(root).value(QStringLiteral("message")).toString());
-            });
+                    setError(responseErrorMessage(root,
+                        tr("Could not join the queue. Please try again.")));
+            }, false, 30000);
 }
 
-void LauncherApi::leaveQueue()
+void LauncherApi::leaveQueue(const QString& machineId)
 {
     if (!m_LoggedIn || m_Busy)
         return;
 
     setBusy(true);
     QString path = QStringLiteral("queue");
-    if (!effectiveMachineId().isEmpty())
-        path += QStringLiteral("?machineId=") + effectiveMachineId();
+    const QString targetMachineId = machineId.isEmpty() ? effectiveMachineId() : machineId;
+    if (!targetMachineId.isEmpty())
+        path += QStringLiteral("?machineId=") + targetMachineId;
     request("DELETE", path, QJsonObject(), true,
             [this](int status, const QJsonObject& root) {
                 setBusy(false);
                 if (status >= 200 && status < 300)
                     applyStatus(root);
                 else
-                    setError(errorObject(root).value(QStringLiteral("message")).toString());
-            });
+                    setError(responseErrorMessage(root,
+                        tr("Could not leave the queue. Check your connection and try again.")));
+            }, false, 30000);
 }
 
-void LauncherApi::requestConnection()
+void LauncherApi::requestConnection(const QString& machineId)
 {
     if (!m_LoggedIn || m_Busy)
         return;
 
     setBusy(true);
+    m_ConnectionBusy = true;
     QString path = QStringLiteral("connection");
-    const QString targetMachineId = effectiveMachineId();
+    const QString targetMachineId = machineId.isEmpty() ? effectiveMachineId() : machineId;
     if (!targetMachineId.isEmpty())
         path += QStringLiteral("?machineId=") + targetMachineId;
     request("GET", path, QJsonObject(), true,
             [this, targetMachineId](int status, const QJsonObject& root) {
+                m_ConnectionBusy = false;
                 setBusy(false);
                 if (status < 200 || status >= 300) {
-                    setError(errorObject(root).value(QStringLiteral("message")).toString());
+                    setError(responseErrorMessage(root,
+                        tr("Could not connect to your machine. Please try again.")));
                     return;
                 }
                 try {
@@ -620,7 +632,7 @@ void LauncherApi::requestConnection()
                 catch (const std::exception&) {
                     setError(QStringLiteral("Conexão ainda não disponível"));
                 }
-            });
+            }, true);
 }
 
 void LauncherApi::ensureMicBridge()
@@ -714,53 +726,83 @@ void LauncherApi::submitPairPin(const QString& pin)
     // Pareamento na VM de um AMIGO usa a rota friend-aware (valida permissão
     // de acesso no backend). O flag é setado em connectFriendMachine().
     if (!m_PendingFriendMachineId.isEmpty()) {
-        sendFriendPairAttempt(m_PendingFriendMachineId, pin, 0);
+        sendFriendPairAttempt(m_PendingFriendMachineId, pin, 0, m_ConnectionGeneration);
         return;
     }
-    sendPairAttempt(pin, effectiveMachineId(), 0);
+    sendPairAttempt(pin, effectiveMachineId(), 0, m_ConnectionGeneration);
 }
 
-void LauncherApi::sendFriendPairAttempt(const QString& machineId, const QString& pin, int attempt)
+void LauncherApi::submitPairPinForMachine(const QString& pin, const QString& machineId)
 {
+    if (!m_LoggedIn || pin.size() != 4 || machineId.isEmpty())
+        return;
+    sendPairAttempt(pin, machineId, 0, m_ConnectionGeneration);
+}
+
+void LauncherApi::cancelConnectionRequests()
+{
+    ++m_ConnectionGeneration;
+    const auto replies = m_ConnectionReplies;
+    for (QNetworkReply* reply : replies)
+        reply->abort();
+    if (m_ConnectionBusy) {
+        m_ConnectionBusy = false;
+        setBusy(false);
+    }
+}
+
+void LauncherApi::sendFriendPairAttempt(const QString& machineId, const QString& pin, int attempt, quint64 generation)
+{
+    if (generation != m_ConnectionGeneration)
+        return;
     request("POST", QStringLiteral("friends/machines/") + machineId + QStringLiteral("/pair"),
             QJsonObject{{QStringLiteral("pin"), pin}},
             true,
-            [this, machineId, pin, attempt](int status, const QJsonObject& root) {
+            [this, machineId, pin, attempt, generation](int status, const QJsonObject& root) {
                 if (LauncherJson::pairPinAccepted(status, root)) {
                     return;
                 }
                 if (attempt < 7) {
-                    QTimer::singleShot(500, this, [this, machineId, pin, attempt]() {
-                        sendFriendPairAttempt(machineId, pin, attempt + 1);
+                    QTimer::singleShot(500, this, [this, machineId, pin, attempt, generation]() {
+                        sendFriendPairAttempt(machineId, pin, attempt + 1, generation);
                     });
                 }
-            });
+                else {
+                    setError(tr("Automatic pairing failed. Please try again."));
+                }
+            }, true);
 }
 
-void LauncherApi::sendPairAttempt(const QString& pin, const QString& machineId, int attempt)
+void LauncherApi::sendPairAttempt(const QString& pin, const QString& machineId, int attempt, quint64 generation)
 {
+    if (generation != m_ConnectionGeneration)
+        return;
     QJsonObject body{{QStringLiteral("pin"), pin}};
     if (!machineId.isEmpty())
         body.insert(QStringLiteral("machineId"), machineId);
     request("POST", QStringLiteral("pair"),
             body,
             true,
-            [this, pin, machineId, attempt](int status, const QJsonObject& root) {
+            [this, pin, machineId, attempt, generation](int status, const QJsonObject& root) {
                 // Agent acknowledgement stops delivery retries, not the native
                 // handshake: only NvPairingManager can confirm pairing.
                 if (LauncherJson::pairPinAccepted(status, root)) {
                     return;
                 }
                 if (attempt < 7) {
-                    QTimer::singleShot(500, this, [this, pin, machineId, attempt]() {
-                        sendPairAttempt(pin, machineId, attempt + 1);
+                    QTimer::singleShot(500, this, [this, pin, machineId, attempt, generation]() {
+                        sendPairAttempt(pin, machineId, attempt + 1, generation);
                     });
                 }
-            });
+                else {
+                    setError(tr("Automatic pairing failed. Please try again."));
+                }
+            }, true);
 }
 
 void LauncherApi::logout()
 {
+    cancelConnectionRequests();
     m_RefreshTimer.stop();
     m_AccessToken.clear();
     m_RefreshToken.clear();
@@ -884,14 +926,17 @@ void LauncherApi::request(
     const QString& path,
     const QJsonObject& body,
     bool authenticated,
-    ResponseHandler handler)
+    ResponseHandler handler,
+    bool connectionRequest,
+    int timeoutMs)
 {
-    QNetworkRequest request(kApiBase.resolved(QUrl(path)));
+    QNetworkRequest request(m_ApiBase.resolved(QUrl(path)));
     request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
     request.setRawHeader("Accept", "application/json");
     request.setRawHeader("User-Agent", "SpaceConnect-Qt/0.1.0");
     if (authenticated && !m_AccessToken.isEmpty())
         request.setRawHeader("Authorization", "Bearer " + m_AccessToken.toUtf8());
+    request.setTransferTimeout(connectionRequest ? 30000 : timeoutMs);
 
     QNetworkReply* reply;
     if (method == "GET")
@@ -905,7 +950,15 @@ void LauncherApi::request(
     else
         reply = m_Network.post(request, QJsonDocument(body).toJson(QJsonDocument::Compact));
 
-    connect(reply, &QNetworkReply::finished, this, [reply, handler = std::move(handler)]() {
+    const quint64 generation = m_ConnectionGeneration;
+    if (connectionRequest)
+        m_ConnectionReplies.insert(reply);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, handler = std::move(handler), connectionRequest, generation]() {
+        m_ConnectionReplies.remove(reply);
+        if (connectionRequest && generation != m_ConnectionGeneration) {
+            reply->deleteLater();
+            return;
+        }
         const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         QJsonParseError parseError;
         const QJsonDocument document = QJsonDocument::fromJson(reply->readAll(), &parseError);
@@ -951,7 +1004,7 @@ void LauncherApi::uploadFileToVm(const QString& localFilePath)
     // Era /api/user/session/upload (middleware `authenticate`, JWT do SITE) com um
     // token de LAUNCHER (aud 'space-connect') → 401 "User not found" em todo upload.
     // A rota certa é a do launcher, que aceita este token (mesma do app Android).
-    QNetworkRequest request(kApiBase.resolved(QUrl(QStringLiteral("session/upload"))));
+    QNetworkRequest request(m_ApiBase.resolved(QUrl(QStringLiteral("session/upload"))));
     request.setRawHeader("Accept", "application/json");
     request.setRawHeader("User-Agent", "SpaceConnect-Qt/0.1.0");
     if (!m_AccessToken.isEmpty())

@@ -47,6 +47,7 @@
 #include "backend/computermanager.h"
 #include "backend/systemproperties.h"
 #include "backend/launcherapi.h"
+#include "backend/sessionorchestrator.h"
 #include "backend/xdapi.h"
 #include "backend/latencytester.h"
 #include "streaming/session.h"
@@ -687,6 +688,7 @@ int main(int argc, char *argv[])
     // Register our C++ types for QML
     qmlRegisterType<ComputerModel>("ComputerModel", 1, 0, "ComputerModel");
     qmlRegisterType<AppModel>("AppModel", 1, 0, "AppModel");
+    qmlRegisterType<SessionOrchestrator>("SessionOrchestrator", 1, 0, "SessionOrchestrator");
     qmlRegisterUncreatableType<Session>("Session", 1, 0, "Session", "Session cannot be created from QML");
     qmlRegisterSingletonType<ComputerManager>("ComputerManager", 1, 0,
                                               "ComputerManager",

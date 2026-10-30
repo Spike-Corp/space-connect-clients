@@ -3,6 +3,7 @@
 #include "identitymanager.h"
 #include "nvapp.h"
 #include "nvaddress.h"
+#include "connectioncancel.h"
 
 #include <Limelight.h>
 
@@ -145,6 +146,7 @@ public:
 
     void setAddress(NvAddress address);
     void setHttpsPort(uint16_t port);
+    void setCancellation(const ConnectionCancellation& cancellation) { m_Cancellation = cancellation; }
 
     NvAddress address();
 
@@ -177,7 +179,9 @@ public:
              bool localAudio,
              int gamepadMask,
              bool persistGameControllersOnDisconnect,
-             QString& rtspSessionUrl);
+             QString& rtspSessionUrl,
+             bool desktopSession = false,
+             bool freshlyPaired = false);
 
     QVector<NvApp>
     getAppList();
@@ -205,4 +209,5 @@ private:
     NvAddress m_Address;
     QNetworkAccessManager m_Nam;
     QSslCertificate m_ServerCert;
+    ConnectionCancellation m_Cancellation;
 };

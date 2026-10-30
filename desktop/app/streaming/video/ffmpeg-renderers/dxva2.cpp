@@ -1196,4 +1196,6 @@ void DXVA2Renderer::renderFrame(AVFrame *frame)
         SDL_PushEvent(&event);
         return;
     }
+    if (Session::get())
+        Session::get()->notifyFirstVideoFrame();
 }

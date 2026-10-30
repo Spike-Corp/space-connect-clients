@@ -11,9 +11,10 @@
 
 #define REQUEST_TIMEOUT_MS 5000
 
-NvPairingManager::NvPairingManager(NvComputer* computer) :
+NvPairingManager::NvPairingManager(NvComputer* computer, const ConnectionCancellation& cancellation) :
     m_Http(computer)
 {
+    m_Http.setCancellation(cancellation);
     QByteArray cert = IdentityManager::get()->getCertificate();
     BIO *bio = BIO_new_mem_buf(cert.data(), -1);
     THROW_BAD_ALLOC_IF_NULL(bio);

@@ -1,5 +1,5 @@
 import QtQuick 2.9
-import QtQuick.Controls 2.2
+import QtQuick.Controls 2.3
 import QtQuick.Layouts 1.3
 import QtQuick.Window 2.2
 import QtQuick.Controls.Material 2.2
@@ -10,6 +10,7 @@ import StreamingPreferences 1.0
 import SystemProperties 1.0
 import SdlGamepadKeyNavigation 1.0
 import LauncherApi 1.0
+import SessionOrchestrator 1.0
 import MicLevelTester 1.0
 
 ApplicationWindow {
@@ -51,6 +52,7 @@ ApplicationWindow {
     }
 
     Component.onCompleted: {
+        sessionOrchestrator.initialize(LauncherApi, ComputerManager)
         // Override the background color to Material 2 colors for Qt 6.5+
         // in order to improve contrast between GFE's placeholder box art
         // and the background of the app grid.
@@ -91,12 +93,55 @@ ApplicationWindow {
             unmappedGamepadDialog.open()
         }
     }
-  
+
+    SessionOrchestrator {
+        id: sessionOrchestrator
+        onSessionReady: function(session) {
+            stackView.push("qrc:/gui/StreamSegue.qml", {
+                "session": session, "appName": "Desktop", "managedDesktop": true
+            }, StackView.Immediate)
+        }
+        onErrorOccurred: function(message) {
+            sessionErrorToast.message = message
+            sessionErrorToast.open()
+        }
+    }
+
+    SessionLoadingWindow {
+        id: sessionLoadingWindow
+        orchestrator: sessionOrchestrator
+        dashboardWindow: window
+    }
+
+    Popup {
+        id: sessionErrorToast
+        property string message: ""
+        parent: Overlay.overlay
+        x: (parent.width - width) / 2
+        y: parent.height - height - 32
+        width: Math.min(560, parent.width - 40)
+        padding: 20
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        contentItem: Label {
+            text: sessionErrorToast.message
+            textFormat: Text.PlainText
+            wrapMode: Text.WordWrap
+            color: "#f8f5ff"
+        }
+        background: Rectangle { color: "#19151f"; radius: 12; border.color: "#9793aa" }
+        onOpened: sessionErrorToastTimer.restart()
+        Timer { id: sessionErrorToastTimer; interval: 6000; onTriggered: sessionErrorToast.close() }
+    }
+
     // This configures the maximum width of the singleton attached QML ToolTip. If left unconstrained,
     // it will never insert a line break and just extend on forever.
     ToolTip.toolTip.contentWidth: ToolTip.toolTip.implicitContentWidth < 400 ? ToolTip.toolTip.implicitContentWidth : 400
 
     function goBack() {
+        if (sessionOrchestrator.busy) {
+            sessionOrchestrator.cancel()
+            return
+        }
         if (clearOnBack) {
             // Pop all items except the first one
             stackView.pop(null)

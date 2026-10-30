@@ -51,6 +51,7 @@ import com.limelight.LimeLog;
 import com.limelight.nvstream.ConnectionContext;
 import com.limelight.nvstream.http.PairingManager.PairState;
 import com.limelight.nvstream.jni.MoonBridge;
+import com.limelight.utils.RequestScope;
 
 import okhttp3.ConnectionPool;
 import okhttp3.HttpUrl;
@@ -87,6 +88,7 @@ public class NvHTTP {
     private X509TrustManager trustManager;
     private X509KeyManager keyManager;
     private X509Certificate serverCert;
+    private final RequestScope requestScope;
 
     void setServerCert(X509Certificate serverCert) {
         this.serverCert = serverCert;
@@ -202,13 +204,29 @@ public class NvHTTP {
     }
     
     public NvHTTP(ComputerDetails.AddressTuple address, int httpsPort, String uniqueId, X509Certificate serverCert, LimelightCryptoProvider cryptoProvider) throws IOException {
+        this(address, httpsPort, uniqueId, serverCert, cryptoProvider, new RequestScope(), false);
+    }
+
+    public NvHTTP(ComputerDetails.AddressTuple address, int httpsPort, String uniqueId,
+            X509Certificate serverCert, LimelightCryptoProvider cryptoProvider, RequestScope scope) throws IOException {
+        this(address, httpsPort, uniqueId, serverCert, cryptoProvider, scope, true);
+    }
+
+    public NvHTTP(ComputerDetails.AddressTuple address, int httpsPort, String uniqueId,
+            X509Certificate serverCert, LimelightCryptoProvider cryptoProvider, RequestScope scope,
+            boolean boundedHandshake) throws IOException {
         // Use the same UID for all Moonlight clients so we can quit games
         // started by other Moonlight clients.
         this.uniqueId = "0123456789ABCDEF";
 
         this.serverCert = serverCert;
+        this.requestScope = scope;
 
         initializeHttpState(cryptoProvider);
+        if (boundedHandshake) {
+            httpClientLongConnectNoReadTimeout = httpClientLongConnectNoReadTimeout.newBuilder()
+                    .callTimeout(45, TimeUnit.SECONDS).build();
+        }
 
         this.httpsPort = httpsPort;
 
@@ -236,6 +254,10 @@ public class NvHTTP {
         }
 
         this.pm = new PairingManager(this, cryptoProvider);
+    }
+
+    public void cancelPendingRequests() {
+        requestScope.close();
     }
 
     static String getXmlString(Reader r, String tagname, boolean throwIfMissing) throws XmlPullParserException, IOException {
@@ -446,7 +468,7 @@ public class NvHTTP {
     private ResponseBody openHttpConnection(OkHttpClient client, HttpUrl baseUrl, String path, String query) throws IOException {
         HttpUrl completeUrl = getCompleteUrl(baseUrl, path, query);
         Request request = new Request.Builder().url(completeUrl).get().build();
-        Response response = performAndroidTlsHack(client).newCall(request).execute();
+        Response response = requestScope.execute(performAndroidTlsHack(client), request);
 
         ResponseBody body = response.body();
         
@@ -460,7 +482,7 @@ public class NvHTTP {
         }
         
         if (response.code() == 404) {
-            throw new FileNotFoundException(completeUrl.toString());
+            throw new FileNotFoundException("GameStream endpoint not found: " + path);
         }
         else {
             throw new HostHttpResponseException(response.code(), response.message());
@@ -473,7 +495,7 @@ public class NvHTTP {
     private void openHttpPostConnection(OkHttpClient client, HttpUrl baseUrl, String path, String query, RequestBody body) throws IOException {
         HttpUrl completeUrl = getCompleteUrl(baseUrl, path, query);
         Request request = new Request.Builder().url(completeUrl).post(body).build();
-        Response response = performAndroidTlsHack(client).newCall(request).execute();
+        Response response = requestScope.execute(performAndroidTlsHack(client), request);
 
         ResponseBody respBody = response.body();
         if (respBody != null) {
@@ -482,7 +504,7 @@ public class NvHTTP {
 
         if (!response.isSuccessful()) {
             if (response.code() == 404) {
-                throw new FileNotFoundException(completeUrl.toString());
+                throw new FileNotFoundException("GameStream endpoint not found: " + path);
             }
             else {
                 throw new HostHttpResponseException(response.code(), response.message());
@@ -496,19 +518,17 @@ public class NvHTTP {
 
     private String openHttpConnectionToString(OkHttpClient client, HttpUrl baseUrl, String path, String query) throws IOException {
         try {
-            ResponseBody resp = openHttpConnection(client, baseUrl, path, query);
-            String respString = resp.string();
-            resp.close();
-
-            if (verbose && !path.equals("serverinfo")) {
-                LimeLog.info(getCompleteUrl(baseUrl, path, query)+" -> "+respString);
+            try (ResponseBody resp = openHttpConnection(client, baseUrl, path, query)) {
+                String respString = resp.string();
+                if (verbose && !path.equals("serverinfo")) {
+                    // Pair/launch queries and responses contain cryptographic secrets.
+                    LimeLog.info("GameStream " + path + ": response received");
+                }
+                return respString;
             }
-
-            return respString;
         } catch (IOException e) {
             if (verbose && !path.equals("serverinfo")) {
-                LimeLog.warning(getCompleteUrl(baseUrl, path, query)+" -> "+e.getMessage());
-                e.printStackTrace();
+                LimeLog.warning("GameStream " + path + ": " + e.getClass().getSimpleName());
             }
             
             throw e;

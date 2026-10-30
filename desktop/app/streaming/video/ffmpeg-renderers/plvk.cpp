@@ -804,7 +804,8 @@ void PlVkRenderer::renderFrame(AVFrame *frame)
     // Render the video image and overlays into the swapchain buffer
     targetFrame.num_overlays = (int)overlays.size();
     targetFrame.overlays = overlays.data();
-    if (!pl_render_image(m_Renderer, &mappedFrame, &targetFrame, &pl_render_fast_params)) {
+    const bool rendered = pl_render_image(m_Renderer, &mappedFrame, &targetFrame, &pl_render_fast_params);
+    if (!rendered) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
                      "pl_render_image() failed");
         // NB: We must fallthrough to call pl_swapchain_submit_frame()
@@ -828,6 +829,9 @@ void PlVkRenderer::renderFrame(AVFrame *frame)
     // to avoid some performance problems on Nvidia GPUs.
     pl_swapchain_swap_buffers(m_Swapchain);
 #endif
+
+    if (rendered && Session::get())
+        Session::get()->notifyFirstVideoFrame();
 
 UnmapExit:
     // Delete any textures that need to be destroyed

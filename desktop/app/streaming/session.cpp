@@ -3,6 +3,7 @@
 #include "streaming/streamutils.h"
 #include "backend/richpresencemanager.h"
 #include "backend/nvhttp.h"
+#include "backend/desktoplaunch.h"
 
 #include <Limelight.h>
 #include <SDL.h>
@@ -77,6 +78,10 @@ QSemaphore Session::s_ActiveSessionSemaphore(1);
 
 void Session::clStageStarting(int stage)
 {
+    if (connectionCancelled(s_ActiveSession->m_ConnectionCancellation)) {
+        LiInterruptConnection();
+        return;
+    }
     // We know this is called on the same thread as LiStartConnection()
     // which happens to be the main thread, so it's cool to interact
     // with the GUI in these callbacks.
@@ -85,6 +90,8 @@ void Session::clStageStarting(int stage)
 
 void Session::clStageFailed(int stage, int errorCode)
 {
+    if (connectionCancelled(s_ActiveSession->m_ConnectionCancellation))
+        return;
     // Perform the port test now, while we're on the async connection thread and not blocking the UI.
     unsigned int portFlags = LiGetPortFlagsFromStage(stage);
     s_ActiveSession->m_PortTestResults = LiTestClientConnectivity(CONN_TEST_SERVER, 443, portFlags);
@@ -96,6 +103,12 @@ void Session::clStageFailed(int stage, int errorCode)
 
 void Session::clConnectionTerminated(int errorCode)
 {
+    if (connectionCancelled(s_ActiveSession->m_ConnectionCancellation)) {
+        SDL_Event event = {};
+        event.type = SDL_QUIT;
+        SDL_PushEvent(&event);
+        return;
+    }
     unsigned int portFlags = LiGetPortFlagsFromTerminationErrorCode(errorCode);
     s_ActiveSession->m_PortTestResults = LiTestClientConnectivity(CONN_TEST_SERVER, 443, portFlags);
 
@@ -562,6 +575,35 @@ Session::Session(NvComputer* computer, NvApp& app, StreamingPreferences *prefere
 {
 }
 
+Session::Session(std::shared_ptr<NvComputer> computer, NvApp& app, bool freshlyPaired)
+    : Session(computer.get(), app)
+{
+    m_OwnedComputer = std::move(computer);
+    m_ManagedDesktop = true;
+    m_FreshlyPaired = freshlyPaired;
+    m_IsFullScreen = true;
+    m_RevealComplete.store(false);
+}
+
+void Session::cancel()
+{
+    m_ConnectionCancellation->store(true);
+    if (s_ActiveSession == this)
+        LiInterruptConnection();
+}
+
+void Session::completeReveal()
+{
+    if (m_FirstFramePresented.load() && !connectionCancelled(m_ConnectionCancellation))
+        m_RevealComplete.store(true);
+}
+
+void Session::notifyFirstVideoFrame()
+{
+    if (!connectionCancelled(m_ConnectionCancellation) && !m_FirstFramePresented.exchange(true))
+        emit firstFramePresented();
+}
+
 bool Session::initialize()
 {
 #ifdef Q_OS_DARWIN
@@ -848,7 +890,7 @@ bool Session::initialize()
         m_SupportedVideoFormats.deprioritizeByMask(~VIDEO_FORMAT_MASK_10BIT);
     }
 
-    switch (m_Preferences->windowMode)
+    switch (m_ManagedDesktop ? StreamingPreferences::WM_FULLSCREEN_DESKTOP : m_Preferences->windowMode)
     {
     default:
     case StreamingPreferences::WM_FULLSCREEN_DESKTOP:
@@ -1219,6 +1261,8 @@ private:
         // Only quit the running app if our session terminated gracefully
         bool shouldQuit =
                 !m_Session->m_UnexpectedTermination &&
+                !connectionCancelled(m_Session->m_ConnectionCancellation) &&
+                !m_Session->m_ManagedDesktop &&
                 m_Session->m_Preferences->quitAppAfter;
 
         // Notify the UI
@@ -1536,7 +1580,10 @@ bool Session::startConnectionAsync()
 {
     // Wait 1.5 seconds before connecting to let the user
     // have time to read any messages present on the segue
-    SDL_Delay(1500);
+    if (!m_ManagedDesktop)
+        SDL_Delay(1500);
+    if (connectionCancelled(m_ConnectionCancellation))
+        return false;
 
     // The UI should have ensured the old game was already quit
     // if we decide to stream a different game.
@@ -1570,6 +1617,21 @@ bool Session::startConnectionAsync()
 
     try {
         NvHTTP http(m_Computer);
+        http.setCancellation(m_ConnectionCancellation);
+        if (m_ManagedDesktop) {
+            const auto apps = http.getAppList();
+            const int desktop = DesktopLaunch::appIndex(apps);
+            if (desktop < 0) {
+                emit displayLaunchError(tr("Desktop is not available on this machine. Please contact support."));
+                return false;
+            }
+            m_App = apps[desktop];
+            m_Computer->currentGameId = NvHTTP::getCurrentGame(http.getServerInfo(NvHTTP::NVLL_ERROR));
+            if (m_Computer->currentGameId != 0 && m_Computer->currentGameId != m_App.id) {
+                emit displayLaunchError(tr("Another app is running on this machine. Close it before opening Desktop."));
+                return false;
+            }
+        }
         http.startApp(m_Computer->currentGameId != 0 ? "resume" : "launch",
                       m_Computer->isNvidiaServerSoftware,
                       m_App.id, &m_StreamConfig,
@@ -1577,12 +1639,22 @@ bool Session::startConnectionAsync()
                       m_Preferences->playAudioOnHost,
                       m_InputHandler->getAttachedGamepadMask(),
                       !m_Preferences->multiController,
-                      rtspSessionUrl);
+                      rtspSessionUrl,
+                      m_ManagedDesktop,
+                      m_FreshlyPaired);
     } catch (const GfeHttpResponseException& e) {
-        emit displayLaunchError(tr("Host returned error: %1").arg(e.toQString()));
+        if (!connectionCancelled(m_ConnectionCancellation)) {
+            emit displayLaunchError(m_ManagedDesktop && e.getStatusCode() == 403
+                ? tr("Your device is not authorized to open Desktop. Try again or contact support.")
+                : tr("Host returned error: %1").arg(e.toQString()));
+        }
         return false;
     } catch (const QtNetworkReplyException& e) {
-        emit displayLaunchError(e.toQString());
+        if (!connectionCancelled(m_ConnectionCancellation)) {
+            emit displayLaunchError(m_ManagedDesktop && e.getError() == QNetworkReply::ContentAccessDenied
+                ? tr("Your device is not authorized to open Desktop. Try again or contact support.")
+                : e.toQString());
+        }
         return false;
     }
 
@@ -1662,10 +1734,12 @@ bool Session::startConnectionAsync()
                                                                          false);
     }
 
+    if (connectionCancelled(m_ConnectionCancellation))
+        return false;
     int err = LiStartConnection(&hostInfo, &m_StreamConfig, &k_ConnCallbacks,
                                 &m_VideoCallbacks, &m_AudioCallbacks,
                                 NULL, 0, NULL, 0);
-    if (err != 0) {
+    if (err != 0 || connectionCancelled(m_ConnectionCancellation)) {
         // We already displayed an error dialog in the stage failure
         // listener.
         return false;
@@ -1739,8 +1813,8 @@ void Session::exec(QWindow* qtWindow)
         // Until the SDL streaming window is created, we should continue
         // to update the Qt UI to allow warning messages to display and
         // make sure that the Qt window can hide itself.
-        while (!execThread.wait(10) && m_Window == nullptr) {
-            QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+        while (!execThread.wait(10) && (m_Window == nullptr || (m_ManagedDesktop && !m_RevealComplete.load()))) {
+            QCoreApplication::processEvents(m_ManagedDesktop ? QEventLoop::AllEvents : QEventLoop::ExcludeUserInputEvents);
             QCoreApplication::sendPostedEvents();
         }
         QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
@@ -1764,14 +1838,23 @@ void Session::execInternal()
     //
     // NB: This initializes the SDL video subsystem, so it must be
     // called on the main thread.
-    if (!initialize()) {
+    if (connectionCancelled(m_ConnectionCancellation) || !initialize()) {
         emit sessionFinished(0);
         emit readyForDeletion();
         return;
     }
 
     // Wait for any old session to finish cleanup
-    s_ActiveSessionSemaphore.acquire();
+    while (!s_ActiveSessionSemaphore.tryAcquire(1, 10)) {
+        if (connectionCancelled(m_ConnectionCancellation)) {
+            SDL_QuitSubSystem(SDL_INIT_VIDEO);
+            emit sessionFinished(0);
+            emit readyForDeletion();
+            return;
+        }
+        if (!m_ThreadedExec)
+            QCoreApplication::processEvents(QEventLoop::AllEvents);
+    }
 
     // We're now active
     s_ActiveSession = this;
@@ -1785,7 +1868,7 @@ void Session::execInternal()
         // Kick off the async connection thread while we sit here and pump the event loop
         asyncConnThread.start();
         while (!asyncConnThread.wait(10)) {
-            QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+            QCoreApplication::processEvents(m_ManagedDesktop ? QEventLoop::AllEvents : QEventLoop::ExcludeUserInputEvents);
             QCoreApplication::sendPostedEvents();
         }
 
@@ -1953,6 +2036,8 @@ void Session::execInternal()
     if (m_IsFullScreen) {
         SDL_SetWindowFullscreen(m_Window, m_FullScreenFlag);
     }
+    if (m_ManagedDesktop)
+        emit streamWindowCreated();
 
     bool needsFirstEnterCapture = false;
     bool needsPostDecoderCreationCapture = false;
@@ -2014,13 +2099,35 @@ void Session::execInternal()
     // the entire loop below.
     QString lastClipboardText;
     Uint32 lastClipboardCheckTicks = 0;
+    const Uint32 startupTicks = SDL_GetTicks();
+    bool revealApplied = !m_ManagedDesktop;
 
     for (;;) {
+        if (connectionCancelled(m_ConnectionCancellation))
+            goto DispatchDeferredCleanup;
+        if (m_ManagedDesktop && !m_RevealComplete.load()) {
+            if (!m_ThreadedExec) {
+                QCoreApplication::processEvents(QEventLoop::AllEvents);
+                QCoreApplication::sendPostedEvents();
+            }
+            if (!m_FirstFramePresented.load() && SDL_GetTicks() - startupTicks > 30000) {
+                emit displayLaunchError(tr("No video frame arrived. Check your connection and try again."));
+                m_UnexpectedTermination = true;
+                goto DispatchDeferredCleanup;
+            }
+        }
+        if (!revealApplied && m_RevealComplete.load()) {
+            revealApplied = true;
+            SDL_RaiseWindow(m_Window);
+            m_InputHandler->setCaptureActive(true);
+            needsFirstEnterCapture = false;
+            needsPostDecoderCreationCapture = false;
+        }
         // Check at most every 500 ms, regardless of whether we took the
         // event or idle/timeout path below, so it keeps working even while
         // the user is actively moving the mouse inside the session.
         Uint32 nowTicks = SDL_GetTicks();
-        if (nowTicks - lastClipboardCheckTicks >= 500) {
+        if (m_RevealComplete.load() && nowTicks - lastClipboardCheckTicks >= 500) {
             lastClipboardCheckTicks = nowTicks;
 
             if (SDL_HasClipboardText()) {
@@ -2052,7 +2159,7 @@ void Session::execInternal()
         // NB: This behavior was introduced in SDL 2.0.16, but had a few critical
         // issues that could cause indefinite timeouts, delayed joystick detection,
         // and other problems.
-        if (!SDL_WaitEventTimeout(&event, 1000)) {
+        if (!SDL_WaitEventTimeout(&event, m_RevealComplete.load() ? 1000 : 8)) {
             presence.runCallbacks();
             continue;
         }
@@ -2073,6 +2180,15 @@ void Session::execInternal()
             continue;
         }
 #endif
+        if (!m_RevealComplete.load() &&
+            (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP ||
+             (event.type >= SDL_MOUSEMOTION && event.type <= SDL_MOUSEWHEEL) ||
+             event.type == SDL_CONTROLLERBUTTONDOWN || event.type == SDL_CONTROLLERBUTTONUP)) {
+            if ((event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) ||
+                (event.type == SDL_CONTROLLERBUTTONDOWN && event.cbutton.button == SDL_CONTROLLER_BUTTON_B))
+                cancel();
+            continue;
+        }
         switch (event.type) {
         case SDL_QUIT:
             SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
@@ -2137,7 +2253,7 @@ void Session::execInternal()
             presence.runCallbacks();
 
             // Capture the mouse on SDL_WINDOWEVENT_ENTER if needed
-            if (needsFirstEnterCapture && event.window.event == SDL_WINDOWEVENT_ENTER) {
+            if (m_RevealComplete.load() && needsFirstEnterCapture && event.window.event == SDL_WINDOWEVENT_ENTER) {
                 m_InputHandler->setCaptureActive(true);
                 needsFirstEnterCapture = false;
             }
@@ -2300,7 +2416,7 @@ void Session::execInternal()
                 // As of SDL 2.0.12, SDL_RecreateWindow() doesn't carry over mouse capture
                 // or mouse hiding state to the new window. By capturing after the decoder
                 // is set up, this ensures the window re-creation is already done.
-                if (needsPostDecoderCreationCapture) {
+                if (m_RevealComplete.load() && needsPostDecoderCreationCapture) {
                     m_InputHandler->setCaptureActive(true);
                     needsPostDecoderCreationCapture = false;
                 }
@@ -2448,4 +2564,3 @@ DispatchDeferredCleanup:
     // reference.
     QThreadPool::globalInstance()->start(new DeferredSessionCleanupTask(this));
 }
-

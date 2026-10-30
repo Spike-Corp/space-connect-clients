@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginBottom="52dp"
+        android:orientation="vertical"
+        android:gravity="center_horizontal">
+
+        <LinearLayout
+            android:id="@+id/sessionLogo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:importantForAccessibility="noHideDescendants">
+            <ImageView
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:src="@drawable/ic_splash_logo"
+                android:contentDescription="@null" />
+            <TextView
+                android:id="@+id/sessionWordmark"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:text="@string/login_app_name"
+                android:textColor="#FFFFFF"
+                android:textSize="24sp"
+                android:letterSpacing="0.03" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/sessionSpinner"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_marginTop="28dp"
+            android:src="@drawable/ic_session_spinner"
+            android:importantForAccessibility="no"
+            android:contentDescription="@null" />
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="88dp"
+            android:layout_marginTop="20dp">
+            <TextView
+                android:id="@+id/sessionMessage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:lineSpacingExtra="6dp"
+                android:textColor="#FFFFFF"
+                android:textSize="17sp" />
+            <TextView
+                android:id="@+id/sessionNextMessage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:lineSpacingExtra="6dp"
+                android:textColor="#FFFFFF"
+                android:textSize="17sp"
+                android:alpha="0" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/sessionCancel"
+        android:layout_width="wrap_content"
+        android:layout_height="48dp"
+        android:minWidth="144dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:background="@drawable/bg_session_cancel"
+        android:text="@string/session_cancel"
+        android:textColor="#FFFFFF"
+        android:textAllCaps="false"
+        android:focusable="true"
+        android:nextFocusUp="@id/sessionCancel"
+        android:nextFocusDown="@id/sessionCancel" />
+</merge>

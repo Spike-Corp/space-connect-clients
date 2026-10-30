@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextUtils;
@@ -20,10 +19,9 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.limelight.PcView;
 import com.limelight.R;
-import com.limelight.preferences.AddComputerManually;
 import com.limelight.utils.UiHelper;
+import com.limelight.session.SessionLoadingActivity;
 
 /**
  * Amigos (beta) — estilo Parsec: username público, pedidos de amizade, permissões
@@ -33,8 +31,6 @@ import com.limelight.utils.UiHelper;
  */
 public class FriendsActivity extends Activity {
 
-    private static final int ADD_COMPUTER_REQUEST = 1;
-
     private LinearLayout incomingBox, friendsBox, machinesBox, searchResultBox;
     private TextView myNameText, myUsernameText, emptyText, searchNameText, searchUsernameText, searchHintText;
     private ImageView myAvatar, searchAvatar;
@@ -42,26 +38,7 @@ public class FriendsActivity extends Activity {
     private EditText addField;
     private ProgressBar progress;
     private boolean busy;
-    private String pendingFriendHost;
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode != ADD_COMPUTER_REQUEST) {
-            return;
-        }
-        if (resultCode != RESULT_OK || pendingFriendHost == null) {
-            // Não conseguiu registrar o host (VM ainda subindo, porta bloqueada, etc.):
-            // não abre o PcView pra não cair na grade com o PC errado.
-            pendingFriendHost = null;
-            return;
-        }
-        Intent pcView = new Intent(FriendsActivity.this, PcView.class);
-        pcView.putExtra(PcView.AUTO_OPEN_ADDRESS_EXTRA, pendingFriendHost);
-        pendingFriendHost = null;
-        startActivity(pcView);
-    }
-
+    private boolean launchingSession;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         UiHelper.applyPreferredTheme(this);
@@ -331,59 +308,15 @@ public class FriendsActivity extends Activity {
     // pareamento também (valida permissão no backend). O stream dá mouse/teclado/
     // gamepad pro amigo — estilo Parsec.
     private void connectFriend(final SpaceConnectApiClient.FriendMachine m) {
-        if (busy) return;
-        setBusy(true);
-        AccountManager.getFriendConnection(this, m.machineId,
-                new AccountManager.ResultCallback<SpaceConnectApiClient.ConnectionResponse>() {
-            @Override
-            public void onSuccess(SpaceConnectApiClient.ConnectionResponse connection) {
-                setBusy(false);
-                String address = connection.host;
-                if (TextUtils.isEmpty(address)) address = connection.ipv6;
-                if (TextUtils.isEmpty(address) || connection.port <= 0) {
-                    Toast.makeText(FriendsActivity.this, R.string.launcher_connection_invalid, Toast.LENGTH_LONG).show();
-                    return;
-                }
-                address = address.trim();
-                if (address.indexOf(':') >= 0 && !address.startsWith("[")) {
-                    address = "[" + address + "]";
-                }
-                String host = address + ":" + connection.port;
+        if (busy || launchingSession) return;
+        launchingSession = true;
+        startActivity(SessionLoadingActivity.intent(this, m.machineId, m.accountName, true));
+        overridePendingTransition(0, 0);
+    }
 
-                SharedPreferences prefs = getSharedPreferences("space_connect_launcher", MODE_PRIVATE);
-                prefs.edit()
-                        .putString("pending_friend_machine", m.machineId)
-                        .putString("last_host", host)
-                        .apply();
-                // Guarda o vínculo host -> (machineId, apelido) igual ao fluxo da
-                // própria VM — o PcView usa isso pra mostrar o mesmo nome que o
-                // dono definiu em vez do hostname genérico do Apollo.
-                AccountManager.rememberMachineLink(host, m.machineId, m.accountName);
-
-                if (connection.maxBitrateKbps > 0) {
-                    android.preference.PreferenceManager.getDefaultSharedPreferences(FriendsActivity.this)
-                            .edit()
-                            .putInt("launcher_max_bitrate_kbps", connection.maxBitrateKbps)
-                            .putInt("launcher_recommended_bitrate_kbps", connection.recommendedBitrateKbps)
-                            .apply();
-                }
-
-                // Antes isso abria o PcView direto, mas o PC do amigo nunca tinha sido
-                // registrado no ComputerManagerService: a tela mostrava "Nenhum PC ainda"
-                // (ou a grade com o PRÓPRIO PC do usuário). Mesmo fluxo já usado no
-                // desktop (FriendsView.qml): registra o host e só então abre, direto nele.
-                pendingFriendHost = host;
-                Intent addComputer = new Intent(FriendsActivity.this, AddComputerManually.class);
-                addComputer.putExtra(AddComputerManually.EXTRA_AUTO_HOST, host);
-                startActivityForResult(addComputer, ADD_COMPUTER_REQUEST);
-            }
-
-            @Override
-            public void onError(String message) {
-                setBusy(false);
-                Toast.makeText(FriendsActivity.this, message, Toast.LENGTH_LONG).show();
-            }
-        });
+    @Override protected void onResume() {
+        super.onResume();
+        launchingSession = false;
     }
 
     private String normalizedSearchUsername() {

@@ -108,12 +108,9 @@ Item {
             createMachineDialog.open()
             return
         }
-        if (LauncherApi.state === "queued")
-            LauncherApi.leaveQueue()
-        else if (LauncherApi.state === "ready")
-            LauncherApi.requestConnection()
-        else if (LauncherApi.state === "idle")
-            LauncherApi.joinQueue()
+        if (LauncherApi.state === "queued" || LauncherApi.state === "ready"
+                || LauncherApi.state === "idle" || LauncherApi.state === "starting")
+            sessionOrchestrator.startDesktopSession()
     }
 
     function statusTitle() {
@@ -171,9 +168,9 @@ Item {
     function primaryText() {
         if (activationPending()) return qsTr("Ativação em %1").arg(pendingActivationDate())
         if (needsMachine()) return qsTr("Create your VM")
-        if (LauncherApi.state === "queued") return qsTr("Leave queue")
-        if (LauncherApi.state === "ready") return qsTr("Connect")
-        if (LauncherApi.state === "idle") return qsTr("Open machine")
+        if (LauncherApi.state === "queued" || LauncherApi.state === "starting"
+                || LauncherApi.state === "ready" || LauncherApi.state === "idle")
+            return qsTr("Open machine")
         return qsTr("Please wait")
     }
 
@@ -241,6 +238,8 @@ Item {
     Connections {
         target: LauncherApi
         function onConnectionReady(address, machineId, name) {
+            if (sessionOrchestrator.active)
+                return
             addingComputer = true
             pendingConnectAddress = address
             pendingConnectName = name || ""
@@ -306,9 +305,14 @@ Item {
         repeat: true
         // Só faz polling enquanto o Launcher é a tela ativa — com o PcView
         // agora empilhado por cima (push), isso evita refresh em dobro.
-        running: StackView.status === StackView.Active
+        running: StackView.status === StackView.Active && !sessionOrchestrator.busy
         triggeredOnStart: true
         onTriggered: LauncherApi.refreshStatus()
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        color: "#0d0816"
     }
 
     Flickable {
@@ -521,11 +525,13 @@ Item {
                     text: primaryText()
                     highlighted: true
                     enabled: !LauncherApi.busy
+                             && !sessionOrchestrator.busy
                              && !addingComputer
                              && !activationPending()
                              && (needsMachine()
                                  || LauncherApi.state === "idle"
                                  || LauncherApi.state === "queued"
+                                 || LauncherApi.state === "starting"
                                  || LauncherApi.state === "ready")
                     Layout.fillWidth: true
                     onClicked: primaryAction()

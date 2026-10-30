@@ -41,6 +41,12 @@ Flickable {
     id: settingsPage
     objectName: qsTr("Settings")
 
+    Settings {
+        id: accessibilitySettings
+        category: "accessibility"
+        property bool reduceMotion: false
+    }
+
     signal languageChanged()
 
     boundsBehavior: Flickable.OvershootBounds
@@ -1386,6 +1392,13 @@ Flickable {
             Column {
                 anchors.fill: parent
                 spacing: 5
+
+                SpaceCheckBox {
+                    text: qsTr("Reduce connection animations")
+                    checked: accessibilitySettings.reduceMotion
+                    onToggled: accessibilitySettings.reduceMotion = checked
+                    width: parent.width
+                }
 
                 Label {
                     width: parent.width

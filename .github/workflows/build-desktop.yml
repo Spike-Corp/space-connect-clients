@@ -599,6 +599,21 @@ jobs:
           make -j2
           ./pairing_test
 
+      - name: Test session orchestration and loading UI
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_QUICK_BACKEND: software
+          QT_QUICK_CONTROLS_STYLE: Material
+        run: |
+          mkdir -p build/build-release/session-tests
+          cd build/build-release/session-tests
+          qmake ../../../app/tests/session_orchestrator_test.pro \
+            CONFIG+=disable-wayland CONFIG+=disable-libdrm CONFIG+=disable-cuda DEFINES+=APP_IMAGE
+          make -j2
+          ./session_orchestrator_test
+          cd ../../..
+          qmltestrunner -input app/tests/qml
+
       - name: Package AppImage
         run: |
           version=$(tr -d '[:space:]' < app/version.txt)

@@ -1,11 +1,11 @@
 package com.limelight.account;
 
-import com.limelight.PcView;
 import com.limelight.R;
-import com.limelight.preferences.AddComputerManually;
 import com.limelight.preferences.StreamSettings;
 import com.limelight.utils.HelpLauncher;
 import com.limelight.utils.UiHelper;
+import com.limelight.utils.RequestScope;
+import com.limelight.session.SessionLoadingActivity;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -37,7 +37,6 @@ import java.util.Locale;
 import java.util.TimeZone;
 
 public class LauncherActivity extends Activity {
-    private static final int ADD_COMPUTER_REQUEST = 4101;
     private static final int PICK_FILE_REQUEST = 4102;
     private static final long STATUS_POLL_MS = 5000;
 
@@ -49,10 +48,12 @@ public class LauncherActivity extends Activity {
     private Button endSessionButton;
     private ProgressBar progressBar;
     private boolean requestRunning;
-    private String pendingHost;
-    // machineId da VM que está sendo adicionada agora (sobrevive ao fluxo
-    // AddComputerManually → onActivityResult, onde a limpeza de obsoletos roda).
-    private String pendingMachineId;
+    private boolean resumed;
+    private boolean pollingRequest;
+    private boolean launchingSession;
+    private int statusEpoch;
+    private RequestScope statusScope;
+    private java.util.concurrent.Future<?> statusFuture;
     private Boolean hasMachine;
     private SpaceConnectApiClient.MachineListItem[] machines;
     // Planos ativos ainda sem VM — alimenta o "Criar nova VM" mesmo quando o
@@ -189,23 +190,36 @@ public class LauncherActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        resumed = true;
+        launchingSession = false;
         refreshStatus(true);
     }
 
     @Override
     protected void onPause() {
+        resumed = false;
+        statusEpoch++;
         handler.removeCallbacks(pollStatus);
+        if (statusScope != null) statusScope.close();
+        if (statusFuture != null) statusFuture.cancel(true);
+        if (pollingRequest) requestRunning = false;
+        pollingRequest = false;
         super.onPause();
     }
 
     private void refreshStatus(boolean showProgress) {
-        if (requestRunning) return;
+        if (!resumed || requestRunning) return;
         requestRunning = true;
+        pollingRequest = true;
+        final int epoch = ++statusEpoch;
+        statusScope = new RequestScope();
         if (showProgress) progressBar.setVisibility(View.VISIBLE);
-        AccountManager.getStatus(this, selectedMachineId, new AccountManager.ResultCallback<SpaceConnectApiClient.StatusResponse>() {
+        statusFuture = requestStatus(selectedMachineId, statusScope, new AccountManager.ResultCallback<SpaceConnectApiClient.StatusResponse>() {
             @Override
             public void onSuccess(SpaceConnectApiClient.StatusResponse result) {
+                if (!resumed || epoch != statusEpoch) return;
                 requestRunning = false;
+                pollingRequest = false;
                 progressBar.setVisibility(View.GONE);
                 render(result);
                 schedulePoll();
@@ -213,13 +227,20 @@ public class LauncherActivity extends Activity {
 
             @Override
             public void onError(String message) {
+                if (!resumed || epoch != statusEpoch) return;
                 requestRunning = false;
+                pollingRequest = false;
                 progressBar.setVisibility(View.GONE);
                 statusText.setText(R.string.launcher_status_error);
                 detailsText.setText(message);
                 schedulePoll();
             }
         });
+    }
+
+    protected java.util.concurrent.Future<?> requestStatus(String machineId, RequestScope scope,
+            AccountManager.ResultCallback<SpaceConnectApiClient.StatusResponse> callback) {
+        return AccountManager.getStatus(this, machineId, scope, callback);
     }
 
     private void render(SpaceConnectApiClient.StatusResponse status) {
@@ -239,8 +260,8 @@ public class LauncherActivity extends Activity {
             detailsText.setText(bootDetails(status, texts == null ? position
                     : SpaceConnectApiClient.BootTexts.text(reason,
                         SpaceConnectApiClient.BootTexts.text(texts.queueSearching, position))));
-            primaryButton.setText(R.string.launcher_leave_queue);
-            primaryButton.setOnClickListener(v -> leaveQueue());
+            primaryButton.setText(R.string.launcher_join_queue);
+            primaryButton.setOnClickListener(v -> connect());
             return;
         }
 
@@ -260,7 +281,7 @@ public class LauncherActivity extends Activity {
 
             if ("ready".equals(status.state)) {
                 statusText.setText(R.string.launcher_status_ready);
-                primaryButton.setText(R.string.launcher_connect);
+                primaryButton.setText(R.string.launcher_join_queue);
                 primaryButton.setOnClickListener(v -> connect());
                 endSessionButton.setVisibility(View.VISIBLE);
             } else if ("ending".equals(status.state)) {
@@ -273,8 +294,8 @@ public class LauncherActivity extends Activity {
                 // Mostra a fase real do boot (criação/proteção/rede) em vez de só "starting".
                 String phase = status.session.machine != null ? status.session.machine.creationPhase : null;
                 detailsText.setText(bootDetails(status, creationPhaseLabel(phase)));
-                primaryButton.setText(R.string.launcher_wait);
-                primaryButton.setEnabled(false);
+                primaryButton.setText(R.string.launcher_join_queue);
+                primaryButton.setOnClickListener(v -> connect());
             }
             return;
         }
@@ -1059,11 +1080,15 @@ public class LauncherActivity extends Activity {
                     Toast.LENGTH_LONG).show();
             return;
         }
-        runStatusAction(callback -> AccountManager.joinQueue(this, machineId, callback));
+        startSession(machineId);
     }
 
     private void leaveQueue() {
-        runStatusAction(callback -> AccountManager.leaveQueue(this, callback));
+        if (selectedMachineId == null) {
+            Toast.makeText(this, R.string.launcher_select_machine_required, Toast.LENGTH_LONG).show();
+            return;
+        }
+        runStatusAction(callback -> AccountManager.leaveQueue(this, selectedMachineId, callback));
     }
 
     private void runStatusAction(StatusAction action) {
@@ -1090,77 +1115,21 @@ public class LauncherActivity extends Activity {
     }
 
     private void connect() {
-        if (requestRunning) return;
-        // Conexão PRÓPRIA: limpa qualquer pendência de pareamento em VM de amigo.
-        getSharedPreferences("space_connect_launcher", MODE_PRIVATE)
-                .edit().remove("pending_friend_machine").apply();
         String machineId = lastStatus != null && lastStatus.session != null
                 && lastStatus.session.machine != null ? lastStatus.session.machine.id : selectedMachineId;
+        startSession(machineId);
+    }
+
+    private void startSession(String machineId) {
+        if (launchingSession || !resumed) return;
         if (machineId == null || machineId.trim().isEmpty()) {
             Toast.makeText(this, R.string.launcher_select_machine_required, Toast.LENGTH_LONG).show();
             return;
         }
-        requestRunning = true;
-        progressBar.setVisibility(View.VISIBLE);
-        AccountManager.getConnection(this, machineId,
-                new AccountManager.ResultCallback<SpaceConnectApiClient.ConnectionResponse>() {
-            @Override
-            public void onSuccess(SpaceConnectApiClient.ConnectionResponse connection) {
-                requestRunning = false;
-                progressBar.setVisibility(View.GONE);
-                String address = connection.host;
-                if (address == null || address.trim().isEmpty()) {
-                    address = connection.ipv6;
-                }
-                if (address == null || address.trim().isEmpty() || connection.port <= 0) {
-                    Toast.makeText(
-                            LauncherActivity.this,
-                            R.string.launcher_connection_invalid,
-                            Toast.LENGTH_LONG).show();
-                    return;
-                }
-                address = address.trim();
-                if (address.indexOf(':') >= 0 && !address.startsWith("[")) {
-                    address = "[" + address + "]";
-                }
-                pendingHost = address + ":" + connection.port;
-                pendingMachineId = machineId;
-                // Guarda o vínculo host -> (machineId, apelido) pra sessão atual — o
-                // PcView usa isso pra aplicar o apelido salvo na conta (accountName)
-                // e pra saber em qual VM chamar o backend quando o usuário renomear.
-                AccountManager.rememberMachineLink(pendingHost, machineId, accountNameFor(machineId));
-                // Cache the plan-based bitrate ceiling from the backend so StreamSettings can
-                // raise/lower the bitrate slider max to match this machine's provider (proxmox
-                // physical = up to 100 Mbps, cloud = 25 Mbps) without needing an app update.
-                if (connection.maxBitrateKbps > 0) {
-                    android.preference.PreferenceManager.getDefaultSharedPreferences(LauncherActivity.this)
-                            .edit()
-                            .putInt("launcher_max_bitrate_kbps", connection.maxBitrateKbps)
-                            .putInt("launcher_recommended_bitrate_kbps", connection.recommendedBitrateKbps)
-                            .apply();
-                }
-                SharedPreferences prefs = getSharedPreferences(
-                        "space_connect_launcher",
-                        MODE_PRIVATE);
-                if (pendingHost.equals(prefs.getString("last_host", null))) {
-                    // Mesmo PC de sempre — só garante que não ficou lixo obsoleto pra trás
-                    startActivity(pcViewWithCleanup(machineId, pendingHost));
-                    return;
-                }
-                Intent addComputer = new Intent(LauncherActivity.this, AddComputerManually.class);
-                addComputer.putExtra(AddComputerManually.EXTRA_AUTO_HOST, pendingHost);
-                addComputer.putExtra(AddComputerManually.EXTRA_SC_MACHINE_ID, machineId);
-                addComputer.putExtra(AddComputerManually.EXTRA_SC_ORIGIN, "launcher");
-                startActivityForResult(addComputer, ADD_COMPUTER_REQUEST);
-            }
-
-            @Override
-            public void onError(String message) {
-                requestRunning = false;
-                progressBar.setVisibility(View.GONE);
-                Toast.makeText(LauncherActivity.this, message, Toast.LENGTH_LONG).show();
-            }
-                });
+        launchingSession = true;
+        selectedMachineId = machineId;
+        startActivity(SessionLoadingActivity.intent(this, machineId, accountNameFor(machineId), false));
+        overridePendingTransition(0, 0);
     }
 
     private void endSession() {
@@ -1193,7 +1162,9 @@ public class LauncherActivity extends Activity {
 
     private void schedulePoll() {
         handler.removeCallbacks(pollStatus);
-        handler.postDelayed(pollStatus, STATUS_POLL_MS);
+        if (resumed && !isFinishing() && !isDestroyed()) {
+            handler.postDelayed(pollStatus, STATUS_POLL_MS);
+        }
     }
 
     private void pickFileForUpload() {
@@ -1272,18 +1243,6 @@ public class LauncherActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == ADD_COMPUTER_REQUEST && resultCode == RESULT_OK) {
-            if (pendingHost != null) {
-                getSharedPreferences("space_connect_launcher", MODE_PRIVATE)
-                        .edit()
-                        .putString("last_host", pendingHost)
-                        .apply();
-            }
-            // Limpa os PCs obsoletos da conta (VM recriada = UUID/IP novo) —
-            // a entrada morta com "!" não deve ficar na grade.
-            startActivity(pcViewWithCleanup(pendingMachineId, pendingHost));
-            return;
-        }
         if (requestCode == PICK_FILE_REQUEST && resultCode == RESULT_OK && data != null) {
             Uri uri = data.getData();
             if (uri != null) {
@@ -1291,21 +1250,9 @@ public class LauncherActivity extends Activity {
             }
             return;
         }
-        // Voltou do pareamento/adição sem confirmar (ou a Activity morreu): destrava
-        // o requestRunning e retoma o poll — sem isso o launcher congelava num estado
-        // "saiu da fila" e o botão "Atualizar status" parava de responder.
         requestRunning = false;
         progressBar.setVisibility(View.GONE);
         refreshStatus(false);
-    }
-
-    // PcView com pedido de limpeza de PCs obsoletos da conta (a limpeza em si
-    // roda lá, onde já existe o bind no ComputerManagerService).
-    private Intent pcViewWithCleanup(String machineId, String hostAddress) {
-        Intent i = new Intent(this, PcView.class);
-        i.putExtra(PcView.EXTRA_CLEANUP_MACHINE_ID, machineId);
-        i.putExtra(PcView.EXTRA_CLEANUP_HOST, hostAddress);
-        return i;
     }
 
     private interface StatusAction {

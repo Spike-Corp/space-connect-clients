@@ -28,12 +28,24 @@ public class StreamConfiguration {
     private int colorRange;
     private int colorSpace;
     private boolean persistGamepadsAfterDisconnect;
+    private boolean allowAppSwitch = true;
+    private int hostAuthorizationWaitMs;
 
     public static class Builder {
         private StreamConfiguration config = new StreamConfiguration();
         
         public StreamConfiguration.Builder setApp(NvApp app) {
             config.app = app;
+            return this;
+        }
+
+        public StreamConfiguration.Builder setAllowAppSwitch(boolean allow) {
+            config.allowAppSwitch = allow;
+            return this;
+        }
+
+        public StreamConfiguration.Builder setHostAuthorizationWaitMs(int milliseconds) {
+            config.hostAuthorizationWaitMs = milliseconds;
             return this;
         }
         
@@ -177,6 +189,10 @@ public class StreamConfiguration {
     public NvApp getApp() {
         return app;
     }
+
+    public boolean isAppSwitchAllowed() { return allowAppSwitch; }
+
+    public int getHostAuthorizationWaitMs() { return hostAuthorizationWaitMs; }
     
     public boolean getSops() {
         return sops;

@@ -12,6 +12,7 @@ Item {
                                            qsTr("Starting %1...").arg(appName)
     property bool isResume : false
     property bool quitAfter : false
+    property bool managedDesktop: false
 
     function stageStarting(stage)
     {
@@ -21,6 +22,11 @@ Item {
 
     function stageFailed(stage, errorCode, failingPorts)
     {
+        if (managedDesktop) {
+            console.error("Streaming stage failed:", stage, errorCode)
+            sessionOrchestrator.reportError(qsTr("Could not start the video. Check your connection and try again."))
+            return
+        }
         // Display the error dialog after Session::exec() returns
         streamSegueErrorDialog.text = qsTr("Starting %1 failed: Error %2").arg(stage).arg(errorCode)
 
@@ -31,6 +37,8 @@ Item {
 
     function connectionStarted()
     {
+        if (managedDesktop)
+            return
         // Hide the UI contents so the user doesn't
         // see them briefly when we pop off the StackView
         stageSpinner.visible = false
@@ -43,6 +51,11 @@ Item {
 
     function displayLaunchError(text)
     {
+        if (managedDesktop) {
+            console.error(text)
+            sessionOrchestrator.reportError(text)
+            return
+        }
         // Display the error dialog after Session::exec() returns
         streamSegueErrorDialog.text = text
         console.error(text)
@@ -115,6 +128,13 @@ Item {
         gc()
     }
 
+    function streamWindowCreated() {
+        if (managedDesktop) {
+            sessionLoadingWindow.raise()
+            sessionLoadingWindow.requestActivate()
+        }
+    }
+
     StackView.onDeactivating: {
         // Show the toolbar again when popped off the stack
         toolBar.visible = true
@@ -131,6 +151,7 @@ Item {
         session.stageStarting.connect(stageStarting)
         session.stageFailed.connect(stageFailed)
         session.connectionStarted.connect(connectionStarted)
+        session.streamWindowCreated.connect(streamWindowCreated)
         session.displayLaunchError.connect(displayLaunchError)
         session.displayLaunchWarning.connect(displayLaunchWarning)
         session.quitStarting.connect(quitStarting)
@@ -151,7 +172,7 @@ Item {
         // middle of the animation on Windows, which looks very
         // obviously broken.
         interval: 100
-        onTriggered: stageSpinner.running = true
+        onTriggered: stageSpinner.running = !managedDesktop
     }
 
     Loader {
@@ -185,6 +206,7 @@ Item {
     Row {
         anchors.centerIn: parent
         spacing: 5
+        visible: !managedDesktop
 
         BusyIndicator {
             id: stageSpinner
@@ -204,6 +226,7 @@ Item {
 
     Label {
         id: hintText
+        visible: !managedDesktop
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 50
         anchors.horizontalCenter: parent.horizontalCenter

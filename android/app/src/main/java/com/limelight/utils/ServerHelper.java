@@ -54,6 +54,10 @@ public class ServerHelper {
 
     public static Intent createStartIntent(Activity parent, NvApp app, ComputerDetails computer,
                                            ComputerManagerService.ComputerManagerBinder managerBinder) {
+        return createStartIntent(parent, app, computer, managerBinder.getUniqueId());
+    }
+
+    public static Intent createStartIntent(Activity parent, NvApp app, ComputerDetails computer, String uniqueId) {
         Intent intent = new Intent(parent, Game.class);
         intent.putExtra(Game.EXTRA_HOST, computer.activeAddress.address);
         intent.putExtra(Game.EXTRA_PORT, computer.activeAddress.port);
@@ -61,7 +65,7 @@ public class ServerHelper {
         intent.putExtra(Game.EXTRA_APP_NAME, app.getAppName());
         intent.putExtra(Game.EXTRA_APP_ID, app.getAppId());
         intent.putExtra(Game.EXTRA_APP_HDR, app.isHdrSupported());
-        intent.putExtra(Game.EXTRA_UNIQUEID, managerBinder.getUniqueId());
+        intent.putExtra(Game.EXTRA_UNIQUEID, uniqueId);
         intent.putExtra(Game.EXTRA_PC_UUID, computer.uuid);
         intent.putExtra(Game.EXTRA_PC_NAME, computer.name);
         try {

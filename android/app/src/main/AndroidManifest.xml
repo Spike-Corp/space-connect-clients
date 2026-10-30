@@ -153,6 +153,14 @@
             android:configChanges="mcc|mnc|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection">
         </activity>
         <activity
+            android:name=".session.SessionLoadingActivity"
+            android:exported="false"
+            android:screenOrientation="sensorLandscape"
+            android:resizeableActivity="true"
+            android:enableOnBackInvokedCallback="false"
+            android:theme="@style/SessionLoadingTheme"
+            android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection" />
+        <activity
             android:name=".account.LauncherActivity"
             android:exported="false"
             android:resizeableActivity="true"
