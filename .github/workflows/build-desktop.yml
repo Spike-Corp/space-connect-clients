@@ -373,6 +373,16 @@ jobs:
           #  o legacy Win7/8 fica com o fallback de iniciais nos avatares, sem quebrar o build)
           cache: true
 
+      - name: Test loading UI with Qt 5.15
+        shell: cmd
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_QUICK_BACKEND: software
+          QT_QUICK_CONTROLS_STYLE: Material
+        run: |
+          set QT_QPA_FONTDIR=%WINDIR%\Fonts
+          "%QT_ROOT_DIR%\bin\qmltestrunner.exe" -input app\tests\qml || exit /b 1
+
       - name: Build (Release, x64, Qt5)
         shell: cmd
         run: |
