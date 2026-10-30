@@ -112,6 +112,7 @@ public final class StreamSideMenu extends FrameLayout {
     private float downX;
     private float downY;
     private float downProgress;
+    private float closingTouchSlop;
     private int dragPointer = -1;
 
     @SuppressLint("ClickableViewAccessibility") // Native ImageButton.performClick handles touch and accessibility.
@@ -404,6 +405,9 @@ public final class StreamSideMenu extends FrameLayout {
             downY = event.getRawY();
             downProgress = progress;
             dragStartedOpen = open;
+            // Leave room to recognize a rightward drag before reaching the screen edge.
+            closingTouchSlop = Math.min(touchSlop,
+                    Math.max(1f, (handle.getWidth() - event.getX()) / 2f));
             dragging = moved = false;
             velocity = VelocityTracker.obtain();
             handle.setPressed(true);
@@ -414,8 +418,9 @@ public final class StreamSideMenu extends FrameLayout {
         if (velocity != null) velocity.addMovement(event);
         if (action == MotionEvent.ACTION_MOVE) {
             float delta = event.getRawX() - downX;
-            moved |= Math.abs(delta) > touchSlop || Math.abs(event.getRawY() - downY) > touchSlop;
-            dragging |= Math.abs(delta) > touchSlop;
+            float horizontalSlop = dragStartedOpen && delta > 0 ? closingTouchSlop : touchSlop;
+            moved |= Math.abs(delta) > horizontalSlop || Math.abs(event.getRawY() - downY) > touchSlop;
+            dragging |= Math.abs(delta) > horizontalSlop;
             if (dragging) {
                 setProgress(downProgress - delta / Math.max(1, panelWidth + insets.right));
                 handle.setPressed(false);
@@ -424,7 +429,13 @@ public final class StreamSideMenu extends FrameLayout {
             if (dragging) {
                 velocity.computeCurrentVelocity(1000);
                 float speed = velocity.getXVelocity(dragPointer);
-                setOpen(Math.abs(speed) >= minimumFling ? speed < 0 : progress >= .5f, true);
+                boolean shouldOpen = progress >= .5f;
+                if (Math.abs(speed) >= minimumFling) shouldOpen = speed < 0;
+                else if (dragStartedOpen && event.getRawX() - downX > closingTouchSlop) {
+                    // The fixed edge handle cannot travel half the panel width to close.
+                    shouldOpen = false;
+                }
+                setOpen(shouldOpen, true);
             } else if (!moved) {
                 tapped = true;
             }

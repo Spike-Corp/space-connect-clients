@@ -213,14 +213,14 @@ public class StreamSideMenuTest {
         assertEquals(0f, menu.findViewById(R.id.streamSidePanel).getTranslationX(), .01f);
         event(MotionEvent.ACTION_DOWN, 616, 48);
         idle(80);
-        event(MotionEvent.ACTION_MOVE, 660, 48);
-        event(MotionEvent.ACTION_CANCEL, 660, 48);
+        event(MotionEvent.ACTION_MOVE, 632, 48);
+        event(MotionEvent.ACTION_CANCEL, 632, 48);
         idle(300);
         assertTrue(menu.isOpen());
         event(MotionEvent.ACTION_DOWN, 616, 48);
         idle(80);
-        event(MotionEvent.ACTION_MOVE, 710, 48);
-        event(MotionEvent.ACTION_UP, 710, 48);
+        event(MotionEvent.ACTION_MOVE, 632, 48);
+        event(MotionEvent.ACTION_UP, 632, 48);
         idle(300);
         assertFalse(menu.isOpen());
         assertTrue(host.received.isEmpty());
@@ -253,6 +253,42 @@ public class StreamSideMenuTest {
         assertTrue(menu.isOpen());
         idle(1100);
         assertFalse(menu.isOpen());
+        assertTrue(host.received.isEmpty());
+    }
+
+    @Test public void slowRightDragClosesWithoutLeavingTheScreen() {
+        menu.setControllerState(true, false);
+        for (float startX : new float[] {616, 628}) {
+            menu.setOpen(true, false);
+            event(MotionEvent.ACTION_DOWN, startX, 48);
+            for (int step = 1; step <= 5; step++) {
+                idle(120);
+                event(MotionEvent.ACTION_MOVE, startX + (638 - startX) * step / 5f, 48);
+            }
+            float translation = menu.findViewById(R.id.streamSidePanel).getTranslationX();
+            assertTrue("The panel must follow the drag from " + startX,
+                    translation > 0 && translation < 44);
+            idle(200);
+            event(MotionEvent.ACTION_UP, 638, 48);
+            idle(300);
+            assertFalse("The panel must close from " + startX, menu.isOpen());
+        }
+        assertTrue(host.received.isEmpty());
+    }
+
+    @Test public void reversingSlowClosingDragKeepsPanelOpen() {
+        menu.setControllerState(true, false);
+        menu.setOpen(true, false);
+        event(MotionEvent.ACTION_DOWN, 620, 48);
+        idle(400);
+        event(MotionEvent.ACTION_MOVE, 636, 48);
+        idle(400);
+        event(MotionEvent.ACTION_MOVE, 620, 48);
+        idle(200);
+        event(MotionEvent.ACTION_UP, 620, 48);
+        idle(300);
+        assertTrue(menu.isOpen());
+        assertEquals(0f, menu.findViewById(R.id.streamSidePanel).getTranslationX(), .01f);
         assertTrue(host.received.isEmpty());
     }
 
