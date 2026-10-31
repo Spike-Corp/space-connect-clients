@@ -1,43 +1,54 @@
 package com.limelight.account;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.app.Activity;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.os.Looper;
 import android.provider.Settings;
 import android.view.View;
+import android.widget.FrameLayout;
 
 import org.junit.Before;
+import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
+import org.robolectric.annotation.GraphicsMode;
 
 import java.time.Duration;
 
-/**
- * Regressão do bug reportado pelo Davi (0.3.25): o selo STAFF ficava congelado
- * em aparelhos com a escala global de animações em 0 (opções do desenvolvedor /
- * "remover animações" da MIUI). O motor da animação é Handler.postDelayed —
- * precisa provar que a fase avança MESMO com a escala zerada.
- */
 @RunWith(RobolectricTestRunner.class)
-@Config(sdk = 33)
+@Config(sdk = 33, qualifiers = "mdpi")
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 public class RgbRoleBadgeViewTest {
 
+    private ActivityController<Activity> controller;
     private Activity activity;
     private RgbRoleBadgeView badge;
 
     @Before
     public void setUp() {
-        ActivityController<Activity> controller = Robolectric.buildActivity(Activity.class);
-        activity = controller.setup().get();
+        controller = Robolectric.buildActivity(Activity.class).setup();
+        activity = controller.get();
         badge = new RgbRoleBadgeView(activity);
-        activity.setContentView(badge);
+        badge.setTextSize(18);
+        FrameLayout root = new FrameLayout(activity);
+        root.addView(badge, new FrameLayout.LayoutParams(200, 40));
+        activity.setContentView(root);
+        controller.visible().windowFocusChanged(true);
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(32));
+    }
+
+    @After public void tearDown() {
+        controller.pause().stop().destroy();
     }
 
     @Test
@@ -54,37 +65,59 @@ public class RgbRoleBadgeViewTest {
     }
 
     @Test
-    public void animatesEvenWithAnimatorScaleZero() {
-        // Device do Davi: animações do sistema DESLIGADAS
+    public void renderedTextAndBorderChangeColorTogetherEvenWithAnimatorScaleZero() {
         Settings.Global.putFloat(activity.getContentResolver(),
                 Settings.Global.ANIMATOR_DURATION_SCALE, 0f);
-
         badge.setRole("master");
-
-        // Deixa o looper ocioso pra o primeiro tick agendar, depois avança o tempo
+        assertTrue("Badge must be attached and shown: attached=" + badge.isAttachedToWindow()
+                + ", shown=" + badge.isShown() + ", window=" + badge.getWindowVisibility(),
+                badge.isAttachedToWindow() && badge.isShown() && badge.getWindowVisibility() == View.VISIBLE);
         shadowOf(Looper.getMainLooper()).idle();
-        float before = getPhaseViaPaint();
-        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(200));
-        float after = getPhaseViaPaint();
-
-        assertTrue("a animação deveria avançar mesmo com a escala global em 0",
-                after > before);
+        int before = badge.getCurrentTextColor();
+        assertRenderedTextAndBorder(before);
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(950));
+        int after = badge.getCurrentTextColor();
+        assertNotEquals("The visible badge must animate its text color", before, after);
+        assertRenderedTextAndBorder(after);
     }
 
-    // Lê a fase atual executando um draw contra um canvas medidor
-    private float getPhaseViaPaint() {
-        // força layout mínimo pro gradiente existir
+    @Test public void animationStopsWhenHiddenAndRestartsWhenVisible() {
+        badge.setRole("staff");
+        shadowOf(Looper.getMainLooper()).idle();
+        int before = badge.getCurrentTextColor();
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(950));
+        int active = badge.getCurrentTextColor();
+        assertNotEquals("The visible badge must animate its text color", before, active);
+        View decor = activity.getWindow().getDecorView();
+        decor.setVisibility(View.GONE);
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(1));
+        assertEquals(active, badge.getCurrentTextColor());
+        decor.setVisibility(View.VISIBLE);
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(350));
+        assertNotEquals(active, badge.getCurrentTextColor());
+    }
+
+    private void assertRenderedTextAndBorder(int color) {
         badge.measure(
                 View.MeasureSpec.makeMeasureSpec(200, View.MeasureSpec.EXACTLY),
                 View.MeasureSpec.makeMeasureSpec(40, View.MeasureSpec.EXACTLY));
         badge.layout(0, 0, 200, 40);
-        // phase é privado — espia via reflexão (teste de regressão, não de API)
+        Bitmap bitmap = Bitmap.createBitmap(200, 40, Bitmap.Config.ARGB_8888);
         try {
-            java.lang.reflect.Field f = RgbRoleBadgeView.class.getDeclaredField("phase");
-            f.setAccessible(true);
-            return f.getFloat(badge);
-        } catch (Exception e) {
-            throw new AssertionError(e);
+            badge.draw(new Canvas(bitmap));
+            int glyphPixels = 0;
+            int borderPixels = 0;
+            for (int y = 0; y < 40; y++) {
+                for (int x = 20; x < 180; x++) {
+                    if (bitmap.getPixel(x, y) != color) continue;
+                    if (y >= 10 && y < 30) glyphPixels++;
+                    if (y < 4 || y >= 36) borderPixels++;
+                }
+            }
+            assertTrue("Text must render in the animated color", glyphPixels > 3);
+            assertTrue("Border must follow the same color as the text", borderPixels > 10);
+        } finally {
+            bitmap.recycle();
         }
     }
 }

@@ -7,8 +7,10 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.provider.Settings;
+import android.widget.TextView;
 
 import com.limelight.Game;
+import com.limelight.R;
 import com.limelight.account.LauncherPollingTest;
 import com.limelight.account.SpaceConnectApiClient;
 import com.limelight.computers.ComputerManagerService;
@@ -46,6 +48,23 @@ public class SessionLoadingLifecycleTest {
     @Implements(MoonBridge.class)
     public static class NativeBridge {
         @Implementation protected static void __staticInitializer__() {}
+    }
+
+    @Test @Config(sdk = {24, 28, 35})
+    public void loadingActivityInflatesWithItsOwnManifestTheme() {
+        ActivityController<SessionLoadingActivity> loading = Robolectric.buildActivity(
+                SessionLoadingActivity.class);
+        try {
+            // No machine extra: exercise inflation without creating a backend session.
+            loading.create();
+            TextView wordmark = loading.get().findViewById(R.id.sessionWordmark);
+            TextView tip = loading.get().findViewById(R.id.sessionTip);
+            assertEquals(loading.get().getString(R.string.login_app_name), wordmark.getText().toString());
+            assertFalse(tip.getText().toString().isEmpty());
+            assertNull(loading.get().getActionBar());
+        } finally {
+            loading.destroy();
+        }
     }
 
     @Test public void visibleOverlayKeepsItsBindingAndPollsPastSixMinutesWithLauncherPaused() {

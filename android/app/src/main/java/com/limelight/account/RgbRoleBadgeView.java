@@ -3,10 +3,8 @@ package com.limelight.account;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.RectF;
-import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.os.Handler;
 import android.os.Looper;
@@ -20,31 +18,24 @@ import java.util.Locale;
 
 public final class RgbRoleBadgeView extends TextView {
     private static final int[] RGB_COLORS = {
+            Color.rgb(255, 43, 214),
             Color.rgb(0, 229, 255),
             Color.rgb(124, 58, 237),
-            Color.rgb(255, 43, 214),
             Color.rgb(255, 234, 0),
             Color.rgb(0, 255, 133),
-            Color.rgb(0, 229, 255),
     };
 
-    private static final long PERIOD_MS = 3200;
-    private static final long FRAME_MS = 33; // ~30fps — suave pra um gradiente deslizante
+    private static final long COLOR_DURATION_MS = 850;
+    private static final long FRAME_MS = 33;
 
     private final Paint surfacePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF bounds = new RectF();
     private final Handler animHandler = new Handler(Looper.getMainLooper());
-    private float phase;
     private boolean animating;
     private long animStartMs;
 
-    // Handler.postDelayed como motor da animação. NÃO usar ValueAnimator nem
-    // Choreographer aqui: os dois são afetados pela escala global de animações
-    // do aparelho (opções do desenvolvedor / "remover animações" da MIUI), e o
-    // selo congelava — foi o que o Davi viu no Xiaomi dele em 0.3.25. O selo é
-    // identidade de marca (no desktop o QML pulsa sempre), então animamos pelo
-    // relógio real do main looper, imune a qualquer config de animação.
+    // Keep the existing color-only identity cycle independent of system motion scaling.
     private final Runnable animTick = new Runnable() {
         @Override
         public void run() {
@@ -52,14 +43,14 @@ public final class RgbRoleBadgeView extends TextView {
                 return;
             }
             long elapsed = SystemClock.uptimeMillis() - animStartMs;
-            phase = (float) ((elapsed % PERIOD_MS) / (double) PERIOD_MS);
-            // invalidate() direto (o tick já roda no main looper) força o onDraw na
-            // próxima traversal. NÃO usar postInvalidateOnAnimation: além do custo,
-            // o que travava o selo no Xiaomi do Davi era o canvas acelerado por
-            // hardware reaproveitar o MESMO Shader em cache — por isso agora o
-            // onDraw recria o LinearGradient a cada frame (shader novo = redesenho
-            // de verdade), imune a config de animação do aparelho.
-            invalidate();
+            int index = (int) ((elapsed / COLOR_DURATION_MS) % RGB_COLORS.length);
+            float fraction = (elapsed % COLOR_DURATION_MS) / (float) COLOR_DURATION_MS;
+            int from = RGB_COLORS[index];
+            int to = RGB_COLORS[(index + 1) % RGB_COLORS.length];
+            setBadgeColor(Color.rgb(
+                    Math.round(Color.red(from) + (Color.red(to) - Color.red(from)) * fraction),
+                    Math.round(Color.green(from) + (Color.green(to) - Color.green(from)) * fraction),
+                    Math.round(Color.blue(from) + (Color.blue(to) - Color.blue(from)) * fraction)));
             animHandler.postDelayed(this, FRAME_MS);
         }
     };
@@ -78,11 +69,13 @@ public final class RgbRoleBadgeView extends TextView {
         setTextSize(9);
         setAllCaps(true);
         setSingleLine(true);
+        setHorizontallyScrolling(false);
         setTypeface(getTypeface(), Typeface.BOLD);
         setLetterSpacing(0.12f);
         surfacePaint.setColor(Color.rgb(19, 13, 27));
         borderPaint.setStyle(Paint.Style.STROKE);
         borderPaint.setStrokeWidth(getResources().getDisplayMetrics().density * 1.5f);
+        setBadgeColor(RGB_COLORS[0]);
         setWillNotDraw(false);
     }
 
@@ -110,21 +103,22 @@ public final class RgbRoleBadgeView extends TextView {
         float radius = getHeight() / 2f;
         canvas.drawRoundRect(bounds, radius, radius, surfacePaint);
 
-        int w = getWidth();
-        if (w > 0) {
-            // Recria o gradiente a cada frame com o deslocamento do phase embutido
-            // nas coordenadas. Shader NOVO toda vez → o renderer por hardware não
-            // reaproveita cache (causa do selo estático no Android) e a animação
-            // aparece de verdade. REPEAT faz o loop ficar sem emenda.
-            float shift = w * 2f * phase;
-            LinearGradient g = new LinearGradient(-shift, 0, w * 2f - shift, 0,
-                    RGB_COLORS, null, Shader.TileMode.REPEAT);
-            borderPaint.setShader(g);
-            canvas.drawRoundRect(bounds, radius, radius, borderPaint);
-            getPaint().setShader(g);
-        }
+        canvas.drawRoundRect(bounds, radius, radius, borderPaint);
         super.onDraw(canvas);
-        getPaint().setShader(null);
+    }
+
+    private void setBadgeColor(int color) {
+        borderPaint.setColor(color);
+        // TextView must invalidate its cached glyphs, not just its Paint's shader.
+        setTextColor(color);
+        invalidate();
+    }
+
+    @Override public void onVisibilityAggregated(boolean visible) {
+        super.onVisibilityAggregated(visible);
+        if (animHandler == null) return;
+        if (visible && length() > 0) startAnimator();
+        else stopAnimator();
     }
 
     @Override
@@ -142,7 +136,8 @@ public final class RgbRoleBadgeView extends TextView {
     }
 
     private void startAnimator() {
-        if (animating) {
+        if (animating || !isAttachedToWindow() || !isShown()
+                || getWindowVisibility() != View.VISIBLE) {
             return;
         }
         animating = true;
