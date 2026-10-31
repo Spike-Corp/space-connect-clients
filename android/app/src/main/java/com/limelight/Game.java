@@ -33,6 +33,7 @@ import com.limelight.preferences.GlPreferences;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.ui.GameGestures;
 import com.limelight.ui.StreamSideMenu;
+import com.limelight.ui.StreamGuestsController;
 import com.limelight.ui.StreamView;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.ServerHelper;
@@ -103,8 +104,11 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Locale;
 import com.limelight.account.LauncherActivity;
+import com.limelight.account.StreamClientIdentity;
+import com.limelight.nvstream.http.LimelightCryptoProvider;
 import com.limelight.session.SessionOrchestrator;
 import com.limelight.session.SessionOverlayView;
+import com.limelight.utils.RequestScope;
 
 
 public class Game extends Activity implements SurfaceHolder.Callback,
@@ -191,6 +195,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private static final int MIC_PERMISSION_REQUEST_CODE = 4200;
     private boolean micPermissionPending;
     private StreamSideMenu streamSideMenu;
+    private StreamGuestsController streamGuests;
+    private boolean guestPanelVisible;
+    private boolean restoreCaptureAfterGuests;
     private boolean menuBackCaptured;
     private static final String STATE_SIDE_MENU_OPEN = "stream-side-menu-open";
     private static final String STATE_CONTROLS_HIDDEN = "stream-controls-hidden";
@@ -521,6 +528,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     streamView.requestFocus();
                     if (connected) setInputGrabState(true);
                     checkAndPushClipboard();
+                    if (streamGuests != null) streamGuests.start();
                 });
             }));
         }
@@ -628,10 +636,15 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 .build();
 
         // Initialize the connection
+        LimelightCryptoProvider cryptoProvider = PlatformBinding.getCryptoProvider(this);
         conn = new NvConnection(getApplicationContext(),
                 new ComputerDetails.AddressTuple(host, port),
                 httpsPort, uniqueId, config,
-                PlatformBinding.getCryptoProvider(this), serverCert);
+                cryptoProvider, serverCert);
+        if (managedSession) {
+            streamGuests = new StreamGuestsController(this,
+                    sessionAttempt.streamRequests(new RequestScope()), new StreamClientIdentity(cryptoProvider));
+        }
         controllerHandler = new ControllerHandler(this, conn, this, prefConfig);
         keyboardTranslator = new KeyboardTranslator(prefConfig);
 
@@ -876,7 +889,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             @Override public void keyboard() { toggleFullKeyboard(); }
             @Override public void options() { gameMenu.showMenu(); }
             @Override public void microphone() { toggleMicForwarding(); }
+            @Override public void guests() {
+                if (streamGuests != null) streamGuests.showPanel();
+            }
         });
+        if (streamGuests != null) streamGuests.setVisibilityListener(this::onStreamGuestsVisibilityChanged);
         addContentView(streamSideMenu, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         if (virtualController != null) {
@@ -894,7 +911,28 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         streamSideMenu.setHandlePinned(onScreenControlsHidden);
         streamSideMenu.setControllerState(gamepadVisible,
                 gamepadVisible && virtualController.getControllerMode() != VirtualController.ControllerMode.Active);
-        streamSideMenu.setAvailable(connected && !connectionClosed && !isHidingOverlays && !isSessionOverlayVisible());
+        boolean available = connected && !connectionClosed && !isHidingOverlays && !isSessionOverlayVisible();
+        streamSideMenu.setAvailable(available);
+        streamSideMenu.setGuestsAvailable(streamGuests != null && streamGuests.isOwnerSession());
+        if (!available && streamGuests != null) streamGuests.closePanel();
+        restoreGuestCapture(hasWindowFocus());
+    }
+
+    private void onStreamGuestsVisibilityChanged(boolean visible) {
+        guestPanelVisible = visible;
+        if (visible) {
+            restoreCaptureAfterGuests |= grabbedInput;
+            setInputGrabState(false);
+        } else {
+            restoreGuestCapture(hasWindowFocus());
+        }
+    }
+
+    private void restoreGuestCapture(boolean hasFocus) {
+        if (!restoreCaptureAfterGuests || !hasFocus || guestPanelVisible
+                || isHidingOverlays || isSessionOverlayVisible()) return;
+        restoreCaptureAfterGuests = false;
+        if (connected && !connectionClosed) setInputGrabState(true);
     }
 
     @Override protected void onSaveInstanceState(Bundle state) {
@@ -1094,11 +1132,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         // We can't guarantee the state of modifiers keys which may have
         // lifted while focus was not on us. Clear the modifier state.
         this.modifierFlags = 0;
+        restoreGuestCapture(hasFocus);
 
         // With Android native pointer capture, capture is lost when focus is lost,
         // so it must be requested again when focus is regained.
         if (inputCaptureProvider != null && !connectionClosed && !isSessionOverlayVisible()) {
-            inputCaptureProvider.onWindowFocusChanged(hasFocus);
+            inputCaptureProvider.onWindowFocusChanged(hasFocus && !guestPanelVisible && !isHidingOverlays);
         }
 
         // This is the one guaranteed moment we're back in the foreground after
@@ -1558,6 +1597,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private void setInputGrabState(boolean grab) {
         if (inputCaptureProvider == null) return;
+        if (grab && (guestPanelVisible || connectionClosed || isHidingOverlays)) return;
         // Grab/ungrab the mouse cursor
         if (grab) {
             inputCaptureProvider.enableCapture();
@@ -3143,6 +3183,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private void stopConnection() {
         if (connectionClosed) return;
         connectionClosed = true;
+        restoreCaptureAfterGuests = false;
+        if (streamGuests != null) streamGuests.dispose();
         micPermissionPending = false;
         if (micForwarder != null) {
             micForwarder.setListener(null);

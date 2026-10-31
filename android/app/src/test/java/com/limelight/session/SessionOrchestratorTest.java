@@ -241,6 +241,9 @@ public class SessionOrchestratorTest {
     }
 
     private static class Backend implements SessionOrchestrator.Backend {
+        @Override public com.limelight.account.AccountManager.StreamRequests streamRequests(com.limelight.utils.RequestScope scope) {
+            throw new AssertionError("Startup-only backend");
+        }
         final Queue<StatusResponse> statuses = new ConcurrentLinkedQueue<>();
         final AtomicInteger joins = new AtomicInteger(), connections = new AtomicInteger(),
                 cancels = new AtomicInteger(), cleanups = new AtomicInteger();

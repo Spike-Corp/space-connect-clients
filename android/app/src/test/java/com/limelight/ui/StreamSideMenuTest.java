@@ -234,6 +234,7 @@ public class StreamSideMenuTest {
             @Override public void keyboard() { keyboards.incrementAndGet(); }
             @Override public void options() { options.incrementAndGet(); }
             @Override public void microphone() { microphones.incrementAndGet(); }
+            @Override public void guests() {}
         });
         menu.setControllerState(true, false);
         menu.setOpen(true, false);
@@ -254,6 +255,34 @@ public class StreamSideMenuTest {
         idle(1100);
         assertFalse(menu.isOpen());
         assertTrue(host.received.isEmpty());
+    }
+
+    @Test @Config(sdk = 24, qualifiers = "pt-rBR-w480dp-h240dp-land-mdpi")
+    public void guestControlsAreOptionalAndTheirTouchDoesNotReachTheHost() {
+        RuntimeEnvironment.setFontScale(1.6f);
+        menu.dispatchConfigurationChanged(host.getResources().getConfiguration());
+        AtomicInteger guests = new AtomicInteger();
+        menu.setActions(new StreamSideMenu.Actions() {
+            @Override public void keyboard() {}
+            @Override public void options() {}
+            @Override public void microphone() {}
+            @Override public void guests() { guests.incrementAndGet(); }
+        });
+        assertEquals(View.GONE, menu.findViewById(R.id.streamSideGuests).getVisibility());
+        menu.setGuestsAvailable(true);
+        menu.setControllerState(true, false);
+        menu.setOpen(true, false);
+        layout(480, 240);
+        assertEquals(View.VISIBLE, menu.findViewById(R.id.streamSideGuests).getVisibility());
+        assertTrue(((Button) menu.findViewById(R.id.streamSideGuests)).getTextSize() >= 19f);
+        ((ScrollView) menu.findViewById(R.id.streamSidePanel)).fullScroll(View.FOCUS_DOWN);
+        idle(400);
+        tapView(R.id.streamSideGuests);
+        assertEquals(1, guests.get());
+        assertFalse(menu.isOpen());
+        assertTrue(host.received.isEmpty());
+        menu.setGuestsAvailable(false);
+        assertEquals(View.GONE, menu.findViewById(R.id.streamSideGuests).getVisibility());
     }
 
     @Test public void slowRightDragClosesWithoutLeavingTheScreen() {
@@ -362,6 +391,7 @@ public class StreamSideMenuTest {
             @Override public void keyboard() {}
             @Override public void options() {}
             @Override public void microphone() { clicks.incrementAndGet(); }
+            @Override public void guests() {}
         });
         panel.fullScroll(View.FOCUS_DOWN);
         idle(400);
@@ -463,6 +493,7 @@ public class StreamSideMenuTest {
             @Override public void keyboard() {}
             @Override public void options() { options.incrementAndGet(); }
             @Override public void microphone() {}
+            @Override public void guests() {}
         });
         menu.setControllerState(true, false);
         assertTrue(menu.findViewById(R.id.streamSideHandle)
@@ -482,6 +513,7 @@ public class StreamSideMenuTest {
         try {
             controls.refreshLayout();
             controls.show();
+            menu.setGuestsAvailable(true);
             menu.setControllerState(true, false);
             menu.setOpen(true, false);
             menu.bringToFront();
@@ -503,9 +535,9 @@ public class StreamSideMenuTest {
             ScrollView panel = menu.findViewById(R.id.streamSidePanel);
             panel.scrollTo(0, panel.getChildAt(0).getHeight());
             savePreview("large-font-pt-br.png", 480, 240);
-            Button mic = menu.findViewById(R.id.streamSideMicrophone);
-            assertTrue(mic.getHeight() >= 48);
-            assertEquals("Microfone", mic.getText().toString());
+            Button guests = menu.findViewById(R.id.streamSideGuests);
+            assertTrue(guests.getHeight() >= 48);
+            assertTrue(guests.getGlobalVisibleRect(new Rect()));
         } finally {
             controls.dispose();
         }

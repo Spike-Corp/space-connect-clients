@@ -45,6 +45,13 @@
                 style="@style/StreamSideAction"
                 android:text="@string/stream_side_microphone"
                 android:contentDescription="@string/stream_side_mic_off" />
+            <Button
+                android:id="@+id/streamSideGuests"
+                style="@style/StreamSideAction"
+                android:drawableTop="@drawable/ic_stream_guests"
+                android:text="@string/stream_guests_title"
+                android:contentDescription="@string/stream_guests_desc"
+                android:visibility="gone" />
         </LinearLayout>
     </ScrollView>
 

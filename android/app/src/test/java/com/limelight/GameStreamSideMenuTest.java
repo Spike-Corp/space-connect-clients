@@ -23,6 +23,12 @@ import com.limelight.binding.input.virtual_controller.VirtualController;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.session.SessionLoadingLifecycleTest;
 import com.limelight.ui.StreamSideMenu;
+import com.limelight.ui.StreamGuestsController;
+import com.limelight.account.AccountManager;
+import com.limelight.account.SpaceConnectApiClient;
+import com.limelight.account.StreamClientIdentity;
+import com.limelight.utils.RequestScope;
+import com.limelight.binding.input.capture.InputCaptureProvider;
 
 import org.junit.After;
 import org.junit.Test;
@@ -55,6 +61,10 @@ public class GameStreamSideMenuTest {
     }
 
     private Game createUi(Bundle saved, boolean withController) {
+        return createUi(saved, withController, null);
+    }
+
+    private Game createUi(Bundle saved, boolean withController, Boolean guestOwner) {
         // Build only the real Activity's UI/input bridge, without launching a remote session.
         Game game = Robolectric.buildActivity(Game.class).get();
         games.add(game);
@@ -74,6 +84,10 @@ public class GameStreamSideMenuTest {
             ReflectionHelpers.setField(game, "virtualController", controls);
         }
         ReflectionHelpers.setField(game, "gameMenu", new GameMenu(game));
+        if (guestOwner != null) {
+            ReflectionHelpers.setField(game, "streamGuests",
+                    new StreamGuestsController(game, new GuestRequests(guestOwner, new RequestScope()), null));
+        }
         ReflectionHelpers.callInstanceMethod(game, "initializeStreamSideMenu", ClassParameter.from(Bundle.class, saved));
         View decor = game.getWindow().getDecorView();
         decor.measure(View.MeasureSpec.makeMeasureSpec(640, View.MeasureSpec.EXACTLY),
@@ -90,6 +104,8 @@ public class GameStreamSideMenuTest {
         for (Game game : games) {
             ReflectionHelpers.callInstanceMethod(game, "stopConnection");
             menu(game).dispose();
+            StreamGuestsController guests = ReflectionHelpers.getField(game, "streamGuests");
+            if (guests != null) guests.dispose();
             VirtualController controls = ReflectionHelpers.getField(game, "virtualController");
             if (controls != null) controls.dispose();
             MicForwarder mic = ReflectionHelpers.getField(game, "micForwarder");
@@ -112,8 +128,92 @@ public class GameStreamSideMenuTest {
             game.dispatchTouchEvent(event);
             event.recycle();
         }
+
         assertEquals(2, events.get());
         assertFalse(menu(game).isOpen());
+    }
+
+    @Test public void ownerGuestPanelPausesCaptureRestoresItAndClosesWithTheStream() {
+        Game game = createUi(null, false, true);
+        StreamGuestsController guests = ReflectionHelpers.getField(game, "streamGuests");
+        InputCaptureProvider capture = new InputCaptureProvider() {};
+        ReflectionHelpers.setField(game, "inputCaptureProvider", capture);
+        ReflectionHelpers.callInstanceMethod(game, "setInputGrabState", ClassParameter.from(boolean.class, true));
+        assertTrue(capture.isCapturingEnabled());
+        menu(game).setOpen(true, false);
+        Button action = menu(game).findViewById(R.id.streamSideGuests);
+        assertEquals(View.VISIBLE, action.getVisibility());
+        action.performClick();
+        assertTrue(guests.isShowing());
+        assertFalse(menu(game).isOpen());
+        assertFalse(capture.isCapturingEnabled());
+        ReflectionHelpers.callInstanceMethod(game, "setInputGrabState", ClassParameter.from(boolean.class, true));
+        assertFalse(capture.isCapturingEnabled());
+        guests.closePanel();
+        game.onWindowFocusChanged(true);
+        assertTrue(capture.isCapturingEnabled());
+        guests.showPanel();
+        ReflectionHelpers.callInstanceMethod(game, "stopConnection");
+        assertFalse(guests.isShowing());
+    }
+
+    @Test public void guestsAndManualPcsDoNotReceiveTheOwnerAction() {
+        Game manual = createUi(null);
+        Game friend = createUi(null, false, false);
+        assertEquals(View.GONE, menu(manual).findViewById(R.id.streamSideGuests).getVisibility());
+        assertEquals(View.GONE, menu(friend).findViewById(R.id.streamSideGuests).getVisibility());
+    }
+
+    @Test public void closingGuestsDoesNotGrabAPreviouslyFreeCursor() {
+        Game game = createUi(null, false, true);
+        StreamGuestsController guests = ReflectionHelpers.getField(game, "streamGuests");
+        InputCaptureProvider capture = new InputCaptureProvider() {};
+        ReflectionHelpers.setField(game, "inputCaptureProvider", capture);
+        ReflectionHelpers.callInstanceMethod(game, "setInputGrabState", ClassParameter.from(boolean.class, false));
+        guests.showPanel();
+        guests.closePanel();
+        game.onWindowFocusChanged(true);
+        assertFalse(capture.isCapturingEnabled());
+    }
+
+    @Test public void pipClosesGuestsWithoutRecapturingUntilTheStreamRegainsFocus() {
+        Game game = createUi(null, false, true);
+        StreamGuestsController guests = ReflectionHelpers.getField(game, "streamGuests");
+        InputCaptureProvider capture = new InputCaptureProvider() {};
+        ReflectionHelpers.setField(game, "inputCaptureProvider", capture);
+        ReflectionHelpers.callInstanceMethod(game, "setInputGrabState", ClassParameter.from(boolean.class, true));
+        guests.showPanel();
+        ReflectionHelpers.setField(game, "isHidingOverlays", true);
+        ReflectionHelpers.callInstanceMethod(game, "updateStreamSideMenu");
+        assertFalse(guests.isShowing());
+        game.onWindowFocusChanged(true);
+        assertFalse(capture.isCapturingEnabled());
+        ReflectionHelpers.setField(game, "isHidingOverlays", false);
+        game.onWindowFocusChanged(true);
+        assertTrue(capture.isCapturingEnabled());
+        guests.showPanel();
+        ReflectionHelpers.callInstanceMethod(game, "stopConnection");
+        game.onWindowFocusChanged(true);
+        assertFalse(capture.isCapturingEnabled());
+    }
+
+    private static final class GuestRequests implements AccountManager.StreamRequests {
+        final boolean owner;
+        final RequestScope scope;
+        GuestRequests(boolean owner, RequestScope scope) { this.owner = owner; this.scope = scope; }
+        @Override public AccountManager.StreamRequests withScope(RequestScope scope) { return new GuestRequests(owner, scope); }
+        @Override public boolean isCurrentAccount() { return true; }
+        @Override public boolean isOwnerSession() { return owner; }
+        @Override public SpaceConnectApiClient.StreamIdentityResponse registerStream(StreamClientIdentity identity) throws Exception {
+            throw new java.io.IOException("No remote host in this UI test");
+        }
+        @Override public SpaceConnectApiClient.StreamGuestsResponse streamGuests(String bindingId) throws Exception {
+            throw new java.io.IOException("No remote host in this UI test");
+        }
+        @Override public SpaceConnectApiClient.StreamDisconnectResponse disconnectStreamGuest(String bindingId, String userId) throws Exception {
+            throw new java.io.IOException("No remote host in this UI test");
+        }
+        @Override public void close() { scope.close(); }
     }
 
     @Test public void savedOpenStateRestoresAndBackClosesMenuWithoutFinishingGame() {

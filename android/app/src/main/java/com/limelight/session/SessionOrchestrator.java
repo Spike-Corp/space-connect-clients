@@ -2,6 +2,8 @@ package com.limelight.session;
 
 import com.limelight.account.SpaceConnectApiClient.ConnectionResponse;
 import com.limelight.account.SpaceConnectApiClient.StatusResponse;
+import com.limelight.account.AccountManager;
+import com.limelight.utils.RequestScope;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
 
@@ -22,6 +24,7 @@ public final class SessionOrchestrator {
         StatusResponse status() throws Exception;
         StatusResponse joinQueue() throws Exception;
         ConnectionResponse connection() throws Exception;
+        AccountManager.StreamRequests streamRequests(RequestScope scope);
         void cancel();
         // Independent, bounded I/O: only reconcile/leave this attempt's queue, never end a session.
         void cleanupQueue(boolean joinUncertain);
@@ -117,6 +120,8 @@ public final class SessionOrchestrator {
     }
 
     public boolean isFriend() { return friend; }
+
+    public AccountManager.StreamRequests streamRequests(RequestScope scope) { return backend.streamRequests(scope); }
 
     public void start() {
         synchronized (REGISTRY_LOCK) {

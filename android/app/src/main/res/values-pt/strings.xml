@@ -625,4 +625,34 @@
     <string name="game_menu_toggle_full_keyboard">Alternar teclado completo (F1-F12)</string>
     <string name="game_menu_hide_controls">Ocultar controles da tela</string>
     <string name="game_menu_show_controls">Mostrar controles da tela</string>
+    <string name="stream_account_changed">Sua conta mudou. Abra a máquina novamente para usar estes controles.</string>
+    <string name="stream_guests_title">Convidados</string>
+    <string name="stream_guests_desc">Gerenciar amigos conectados</string>
+    <string name="stream_guests_close">Fechar</string>
+    <string name="stream_guests_refresh">Atualizar</string>
+    <string name="stream_guests_loading">Consultando convidados conectados…</string>
+    <string name="stream_guests_empty">Nenhum amigo identificado está conectado.</string>
+    <string name="stream_guests_device">Dispositivo</string>
+    <string name="stream_guest_summary">%1$s\n%2$s · %3$s</string>
+    <plurals name="stream_guests_unidentified">
+        <item quantity="one">%d conexão sem conta identificada. Esse amigo precisa atualizar o app e conectar novamente para aparecer aqui.</item>
+        <item quantity="many">%d conexões sem conta identificada. Esses amigos precisam atualizar o app e conectar novamente para aparecerem aqui.</item>
+        <item quantity="other">%d conexões sem conta identificada. Esses amigos precisam atualizar o app e conectar novamente para aparecerem aqui.</item>
+    </plurals>
+    <string name="stream_guests_confirm_title">Desconectar %1$s?</string>
+    <string name="stream_guests_confirm">Desconectar os dispositivos ativos e identificados desta conta? É temporário: seu amigo poderá conectar novamente. Seu stream, VM, arquivos e amizade serão preservados.</string>
+    <string name="stream_guests_disconnect">Desconectar</string>
+    <string name="stream_guests_requested">Desconexão solicitada. Seu amigo poderá conectar novamente.</string>
+    <string name="stream_guests_already_gone">Este amigo não está mais conectado. Atualize a lista.</string>
+    <string name="stream_guests_error">Não foi possível confirmar o estado dos convidados. Atualize a lista antes de tentar novamente.</string>
+    <string name="stream_guests_unsupported">O controle individual de convidados não está disponível neste host.</string>
+    <string name="stream_guests_owner_only">Só o proprietário pode gerenciar convidados. Dispositivos do dono não podem ser desconectados aqui.</string>
+    <string name="stream_guests_reconnect">A identidade da sessão mudou. Reconecte para gerenciar convidados.</string>
+    <string name="stream_guests_sign_in">O acesso da sessão foi revogado. Entre novamente na sua conta.</string>
+    <string name="stream_guests_partial">Pedidos aceitos: %1$d. Já desconectados: %2$d. Falhas: %3$d. Não tentados: %4$d. Nenhuma tentativa automática foi feita.</string>
+    <plurals name="stream_guest_devices">
+        <item quantity="one">%d dispositivo</item>
+        <item quantity="many">%d dispositivos</item>
+        <item quantity="other">%d dispositivos</item>
+    </plurals>
 </resources>

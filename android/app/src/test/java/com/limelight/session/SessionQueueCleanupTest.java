@@ -202,6 +202,9 @@ public class SessionQueueCleanupTest {
     }
 
     private final class Backend implements SessionOrchestrator.Backend {
+        @Override public com.limelight.account.AccountManager.StreamRequests streamRequests(RequestScope scope) {
+            throw new AssertionError("Startup-only backend");
+        }
         final RequestScope scope = new RequestScope();
         final SpaceConnectApiClient api = client.withScope(scope);
         final AtomicBoolean cleanupStarted = new AtomicBoolean();

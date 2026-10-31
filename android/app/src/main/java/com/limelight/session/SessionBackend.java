@@ -12,13 +12,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 final class SessionBackend implements SessionOrchestrator.Backend {
-    private final Context context;
-    private final String machineId;
     final AccountManager.SessionRequests requests;
 
     SessionBackend(Context context, String machineId, boolean friend, RequestScope scope) {
-        this.context = context.getApplicationContext();
-        this.machineId = machineId;
         requests = AccountManager.sessionRequests(context, machineId, friend, scope);
     }
 
@@ -26,12 +22,15 @@ final class SessionBackend implements SessionOrchestrator.Backend {
     @Override public StatusResponse joinQueue() throws Exception { return requests.joinQueue(); }
     @Override public ConnectionResponse connection() throws Exception { return requests.connection(); }
     @Override public void cancel() { requests.close(); }
+    @Override public AccountManager.StreamRequests streamRequests(RequestScope scope) {
+        return requests.withScope(scope);
+    }
 
     @Override
     public void cleanupQueue(boolean joinUncertain) {
         RequestScope scope = new RequestScope();
-        try (AccountManager.SessionRequests cleanup = AccountManager.sessionRequests(context, machineId, false, scope)) {
-            cleanupQueue(scope, joinUncertain, cleanup::leaveQueue, 1000);
+        try (RequestScope cleanup = scope) {
+            cleanupQueue(scope, joinUncertain, () -> requests.removeQueuedAttempt(cleanup), 1000);
         }
     }
 

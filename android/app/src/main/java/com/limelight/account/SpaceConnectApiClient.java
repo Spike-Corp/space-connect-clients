@@ -48,6 +48,64 @@ public final class SpaceConnectApiClient {
         return new SpaceConnectApiClient(baseUrl, httpClient, scope);
     }
 
+    public StreamChallengeResponse streamChallenge(String token, String machineId, String certificatePem)
+            throws IOException, ApiException {
+        StreamChallengeResponse result = streamApi().post("stream/identity/challenge",
+                new StreamIdentityRequest(machineId, certificatePem, null, null), token, StreamChallengeResponse.class);
+        if (result == null || result.challenge == null || result.challenge.isEmpty() || result.challenge.length() > 8192) {
+            throw new IOException("Invalid stream identity response");
+        }
+        return result;
+    }
+
+    public StreamIdentityResponse registerStream(String token, String machineId, String certificatePem,
+            String challenge, String signature) throws IOException, ApiException {
+        StreamIdentityResponse result = streamApi().post("stream/identity",
+                new StreamIdentityRequest(machineId, certificatePem, challenge, signature), token, StreamIdentityResponse.class);
+        if (result == null || !isId(result.bindingId) || result.canManageGuests == null) {
+            throw new IOException("Invalid stream identity response");
+        }
+        return result;
+    }
+
+    public StreamGuestsResponse streamGuests(String token, String machineId, String bindingId)
+            throws IOException, ApiException {
+        StreamGuestsResponse result = streamApi().get("stream/guests?machineId=" + safeMachineId(machineId)
+                + "&bindingId=" + safeMachineId(bindingId), token, StreamGuestsResponse.class);
+        if (result == null || result.guests == null || result.guests.length > 64
+                || result.unidentifiedCount < 0 || result.unidentifiedCount > 64) {
+            throw new IOException("Invalid stream guests response");
+        }
+        for (StreamGuest guest : result.guests) {
+            if (guest == null || !isId(guest.userId) || guest.displayName == null || guest.displayName.trim().isEmpty()
+                    || guest.devices == null || guest.devices.length == 0 || guest.devices.length > 64) {
+                throw new IOException("Invalid stream guest identity");
+            }
+            for (StreamGuestDevice device : guest.devices) {
+                if (device == null || !isId(device.bindingId) || device.platform == null) {
+                    throw new IOException("Invalid stream guest device");
+                }
+            }
+        }
+        return result;
+    }
+
+    public StreamDisconnectResponse disconnectStreamGuest(String token, String machineId, String bindingId, String guestUserId)
+            throws IOException, ApiException {
+        StreamDisconnectResponse result = streamApi().post("stream/guests/disconnect",
+                new StreamDisconnectRequest(machineId, bindingId, guestUserId), token, StreamDisconnectResponse.class);
+        if (result == null || result.requested < 0 || result.alreadyDisconnected < 0) {
+            throw new IOException("Invalid stream disconnect response");
+        }
+        return result;
+    }
+
+    private SpaceConnectApiClient streamApi() {
+        return new SpaceConnectApiClient(baseUrl, httpClient.newBuilder()
+                .readTimeout(95, TimeUnit.SECONDS).callTimeout(100, TimeUnit.SECONDS)
+                .retryOnConnectionFailure(false).build(), requestScope);
+    }
+
     private Response execute(OkHttpClient client, Request request) throws IOException {
         return requestScope == null ? client.newCall(request).execute() : requestScope.execute(client, request);
     }
@@ -358,10 +416,14 @@ public final class SpaceConnectApiClient {
     }
 
     private static String safeMachineId(String machineId) {
-        if (machineId == null || !machineId.matches("^[a-fA-F0-9]{24}$")) {
+        if (!isId(machineId)) {
             throw new IllegalArgumentException("ID de máquina inválido");
         }
         return machineId;
+    }
+
+    private static boolean isId(String value) {
+        return value != null && value.matches("^[a-fA-F0-9]{24}$");
     }
 
     // Envia um arquivo do aparelho pra pasta Downloads da VM do usuario
@@ -566,7 +628,11 @@ public final class SpaceConnectApiClient {
                         status,
                         envelope.error.code,
                         envelope.error.message,
-                        envelope.error.tempToken);
+                        envelope.error.tempToken,
+                        envelope.error.requested,
+                        envelope.error.alreadyDisconnected,
+                        envelope.error.failed,
+                        envelope.error.notAttempted);
             }
         } catch (JsonSyntaxException ignored) {
         }
@@ -630,6 +696,7 @@ public final class SpaceConnectApiClient {
         String code;
         String message;
         String tempToken;
+        Integer requested, alreadyDisconnected, failed, notAttempted;
     }
 
     public static final class DeviceInfo {
@@ -1124,16 +1191,54 @@ public final class SpaceConnectApiClient {
         public String message;
     }
 
+    private static final class StreamIdentityRequest {
+        final String machineId, certificatePem, challenge, signature;
+        StreamIdentityRequest(String machineId, String certificatePem, String challenge, String signature) {
+            this.machineId = safeMachineId(machineId);
+            this.certificatePem = certificatePem;
+            this.challenge = challenge;
+            this.signature = signature;
+        }
+    }
+    private static final class StreamDisconnectRequest {
+        final String machineId, bindingId, guestUserId;
+        StreamDisconnectRequest(String machineId, String bindingId, String guestUserId) {
+            this.machineId = safeMachineId(machineId);
+            this.bindingId = safeMachineId(bindingId);
+            this.guestUserId = safeMachineId(guestUserId);
+        }
+    }
+    public static final class StreamChallengeResponse { public String challenge; }
+    public static final class StreamIdentityResponse { public String bindingId; public Boolean canManageGuests; }
+    public static final class StreamGuestsResponse { public StreamGuest[] guests; public int unidentifiedCount = -1; }
+    public static final class StreamGuest {
+        public String userId, displayName, username;
+        public StreamGuestDevice[] devices;
+    }
+    public static final class StreamGuestDevice { public String bindingId, platform; }
+    public static final class StreamDisconnectResponse { public int requested = -1, alreadyDisconnected = -1; }
+
     public static final class ApiException extends Exception {
         public final int status;
         public final String code;
         public final String tempToken;
+        public final Integer requested, alreadyDisconnected, failed, notAttempted;
 
         ApiException(int status, String code, String message, String tempToken) {
+            this(status, code, message, tempToken, null, null, null, null);
+        }
+
+        ApiException(int status, String code, String message, String tempToken,
+                Integer requested, Integer alreadyDisconnected, Integer failed, Integer notAttempted) {
             super(message != null && !message.isEmpty() ? message : "Falha ao acessar a SpaceCloud");
             this.status = status;
             this.code = code != null ? code : "REQUEST_FAILED";
             this.tempToken = tempToken;
+            this.requested = requested;
+            this.alreadyDisconnected = alreadyDisconnected;
+            this.failed = failed;
+            this.notAttempted = notAttempted;
         }
+
     }
 }

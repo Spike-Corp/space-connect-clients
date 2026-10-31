@@ -1,6 +1,7 @@
 package com.limelight.account;
 
 import com.limelight.BuildConfig;
+import com.limelight.R;
 import com.limelight.utils.RequestScope;
 
 import android.content.Context;
@@ -28,6 +29,8 @@ public final class AccountManager {
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static final ReentrantLock SESSION_LOCK = new ReentrantLock();
+    private static final Object AUTH_STATE_LOCK = new Object();
+    private static long accountGeneration;
 
     // Liga host -> (machineId, apelido de conta) pra sessão atual do processo —
     // preenchido a cada connect/connectFriend bem-sucedido, consultado pelo
@@ -139,7 +142,10 @@ public final class AccountManager {
                 SpaceConnectApiClient.DeviceInfo device = deviceInfo(appContext);
                 SpaceConnectApiClient.AuthResponse auth =
                         API.login(email, password, device, recaptchaToken);
-                SESSION_STORE.save(appContext, auth, device.deviceId);
+                synchronized (AUTH_STATE_LOCK) {
+                    SESSION_STORE.save(appContext, auth, device.deviceId);
+                    accountGeneration++;
+                }
                 post(callback::onSuccess);
             } catch (SpaceConnectApiClient.ApiException e) {
                 if ("TWO_FACTOR_REQUIRED".equals(e.code) && e.tempToken != null) {
@@ -170,7 +176,10 @@ public final class AccountManager {
         EXECUTOR.execute(() -> {
             try {
                 SpaceConnectApiClient.AuthResponse auth = API.verifyTwoFactor(tempToken, code);
-                SESSION_STORE.save(appContext, auth, deviceId(appContext));
+                synchronized (AUTH_STATE_LOCK) {
+                    SESSION_STORE.save(appContext, auth, deviceId(appContext));
+                    accountGeneration++;
+                }
                 post(callback::onSuccess);
             } catch (Exception e) {
                 post(() -> callback.onError(userMessage(e)));
@@ -255,14 +264,31 @@ public final class AccountManager {
      * Synchronous, attempt-owned requests. Call on the session worker, never the UI thread.
      * The selected VM and ownership cannot change while pairing or cancelling.
      */
-    public static final class SessionRequests implements AutoCloseable {
+    public interface StreamRequests extends AutoCloseable {
+        StreamRequests withScope(RequestScope scope);
+        boolean isCurrentAccount();
+        boolean isOwnerSession();
+        SpaceConnectApiClient.StreamIdentityResponse registerStream(StreamClientIdentity identity) throws Exception;
+        SpaceConnectApiClient.StreamGuestsResponse streamGuests(String bindingId) throws Exception;
+        SpaceConnectApiClient.StreamDisconnectResponse disconnectStreamGuest(String bindingId, String guestUserId) throws Exception;
+        @Override void close();
+    }
+
+    public static final class SessionRequests implements StreamRequests {
         private final Context context;
         private final String machineId;
         private final boolean friend;
         private final RequestScope scope;
         private final SpaceConnectApiClient api;
+        private final long accountGeneration;
+        private volatile String lastAccessToken;
 
         private SessionRequests(Context context, String machineId, boolean friend, RequestScope scope) {
+            this(context, machineId, friend, scope, API, currentAccountGeneration());
+        }
+
+        private SessionRequests(Context context, String machineId, boolean friend, RequestScope scope,
+                SpaceConnectApiClient api, long accountGeneration) {
             if (machineId == null || !machineId.matches("^[a-fA-F0-9]{24}$")) {
                 throw new IllegalArgumentException("Invalid machine ID");
             }
@@ -270,23 +296,74 @@ public final class AccountManager {
             this.machineId = machineId;
             this.friend = friend;
             this.scope = scope;
-            this.api = API.withScope(scope);
+            this.api = api.withScope(scope);
+            this.accountGeneration = accountGeneration;
         }
 
         private <T> T execute(AuthenticatedOperation<T> operation) throws Exception {
+            return execute(operation, true);
+        }
+
+        private <T> T execute(AuthenticatedOperation<T> operation, boolean retryUnauthorized) throws Exception {
             scope.checkCancelled();
+            checkAccountGeneration(accountGeneration, context);
             SecureSessionStore.Session session = validSession(context, api, scope);
+            checkAccountGeneration(accountGeneration, context);
             T result;
             try {
-                result = operation.run(session.accessToken);
+                result = runOperation(operation, session.accessToken);
             } catch (SpaceConnectApiClient.ApiException e) {
-                if (e.status != 401) throw e;
+                if (e.status != 401 || !retryUnauthorized) throw e;
                 scope.checkCancelled();
+                checkAccountGeneration(accountGeneration, context);
                 session = refresh(context, session, api, scope);
-                result = operation.run(session.accessToken);
+                checkAccountGeneration(accountGeneration, context);
+                result = runOperation(operation, session.accessToken);
             }
             scope.checkCancelled();
+            checkAccountGeneration(accountGeneration, context);
             return result;
+        }
+
+        private <T> T runOperation(AuthenticatedOperation<T> operation, String token) throws Exception {
+            lastAccessToken = token;
+            return operation.run(token);
+        }
+
+        public void removeQueuedAttempt(RequestScope cleanupScope) throws Exception {
+            String token = lastAccessToken;
+            if (friend || token == null) throw new IllegalStateException("No owned queue attempt to remove");
+            // A compensating DELETE uses the original account, never a subsequent login or refresh.
+            api.withScope(cleanupScope).leaveQueue(token, machineId);
+        }
+
+        public boolean isCurrentAccount() {
+            return accountGeneration == currentAccountGeneration();
+        }
+
+        @Override public boolean isOwnerSession() { return !friend; }
+
+        @Override public StreamRequests withScope(RequestScope scope) {
+            return new SessionRequests(context, machineId, friend, scope, api, accountGeneration);
+        }
+
+        @Override public SpaceConnectApiClient.StreamIdentityResponse registerStream(StreamClientIdentity identity) throws Exception {
+            String pem = identity.certificatePem();
+            SpaceConnectApiClient.StreamChallengeResponse challenge =
+                    execute(token -> api.streamChallenge(token, machineId, pem));
+            String signature = identity.sign(challenge.challenge);
+            return execute(token -> api.registerStream(token, machineId, pem, challenge.challenge, signature));
+        }
+
+        @Override public SpaceConnectApiClient.StreamGuestsResponse streamGuests(String bindingId) throws Exception {
+            if (friend) throw new IllegalStateException("Only the owner can manage guests");
+            return execute(token -> api.streamGuests(token, machineId, bindingId));
+        }
+
+        @Override public SpaceConnectApiClient.StreamDisconnectResponse disconnectStreamGuest(String bindingId, String guestUserId) throws Exception {
+            if (friend) throw new IllegalStateException("Only the owner can manage guests");
+            // An accepted disconnect must never be replayed after a partial authorization failure.
+            return execute(token -> api.disconnectStreamGuest(token, machineId, bindingId, guestUserId), false);
         }
 
         public SpaceConnectApiClient.StatusResponse status() throws Exception {
@@ -662,7 +739,21 @@ public final class AccountManager {
 
     public static void logout(Context context) {
         context.stopService(new android.content.Intent(context, VmMonitorService.class));
-        SESSION_STORE.clear(context.getApplicationContext());
+        synchronized (AUTH_STATE_LOCK) {
+            accountGeneration++;
+            SESSION_STORE.clear(context.getApplicationContext());
+        }
+    }
+
+    private static void checkAccountGeneration(long expected, Context context) throws SpaceConnectApiClient.ApiException {
+        if (currentAccountGeneration() != expected) {
+            throw new SpaceConnectApiClient.ApiException(
+                    401, "ACCOUNT_CHANGED", context.getString(R.string.stream_account_changed), null);
+        }
+    }
+
+    private static long currentAccountGeneration() {
+        synchronized (AUTH_STATE_LOCK) { return accountGeneration; }
     }
 
     private static <T> void executeAuthenticated(
@@ -720,6 +811,7 @@ public final class AccountManager {
         SESSION_LOCK.lockInterruptibly();
         try {
             if (scope != null) scope.checkCancelled();
+            long refreshGeneration = currentAccountGeneration();
             SecureSessionStore.Session current = SESSION_STORE.load(context);
             if (current == null) throw new IllegalStateException("Faça login novamente");
             if (!current.accessToken.equals(session.accessToken)) return current;
@@ -727,7 +819,10 @@ public final class AccountManager {
                 SpaceConnectApiClient.AuthResponse auth = api.refresh(session.refreshToken, session.deviceId);
                 // A cancelled refresh may have rotated the token on the server already.
                 // Persist a received replacement before observing cancellation.
-                SESSION_STORE.save(context, auth, session.deviceId);
+                synchronized (AUTH_STATE_LOCK) {
+                    checkAccountGeneration(refreshGeneration, context);
+                    SESSION_STORE.save(context, auth, session.deviceId);
+                }
                 SecureSessionStore.Session refreshed = SESSION_STORE.load(context);
                 if (refreshed == null) throw new IllegalStateException("Sessão inválida");
                 return refreshed;
@@ -735,7 +830,12 @@ public final class AccountManager {
                 // Cancelling a session's I/O must not log out other screens.
                 if (e instanceof SpaceConnectApiClient.ApiException
                         && ((SpaceConnectApiClient.ApiException) e).status == 401) {
-                    SESSION_STORE.clear(context);
+                    synchronized (AUTH_STATE_LOCK) {
+                        if (accountGeneration == refreshGeneration) {
+                            accountGeneration++;
+                            SESSION_STORE.clear(context);
+                        }
+                    }
                 }
                 throw e;
             }

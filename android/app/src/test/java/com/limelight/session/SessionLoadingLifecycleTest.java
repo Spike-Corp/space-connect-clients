@@ -119,6 +119,9 @@ public class SessionLoadingLifecycleTest {
         @Override protected SessionOrchestrator createAttempt(ComputerManagerService.ComputerManagerBinder binder) {
             assertNotNull(binder);
             SessionOrchestrator.Backend backend = new SessionOrchestrator.Backend() {
+                @Override public com.limelight.account.AccountManager.StreamRequests streamRequests(com.limelight.utils.RequestScope scope) {
+                    throw new AssertionError("Startup-only backend");
+                }
                 @Override public SpaceConnectApiClient.StatusResponse status() {
                     polls++;
                     SpaceConnectApiClient.StatusResponse status = new SpaceConnectApiClient.StatusResponse();

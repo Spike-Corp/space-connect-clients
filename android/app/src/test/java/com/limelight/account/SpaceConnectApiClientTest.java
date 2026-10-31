@@ -24,6 +24,73 @@ public class SpaceConnectApiClientTest {
     private SpaceConnectApiClient client;
 
     @Test
+    public void streamProofAndGuestActionsKeepExplicitMachineAndBindingWithoutSupplyingActorIds() throws Exception {
+        String machine = "507f1f77bcf86cd799439011";
+        String binding = "507f1f77bcf86cd799439055";
+        String guest = "507f1f77bcf86cd799439022";
+        server.enqueue(new MockResponse().setBody("{\"challenge\":\"signed-challenge\"}"));
+        server.enqueue(new MockResponse().setBody("{\"bindingId\":\"" + binding + "\",\"canManageGuests\":true}"));
+        server.enqueue(new MockResponse().setBody("{\"guests\":[{\"userId\":\"" + guest
+                + "\",\"displayName\":\"Amigo\",\"username\":\"amigo\",\"devices\":[{\"bindingId\":"
+                + "\"507f1f77bcf86cd799439066\",\"platform\":\"windows\"}]}],\"unidentifiedCount\":2}"));
+        server.enqueue(new MockResponse().setBody("{\"requested\":1,\"alreadyDisconnected\":0}"));
+        SpaceConnectApiClient.StreamChallengeResponse challenge = client.streamChallenge("fixture", machine, "public-pem");
+        SpaceConnectApiClient.StreamIdentityResponse identity = client.registerStream(
+                "fixture", machine, "public-pem", challenge.challenge, "proof");
+        SpaceConnectApiClient.StreamGuestsResponse guests = client.streamGuests("fixture", machine, identity.bindingId);
+        SpaceConnectApiClient.StreamDisconnectResponse result = client.disconnectStreamGuest(
+                "fixture", machine, identity.bindingId, guests.guests[0].userId);
+        assertTrue(identity.canManageGuests);
+        assertEquals("Amigo", guests.guests[0].displayName);
+        assertEquals("windows", guests.guests[0].devices[0].platform);
+        assertEquals(2, guests.unidentifiedCount);
+        assertEquals(1, result.requested);
+        RecordedRequest first = server.takeRequest(2, TimeUnit.SECONDS);
+        assertEquals("/api/launcher/v1/stream/identity/challenge", first.getPath());
+        assertEquals(new com.google.gson.JsonParser().parse("{\"machineId\":\"" + machine
+                + "\",\"certificatePem\":\"public-pem\"}"), new com.google.gson.JsonParser().parse(first.getBody().readUtf8()));
+        RecordedRequest registration = server.takeRequest(2, TimeUnit.SECONDS);
+        assertEquals("/api/launcher/v1/stream/identity", registration.getPath());
+        assertEquals(new com.google.gson.JsonParser().parse("{\"machineId\":\"" + machine
+                + "\",\"certificatePem\":\"public-pem\",\"challenge\":\"signed-challenge\",\"signature\":\"proof\"}"),
+                new com.google.gson.JsonParser().parse(registration.getBody().readUtf8()));
+        RecordedRequest list = server.takeRequest(2, TimeUnit.SECONDS);
+        assertEquals("/api/launcher/v1/stream/guests?machineId=" + machine + "&bindingId=" + binding, list.getPath());
+        RecordedRequest disconnect = server.takeRequest(2, TimeUnit.SECONDS);
+        assertEquals("/api/launcher/v1/stream/guests/disconnect", disconnect.getPath());
+        assertEquals(new com.google.gson.JsonParser().parse("{\"machineId\":\"" + machine
+                + "\",\"bindingId\":\"" + binding + "\",\"guestUserId\":\"" + guest + "\"}"),
+                new com.google.gson.JsonParser().parse(disconnect.getBody().readUtf8()));
+    }
+
+    @Test
+    public void disconnectFailureKeepsPartialCountsInsteadOfReportingAllOrNothing() throws Exception {
+        server.enqueue(new MockResponse().setResponseCode(409).setBody("{\"error\":{"
+                + "\"code\":\"STREAM_HOST_CHANGED\",\"message\":\"Host changed\",\"retryable\":true,"
+                + "\"requested\":1,\"alreadyDisconnected\":2,\"failed\":1,\"notAttempted\":3}}"));
+        SpaceConnectApiClient.ApiException error = org.junit.Assert.assertThrows(
+                SpaceConnectApiClient.ApiException.class, () -> client.disconnectStreamGuest(
+                        "fixture", "507f1f77bcf86cd799439011", "507f1f77bcf86cd799439055", "507f1f77bcf86cd799439022"));
+        assertEquals("STREAM_HOST_CHANGED", error.code);
+        assertEquals(Integer.valueOf(1), error.requested);
+        assertEquals(Integer.valueOf(2), error.alreadyDisconnected);
+        assertEquals(Integer.valueOf(1), error.failed);
+        assertEquals(Integer.valueOf(3), error.notAttempted);
+        assertEquals(1, server.getRequestCount());
+    }
+
+    @Test
+    public void incompleteGuestDataCannotBecomeAnEmptyListOrSuccessfulDisconnect() {
+        server.enqueue(new MockResponse().setBody("{\"guests\":[{\"displayName\":\"Unverified\","
+                + "\"devices\":[]}],\"unidentifiedCount\":0}"));
+        org.junit.Assert.assertThrows(java.io.IOException.class, () -> client.streamGuests(
+                "fixture", "507f1f77bcf86cd799439011", "507f1f77bcf86cd799439055"));
+        server.enqueue(new MockResponse().setBody("{}"));
+        org.junit.Assert.assertThrows(java.io.IOException.class, () -> client.disconnectStreamGuest(
+                "fixture", "507f1f77bcf86cd799439011", "507f1f77bcf86cd799439055", "507f1f77bcf86cd799439022"));
+    }
+
+    @Test
     public void scopedPairPinsAndQueueCancellationTargetTheSameExplicitMachine() throws Exception {
         String machine = "507f1f77bcf86cd799439011";
         server.enqueue(new MockResponse().setBody("{\"paired\":false,\"viaAgent\":true}"));

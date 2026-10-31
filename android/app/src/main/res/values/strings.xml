@@ -721,4 +721,32 @@
     <string name="analogscroll_none">None (both sticks move the mouse)</string>
     <string name="analogscroll_right">Right analog stick</string>
     <string name="analogscroll_left">Left analog stick</string>
+    <string name="stream_account_changed">Your account changed. Reopen the machine to use these controls.</string>
+    <string name="stream_guests_title">Guests</string>
+    <string name="stream_guests_desc">Manage connected friends</string>
+    <string name="stream_guests_close">Close</string>
+    <string name="stream_guests_refresh">Refresh</string>
+    <string name="stream_guests_loading">Checking connected guests…</string>
+    <string name="stream_guests_empty">No identified friends are connected.</string>
+    <string name="stream_guests_device">Device</string>
+    <string name="stream_guest_summary">%1$s\n%2$s · %3$s</string>
+    <plurals name="stream_guests_unidentified">
+        <item quantity="one">%d connection could not be linked to an account. That friend needs to update the app and reconnect before you can manage them here.</item>
+        <item quantity="other">%d connections could not be linked to an account. Those friends need to update the app and reconnect before you can manage them here.</item>
+    </plurals>
+    <string name="stream_guests_confirm_title">Disconnect %1$s?</string>
+    <string name="stream_guests_confirm">Disconnect this account’s active, identified devices? This is temporary: your friend can reconnect. Your stream, VM, files and friendship stay intact.</string>
+    <string name="stream_guests_disconnect">Disconnect</string>
+    <string name="stream_guests_requested">Disconnect requested. Your friend can reconnect.</string>
+    <string name="stream_guests_already_gone">This friend is no longer connected. Refresh the list.</string>
+    <string name="stream_guests_error">Could not confirm guest status. Refresh the list before trying again.</string>
+    <string name="stream_guests_unsupported">Individual guest controls are not available on this host.</string>
+    <string name="stream_guests_owner_only">Only the owner can manage guests. Owner devices cannot be disconnected here.</string>
+    <string name="stream_guests_reconnect">The session identity changed. Reconnect to manage guests.</string>
+    <string name="stream_guests_sign_in">Session access was revoked. Sign in again.</string>
+    <string name="stream_guests_partial">Requests accepted: %1$d. Already disconnected: %2$d. Failed: %3$d. Not attempted: %4$d. No automatic retry was made.</string>
+    <plurals name="stream_guest_devices">
+        <item quantity="one">%d device</item>
+        <item quantity="other">%d devices</item>
+    </plurals>
 </resources>

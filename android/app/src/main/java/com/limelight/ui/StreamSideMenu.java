@@ -45,6 +45,7 @@ public final class StreamSideMenu extends FrameLayout {
         void keyboard();
         void options();
         void microphone();
+        void guests();
     }
 
     public interface BoundsListener {
@@ -58,6 +59,7 @@ public final class StreamSideMenu extends FrameLayout {
     private final Button keyboard;
     private final Button options;
     private final Button microphone;
+    private final Button guests;
     private final int handleSize;
     private final int panelWidth;
     private final int topOffset;
@@ -136,7 +138,8 @@ public final class StreamSideMenu extends FrameLayout {
         keyboard = findViewById(R.id.streamSideKeyboard);
         options = findViewById(R.id.streamSideOptions);
         microphone = findViewById(R.id.streamSideMicrophone);
-        for (Button button : new Button[] {keyboard, options, microphone}) {
+        guests = findViewById(R.id.streamSideGuests);
+        for (Button button : new Button[] {keyboard, options, microphone, guests}) {
             button.setTypeface(UiHelper.getBodyTypeface(context));
             button.setCompoundDrawableTintList(ColorStateList.valueOf(
                     getResources().getColor(R.color.moonlight_foreground, context.getTheme())));
@@ -172,9 +175,17 @@ public final class StreamSideMenu extends FrameLayout {
             restartTimeouts();
             if (actions != null) actions.microphone();
         });
+        guests.setOnClickListener(v -> {
+            setOpen(false, true);
+            if (actions != null) actions.guests();
+        });
         setMicrophoneState(false, false);
         setProgress(0f);
         setHandleVisible(false, false);
+    }
+
+    public void setGuestsAvailable(boolean available) {
+        guests.setVisibility(available ? VISIBLE : GONE);
     }
 
     private int dp(int value) {
@@ -539,7 +550,7 @@ public final class StreamSideMenu extends FrameLayout {
     @Override protected void onConfigurationChanged(Configuration configuration) {
         super.onConfigurationChanged(configuration);
         float textSize = getResources().getDimension(R.dimen.stream_side_text_size);
-        for (Button button : new Button[] {keyboard, options, microphone}) {
+        for (Button button : new Button[] {keyboard, options, microphone, guests}) {
             button.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize);
         }
         requestLayout();
