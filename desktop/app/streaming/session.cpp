@@ -4,6 +4,7 @@
 #include "backend/richpresencemanager.h"
 #include "backend/nvhttp.h"
 #include "backend/desktoplaunch.h"
+#include "backend/streamguestcontroller.h"
 
 #include <Limelight.h>
 #include <SDL.h>
@@ -573,6 +574,9 @@ Session::Session(NvComputer* computer, NvApp& app, StreamingPreferences *prefere
       m_AudioSampleCount(0),
       m_DropAudioEndTime(0)
 {
+    static std::atomic<Uint32> nextMenuSerial{0};
+    do { m_StreamMenuSerial = ++nextMenuSerial; } while (!m_StreamMenuSerial);
+    connect(this, &Session::streamMenuPresentation, this, &Session::applyStreamMenuPresentation);
 }
 
 Session::Session(std::shared_ptr<NvComputer> computer, NvApp& app, bool freshlyPaired)
@@ -585,9 +589,179 @@ Session::Session(std::shared_ptr<NvComputer> computer, NvApp& app, bool freshlyP
     m_RevealComplete.store(false);
 }
 
+void Session::initializeStreamControls(LauncherApi* launcher, quint64 account)
+{
+    if (m_StreamGuests || m_StreamControlsEnded.load() || !launcher ||
+            !launcher->loggedIn() || launcher->accountGeneration() != account)
+        return;
+    QReadLocker lock(&m_Computer->lock);
+    if (m_Computer->scMachineId.isEmpty() ||
+            (m_Computer->scOrigin != QStringLiteral("launcher") && m_Computer->scOrigin != QStringLiteral("friend")))
+        return;
+    m_StreamGuests = new StreamGuestController(launcher, m_Computer->scMachineId, account,
+                                               m_Computer->scOrigin == QStringLiteral("launcher"), this);
+    const bool positionedWindows = QGuiApplication::platformName() == QStringLiteral("windows")
+            || QGuiApplication::platformName() == QStringLiteral("xcb");
+    m_StreamMenuAllowed.store(m_StreamGuests->ownerSession() && positionedWindows);
+    connect(m_StreamGuests, &StreamGuestController::changed, this, [this, positionedWindows]() {
+        if (m_StreamMenuAllowed.exchange(m_StreamGuests->ownerSession() && positionedWindows) &&
+                !m_StreamMenuAllowed.load()) {
+            closeStreamMenu(false);
+            m_StreamMenuVisible = m_StreamMenuOpen = false;
+            emit streamMenuChanged();
+        }
+    });
+    connect(this, &Session::firstFramePresented, this, [this]() {
+        if (!m_StreamControlsEnded.load() && !connectionCancelled(m_ConnectionCancellation))
+            m_StreamGuests->start();
+    });
+    connect(this, &Session::sessionFinished, this, &Session::finishStreamControls);
+    connect(m_StreamGuests, &StreamGuestController::noticeRaised, launcher, &LauncherApi::backgroundNotice);
+    if (m_StreamGuests->ownerSession() && !positionedWindows) {
+        connect(this, &Session::firstFramePresented, launcher, [launcher]() {
+            emit launcher->backgroundNotice(tr("Guest controls require a window system with positioned overlays. On Linux, use an X11 session."));
+        });
+    }
+    emit streamMenuChanged();
+}
+
+QObject* Session::streamGuests() const { return m_StreamGuests; }
+
+void Session::finishStreamControls()
+{
+    m_StreamControlsEnded.store(true);
+    m_StreamMenuAllowed.store(false);
+    m_StreamMenuVisible = m_StreamMenuOpen = false;
+    m_StreamMenuBounds = {};
+    if (m_StreamGuests) m_StreamGuests->dispose();
+    emit streamMenuChanged();
+}
+
+void Session::postStreamMenuCommand(StreamMenuState::Command command)
+{
+    if (!m_StreamInputReady.load() || m_StreamControlsEnded.load()) return;
+    SDL_Event event = StreamMenuState::event(m_StreamMenuSerial, command);
+    if (SDL_PushEvent(&event) < 0)
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Could not queue stream menu command: %s", SDL_GetError());
+}
+
+void Session::toggleStreamMenu() { postStreamMenuCommand(StreamMenuState::Toggle); }
+void Session::closeStreamMenu(bool restoreCapture)
+{
+    postStreamMenuCommand(restoreCapture ? StreamMenuState::CloseAndReturn : StreamMenuState::CloseExternal);
+}
+void Session::setStreamMenuFocused(bool focused)
+{
+    postStreamMenuCommand(focused ? StreamMenuState::MenuFocused : StreamMenuState::MenuUnfocused);
+}
+
+void Session::applyStreamMenuCommand(StreamMenuState::Command command)
+{
+    const bool streamFocused = (SDL_GetWindowFlags(m_Window) & SDL_WINDOW_INPUT_FOCUS) != 0;
+    switch (command) {
+    case StreamMenuState::Toggle:
+        if (m_StreamMenuState.isOpen()) {
+            applyStreamMenuCommand(StreamMenuState::CloseAndReturn);
+            return;
+        }
+        if (!m_StreamMenuAllowed.load() || !streamFocused || !m_FirstFramePresented.load() || !m_RevealComplete.load())
+            return;
+        m_StreamMenuState.open(m_InputHandler->isCaptureActive(), SDL_GetMouseState(nullptr, nullptr));
+        m_InputHandler->suspendForMenu();
+        m_MenuFocusLostAt = SDL_GetTicks();
+        break;
+    case StreamMenuState::CloseAndReturn:
+        if (m_StreamMenuState.isOpen()) {
+            m_StreamMenuState.close(true);
+            if (m_MenuWindowFocused) SDL_RaiseWindow(m_Window);
+        }
+        break;
+    case StreamMenuState::CloseExternal:
+        m_StreamMenuState.focusLeftApplication();
+        m_MenuWindowFocused = false;
+        break;
+    case StreamMenuState::MenuFocused:
+        m_MenuWindowFocused = m_StreamMenuState.isOpen();
+        m_MenuFocusLostAt = 0;
+        if (m_MenuWindowFocused && m_Preferences->muteOnFocusLoss) m_AudioMuted = false;
+        break;
+    case StreamMenuState::MenuUnfocused:
+        m_MenuWindowFocused = false;
+        m_MenuFocusLostAt = SDL_GetTicks();
+        break;
+    }
+    updateStreamMenu(true);
+}
+
+void Session::updateStreamMenu(bool force)
+{
+    const Uint32 now = SDL_GetTicks();
+    if (!force && now - m_MenuSampleAt < 16) return;
+    m_MenuSampleAt = now;
+    const Uint32 flags = SDL_GetWindowFlags(m_Window);
+    const bool streamFocused = (flags & SDL_WINDOW_INPUT_FOCUS) != 0;
+    if (!streamFocused && m_StreamMenuState.isOpen() && !m_MenuWindowFocused) {
+        if (!m_MenuFocusLostAt) m_MenuFocusLostAt = now;
+        if (now - m_MenuFocusLostAt >= 150) {
+            m_StreamMenuState.focusLeftApplication();
+            if (m_Preferences->muteOnFocusLoss) m_AudioMuted = true;
+        }
+    }
+    if (m_StreamMenuState.takeCaptureRestore(streamFocused))
+        m_InputHandler->setCaptureActive(true);
+
+    const int index = SDL_GetWindowDisplayIndex(m_Window);
+    SDL_Rect display{};
+    int x, y, width, height;
+    SDL_GetWindowPosition(m_Window, &x, &y);
+    SDL_GetWindowSize(m_Window, &width, &height);
+    if (index >= 0) SDL_GetDisplayBounds(index, &display);
+    const char* name = index >= 0 ? SDL_GetDisplayName(index) : nullptr;
+    const bool visible = m_StreamMenuAllowed.load() && m_FirstFramePresented.load() && m_RevealComplete.load()
+            && !(flags & SDL_WINDOW_MINIMIZED) && (streamFocused || m_StreamMenuState.isOpen());
+    emit streamMenuPresentation(QRect(x, y, width, height), QRect(display.x, display.y, display.w, display.h),
+                                 QString::fromUtf8(name ? name : ""), visible, m_StreamMenuState.isOpen());
+}
+
+void Session::applyStreamMenuPresentation(const QRect& stream, const QRect& display, const QString& displayName,
+                                          bool visible, bool open)
+{
+    if (m_StreamControlsEnded.load()) return;
+    QScreen* screen = nullptr;
+    const auto screens = QGuiApplication::screens();
+    for (auto* candidate : screens) {
+        if (candidate->name() == displayName) { screen = candidate; break; }
+    }
+    if (!screen) {
+        for (auto* candidate : screens) {
+            if (candidate->geometry().topLeft() == display.topLeft()) { screen = candidate; break; }
+        }
+    }
+    if (!screen && screens.size() == 1) screen = screens.first();
+    const QRect bounds = screen ? StreamMenuState::logicalBounds(stream, display, screen->geometry()) : QRect();
+    if (visible && bounds.isEmpty()) {
+        if (!m_MenuGeometryWarning) {
+            m_MenuGeometryWarning = true;
+            qWarning("Cannot map the stream display to a desktop screen");
+            emit m_StreamGuests->noticeRaised(tr("Could not position guest controls on this display."));
+        }
+        closeStreamMenu(true);
+    }
+    visible = visible && !bounds.isEmpty() && m_StreamMenuAllowed.load();
+    open = visible && open;
+    if (m_StreamMenuVisible == visible && m_StreamMenuOpen == open && m_StreamMenuBounds == bounds) return;
+    m_StreamMenuVisible = visible;
+    m_StreamMenuOpen = open;
+    m_StreamMenuBounds = bounds;
+    if (m_StreamGuests) m_StreamGuests->setPanelOpen(open);
+    emit streamMenuChanged();
+}
+
 void Session::cancel()
 {
     m_ConnectionCancellation->store(true);
+    m_StreamControlsEnded.store(true);
+    QMetaObject::invokeMethod(this, [this]() { finishStreamControls(); }, Qt::AutoConnection);
     if (s_ActiveSession == this)
         LiInterruptConnection();
 }
@@ -914,6 +1088,9 @@ bool Session::initialize()
 #endif
         break;
     }
+
+    // Keep the Qt menu composited without changing video modes when it gains focus.
+    m_FullScreenFlag = StreamMenuState::fullscreenFlags(m_FullScreenFlag, m_StreamMenuAllowed.load());
 
 #if !SDL_VERSION_ATLEAST(2, 0, 11)
     // HACK: Using a full-screen window breaks mouse capture on the Pi's LXDE
@@ -1821,7 +1998,7 @@ void Session::exec(QWindow* qtWindow)
         QCoreApplication::sendPostedEvents();
 
         // Keep account refresh and per-VM operations observable during video.
-        while (!execThread.wait(250)) {
+        while (!execThread.wait(m_StreamMenuAllowed.load() ? 16 : 250)) {
             QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
         }
     }
@@ -1829,6 +2006,7 @@ void Session::exec(QWindow* qtWindow)
         // Run the streaming session on the main thread for Windows and macOS
         execInternal();
     }
+    finishStreamControls();
 }
 
 void Session::execInternal()
@@ -2005,6 +2183,7 @@ void Session::execInternal()
 #endif
 
     m_InputHandler->setWindow(m_Window);
+    m_StreamInputReady.store(true);
 
     QImage svgImage(ICON_SIZE, ICON_SIZE, QImage::Format_RGBA8888);
     svgImage.fill(0);
@@ -2129,10 +2308,13 @@ void Session::execInternal()
         // event or idle/timeout path below, so it keeps working even while
         // the user is actively moving the mouse inside the session.
         Uint32 nowTicks = SDL_GetTicks();
-        if (!m_ThreadedExec && m_RevealComplete.load() && nowTicks - lastBackgroundPump >= 250) {
+        if (!m_ThreadedExec && m_RevealComplete.load() &&
+                nowTicks - lastBackgroundPump >= (m_StreamMenuAllowed.load() ? 16u : 250u)) {
             lastBackgroundPump = nowTicks;
             QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
         }
+        if (m_StreamMenuAllowed.load() || m_StreamMenuState.isOpen())
+            updateStreamMenu();
         if (m_RevealComplete.load() && nowTicks - lastClipboardCheckTicks >= 500) {
             lastClipboardCheckTicks = nowTicks;
 
@@ -2165,7 +2347,7 @@ void Session::execInternal()
         // NB: This behavior was introduced in SDL 2.0.16, but had a few critical
         // issues that could cause indefinite timeouts, delayed joystick detection,
         // and other problems.
-        if (!SDL_WaitEventTimeout(&event, m_RevealComplete.load() ? 1000 : 8)) {
+        if (!SDL_WaitEventTimeout(&event, m_RevealComplete.load() ? (m_StreamMenuAllowed.load() ? 16 : 1000) : 8)) {
             presence.runCallbacks();
             continue;
         }
@@ -2193,6 +2375,21 @@ void Session::execInternal()
             if ((event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) ||
                 (event.type == SDL_CONTROLLERBUTTONDOWN && event.cbutton.button == SDL_CONTROLLER_BUTTON_B))
                 cancel();
+            continue;
+        }
+        if (event.type == SDL_USEREVENT && event.user.code == StreamMenuState::EventCode) {
+            StreamMenuState::Command command;
+            if (StreamMenuState::command(event, m_StreamMenuSerial, command)) {
+                applyStreamMenuCommand(command);
+                if (m_StreamMenuState.isOpen()) {
+                    needsFirstEnterCapture = false;
+                    needsPostDecoderCreationCapture = false;
+                }
+            }
+            continue;
+        }
+        if (m_StreamGuests && m_StreamMenuState.consume(event)) {
+            updateStreamMenu(true);
             continue;
         }
         switch (event.type) {
@@ -2232,6 +2429,9 @@ void Session::execInternal()
                                                  (uint8_t)((uintptr_t)event.user.data2 >> 8),
                                                  (uint8_t)((uintptr_t)event.user.data2));
                 break;
+            case InputTimer::EventCode:
+                m_InputHandler->handleTouchTimerEvent(event);
+                break;
             default:
                 SDL_assert(false);
             }
@@ -2241,9 +2441,10 @@ void Session::execInternal()
             // Early handling of some events
             switch (event.window.event) {
             case SDL_WINDOWEVENT_FOCUS_LOST:
-                if (m_Preferences->muteOnFocusLoss) {
+                if (m_Preferences->muteOnFocusLoss && !m_StreamMenuState.isOpen()) {
                     m_AudioMuted = true;
                 }
+                if (!m_StreamMenuState.isOpen()) m_StreamMenuState.focusLeftApplication();
                 m_InputHandler->notifyFocusLost();
                 break;
             case SDL_WINDOWEVENT_FOCUS_GAINED:
@@ -2259,7 +2460,8 @@ void Session::execInternal()
             presence.runCallbacks();
 
             // Capture the mouse on SDL_WINDOWEVENT_ENTER if needed
-            if (m_RevealComplete.load() && needsFirstEnterCapture && event.window.event == SDL_WINDOWEVENT_ENTER) {
+            if (m_RevealComplete.load() && !m_StreamMenuState.isOpen() &&
+                    needsFirstEnterCapture && event.window.event == SDL_WINDOWEVENT_ENTER) {
                 m_InputHandler->setCaptureActive(true);
                 needsFirstEnterCapture = false;
             }
@@ -2422,7 +2624,7 @@ void Session::execInternal()
                 // As of SDL 2.0.12, SDL_RecreateWindow() doesn't carry over mouse capture
                 // or mouse hiding state to the new window. By capturing after the decoder
                 // is set up, this ensures the window re-creation is already done.
-                if (m_RevealComplete.load() && needsPostDecoderCreationCapture) {
+                if (m_RevealComplete.load() && !m_StreamMenuState.isOpen() && needsPostDecoderCreationCapture) {
                     m_InputHandler->setCaptureActive(true);
                     needsPostDecoderCreationCapture = false;
                 }
@@ -2496,6 +2698,9 @@ void Session::execInternal()
     }
 
 DispatchDeferredCleanup:
+    m_StreamInputReady.store(false);
+    m_StreamControlsEnded.store(true);
+    QMetaObject::invokeMethod(this, [this]() { finishStreamControls(); }, Qt::AutoConnection);
     // Stop forwarding the local microphone before anything else - no ordering
     // dependency with the input handler/decoder cleanup below.
     if (m_MicForwarder != nullptr) {
@@ -2506,15 +2711,12 @@ DispatchDeferredCleanup:
 
     // Uncapture the mouse and hide the window immediately,
     // so we can return to the Qt GUI ASAP.
-    m_InputHandler->setCaptureActive(false);
+    m_InputHandler->suspendForMenu();
     SDL_EnableScreenSaver();
     SDL_SetHint(SDL_HINT_TIMER_RESOLUTION, "0");
     if (QGuiApplication::platformName() == "eglfs") {
         QGuiApplication::restoreOverrideCursor();
     }
-
-    // Raise any keys that are still down
-    m_InputHandler->raiseAllKeys();
 
     // Destroy the input handler now. This must be destroyed
     // before allowwing the UI to continue execution or it could

@@ -2,6 +2,7 @@
 
 #include "settings/streamingpreferences.h"
 #include "backend/computermanager.h"
+#include "inputtimer.h"
 
 #include <SDL.h>
 
@@ -100,6 +101,8 @@ public:
     int getAttachedGamepadMask();
 
     void raiseAllKeys();
+    void suspendForMenu();
+    void handleTouchTimerEvent(const SDL_Event& event);
 
     void notifyMouseLeave();
 
@@ -131,6 +134,7 @@ private:
         KeyComboToggleMinimize,
         KeyComboPasteText,
         KeyComboTogglePointerRegionLock,
+        KeyComboToggleStreamMenu,
         KeyComboMax
     };
 
@@ -152,19 +156,7 @@ private:
     void performSpecialKeyCombo(KeyCombo combo);
 
     static
-    Uint32 longPressTimerCallback(Uint32 interval, void* param);
-
-    static
     Uint32 mouseEmulationTimerCallback(Uint32 interval, void* param);
-
-    static
-    Uint32 releaseLeftButtonTimerCallback(Uint32 interval, void* param);
-
-    static
-    Uint32 releaseRightButtonTimerCallback(Uint32 interval, void* param);
-
-    static
-    Uint32 dragTimerCallback(Uint32 interval, void* param);
 
     SDL_Window* m_Window;
     bool m_MultiController;
@@ -197,7 +189,7 @@ private:
 
     SDL_TouchFingerEvent m_LastTouchDownEvent;
     SDL_TouchFingerEvent m_LastTouchUpEvent;
-    SDL_TimerID m_LongPressTimer;
+    InputTimer m_LongPressTimer;
     int m_StreamWidth;
     int m_StreamHeight;
     bool m_AbsoluteMouseMode;
@@ -205,9 +197,9 @@ private:
     bool m_DisabledTouchFeedback;
 
     SDL_TouchFingerEvent m_TouchDownEvent[MAX_FINGERS];
-    SDL_TimerID m_LeftButtonReleaseTimer;
-    SDL_TimerID m_RightButtonReleaseTimer;
-    SDL_TimerID m_DragTimer;
+    InputTimer m_LeftButtonReleaseTimer;
+    InputTimer m_RightButtonReleaseTimer;
+    InputTimer m_DragTimer;
     char m_DragButton;
     int m_NumFingersDown;
 

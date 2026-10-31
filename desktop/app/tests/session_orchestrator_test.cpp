@@ -6,11 +6,17 @@
 #include <QTcpSocket>
 #include <QTemporaryDir>
 #include <QUrlQuery>
+#include <QQmlComponent>
+#include <QQmlEngine>
+#include <QQuickWindow>
 #include <memory>
 
 #include "../backend/computermanager.h"
 #include "../backend/launcherapi.h"
 #include "../backend/sessionorchestrator.h"
+#include "../backend/streamguestcontroller.h"
+#include "../streaming/session.h"
+#include "../streaming/input/inputtimer.h"
 #include "../settings/streamingpreferences.h"
 
 class LauncherFixture
@@ -20,6 +26,7 @@ public:
         QByteArray method;
         QUrl url;
         QJsonObject body;
+        QByteArray authorization;
     };
 
     QTcpServer server;
@@ -47,15 +54,18 @@ public:
                 if (headerEnd < 0)
                     return;
                 int length = 0;
+                QByteArray authorization;
                 for (const QByteArray& header : input->left(headerEnd).split('\n')) {
                     if (header.toLower().startsWith("content-length:"))
                         length = header.mid(15).trimmed().toInt();
+                    if (header.toLower().startsWith("authorization:"))
+                        authorization = header.mid(14).trimmed();
                 }
                 if (input->size() < headerEnd + 4 + length)
                     return;
                 const auto line = input->left(input->indexOf("\r\n")).split(' ');
                 const Request request{line[0], QUrl::fromEncoded(line[1]),
-                    QJsonDocument::fromJson(input->mid(headerEnd + 4, length)).object()};
+                    QJsonDocument::fromJson(input->mid(headerEnd + 4, length)).object(), authorization};
                 requests.append(request);
                 respond(socket, request);
             });
@@ -141,9 +151,11 @@ private:
         }
         else if (path == QStringLiteral("/auth/login")) {
             write(socket, 200, QJsonObject{
-                {QStringLiteral("accessToken"), QStringLiteral("fixture-access")},
+                {QStringLiteral("accessToken"), request.body.value(QStringLiteral("email")).toString() == QStringLiteral("other@example.invalid")
+                    ? QStringLiteral("other-access") : QStringLiteral("fixture-access")},
                 {QStringLiteral("refreshToken"), QStringLiteral("fixture-refresh")},
                 {QStringLiteral("accessTokenExpiresIn"), 900},
+                {QStringLiteral("user"), QJsonObject{{QStringLiteral("email"), request.body.value(QStringLiteral("email"))}}},
             });
         }
         else if (path == QStringLiteral("/machines")) {
@@ -187,6 +199,13 @@ private:
         else if (path == QStringLiteral("/pair")) {
             write(socket, 503, {});
         }
+        else if (path == QStringLiteral("/stream/identity/challenge")) {
+            write(socket, 200, {{QStringLiteral("challenge"), QStringLiteral("fixture.challenge")}});
+        }
+        else if (path == QStringLiteral("/stream/identity")) {
+            write(socket, 200, {{QStringLiteral("bindingId"), QStringLiteral("binding")},
+                               {QStringLiteral("canManageGuests"), true}});
+        }
         else {
             write(socket, 404, {});
         }
@@ -203,6 +222,39 @@ class SessionOrchestratorTest : public QObject
     std::unique_ptr<SessionOrchestrator> m_Orchestrator;
 
 private slots:
+    void touchTimersQueueTheirEffectForTheInputThreadAndBecomeInvalidWhenCancelled()
+    {
+        QCOMPARE(SDL_InitSubSystem(SDL_INIT_TIMER | SDL_INIT_EVENTS), 0);
+        struct Cleanup {
+            ~Cleanup() { SDL_QuitSubSystem(SDL_INIT_TIMER | SDL_INIT_EVENTS); }
+        } cleanup;
+        const auto waitTimer = [](SDL_Event& event) {
+            QElapsedTimer deadline;
+            deadline.start();
+            while (deadline.elapsed() < 1000) {
+                if (SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_USEREVENT, SDL_USEREVENT) == 1)
+                    return true;
+                QTest::qWait(1);
+            }
+            return false;
+        };
+        InputTimer timer;
+        SDL_Event event{};
+        timer.start(5);
+        QVERIFY(waitTimer(event));
+        QVERIFY(timer.accept(event));
+        QVERIFY(!timer.accept(event));
+        timer.start(5);
+        QVERIFY(waitTimer(event));
+        timer.cancel();
+        QVERIFY(!timer.accept(event));
+        InputTimer nextSession;
+        nextSession.start(5);
+        QVERIFY(!nextSession.accept(event));
+        QVERIFY(waitTimer(event));
+        QVERIFY(nextSession.accept(event));
+    }
+
     void initTestCase()
     {
         QVERIFY(m_Settings.isValid());
@@ -322,6 +374,131 @@ private slots:
         QVERIFY(m_Orchestrator->active());
         QCOMPARE(authenticated.count(), 0);
         QCOMPARE(error.count(), 0);
+    }
+
+    void logoutCompensatesTheLateQueueUsingOnlyTheOriginalAccount()
+    {
+        m_Host->holdJoin = true;
+        m_Orchestrator->startDesktopSession();
+        QTRY_COMPARE(m_Host->count("POST", QStringLiteral("/queue")), 1);
+        m_Api->logout();
+        m_Api->login(QStringLiteral("other@example.invalid"), QStringLiteral("fixture-only"));
+        QTRY_VERIFY(m_Api->loggedIn() && !m_Api->busy());
+        QVERIFY(!m_Orchestrator->active());
+        QCOMPARE(m_Host->count("DELETE", QStringLiteral("/queue")), 0);
+        m_Host->finishJoin(200);
+        QTRY_COMPARE_WITH_TIMEOUT(m_Host->count("DELETE", QStringLiteral("/queue")), 1, 1000);
+        QCOMPARE(m_Host->last(QStringLiteral("/queue")).authorization, QByteArray("Bearer fixture-access"));
+        QCOMPARE(QUrlQuery(m_Host->last(QStringLiteral("/queue")).url)
+                 .queryItemValue(QStringLiteral("machineId")), QStringLiteral("chosen"));
+        QTRY_VERIFY(!m_Orchestrator->busy());
+        QVERIFY(m_Api->loggedIn());
+        QCOMPARE(m_Api->email(), QStringLiteral("other@example.invalid"));
+        QCOMPARE(m_Host->count("GET", QStringLiteral("/connection")), 0);
+        QCOMPARE(m_Host->count("DELETE", QStringLiteral("/session")), 0);
+    }
+
+    void anInPlaceLoginCancelsOldPreparation()
+    {
+        m_Host->state = QStringLiteral("queued");
+        m_Orchestrator->startDesktopSession();
+        QTRY_COMPARE(m_Orchestrator->phase(), QStringLiteral("queued"));
+        QTRY_VERIFY(!m_Api->busy());
+        m_Api->login(QStringLiteral("other@example.invalid"), QStringLiteral("fixture-only"));
+        QTRY_VERIFY(m_Api->email() == QStringLiteral("other@example.invalid") && !m_Api->busy());
+        QVERIFY(!m_Orchestrator->active());
+        QCOMPARE(m_Host->count("DELETE", QStringLiteral("/queue")), 0);
+    }
+
+    void nativeSessionsIdentifyOnlyManagedHostsAfterTheFirstFrame_data()
+    {
+        QTest::addColumn<QString>("origin");
+        QTest::addColumn<bool>("hasControls");
+        QTest::addColumn<bool>("owner");
+        QTest::newRow("owned") << QStringLiteral("launcher") << true << true;
+        QTest::newRow("friend") << QStringLiteral("friend") << true << false;
+        QTest::newRow("manual") << QString() << false << false;
+    }
+
+    void nativeSessionsIdentifyOnlyManagedHostsAfterTheFirstFrame()
+    {
+        QFETCH(QString, origin);
+        QFETCH(bool, hasControls);
+        QFETCH(bool, owner);
+        NvComputer computer{};
+        computer.scMachineId = QStringLiteral("frozen-vm");
+        computer.scOrigin = origin;
+        NvApp app;
+        app.id = 1;
+        app.name = QStringLiteral("Desktop");
+        Session session(&computer, app);
+        session.initializeStreamControls(m_Api.get(), m_Api->accountGeneration());
+        auto* controls = qobject_cast<StreamGuestController*>(session.streamGuests());
+        QCOMPARE(controls != nullptr, hasControls);
+        QCOMPARE(m_Host->count("POST", QStringLiteral("/stream/identity/challenge")), 0);
+        if (!controls) return;
+        QCOMPARE(controls->ownerSession(), owner);
+        m_Api->setSelectedMachineId(QStringLiteral("other"));
+        session.notifyFirstVideoFrame();
+        QTRY_COMPARE_WITH_TIMEOUT(m_Host->count("POST", QStringLiteral("/stream/identity")), 1, 1000);
+        QCOMPARE(m_Host->last(QStringLiteral("/stream/identity")).body.value(QStringLiteral("machineId")).toString(),
+                 QStringLiteral("frozen-vm"));
+        session.sessionFinished(0);
+        QVERIFY(!controls->ownerSession());
+        QVERIFY(!controls->busy());
+    }
+
+    void aFinishedOrObsoleteSessionCannotIdentifyUsingANewLogin()
+    {
+        const quint64 account = m_Api->accountGeneration();
+        NvComputer computer{};
+        computer.scMachineId = QStringLiteral("old-vm");
+        computer.scOrigin = QStringLiteral("launcher");
+        NvApp app;
+        app.id = 1;
+        Session finished(&computer, app);
+        finished.initializeStreamControls(m_Api.get(), account);
+        QVERIFY(finished.streamGuests());
+        finished.sessionFinished(0);
+        finished.notifyFirstVideoFrame();
+        m_Api->logout();
+        m_Api->login(QStringLiteral("other@example.invalid"), QStringLiteral("fixture-only"));
+        QTRY_VERIFY(m_Api->loggedIn() && !m_Api->busy());
+        Session obsolete(&computer, app);
+        obsolete.initializeStreamControls(m_Api.get(), account);
+        obsolete.notifyFirstVideoFrame();
+        QTest::qWait(50);
+        QCOMPARE(m_Host->count("POST", QStringLiteral("/stream/identity/challenge")), 0);
+    }
+
+    void packagedGuestWindowUsesTheRealSessionControllerAndClearsOnAccountChange()
+    {
+        NvComputer computer{};
+        computer.scMachineId = QStringLiteral("frozen-vm");
+        computer.scOrigin = QStringLiteral("launcher");
+        NvApp app;
+        app.id = 1;
+        Session session(&computer, app);
+        session.initializeStreamControls(m_Api.get(), m_Api->accountGeneration());
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/gui/StreamSideMenuWindow.qml")));
+        QTRY_VERIFY2(component.status() != QQmlComponent::Loading, qPrintable(component.errorString()));
+        QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+        QScopedPointer<QObject> menu(component.createWithInitialProperties({
+            {QStringLiteral("session"), QVariant::fromValue(&session)},
+            {QStringLiteral("reducedMotion"), true}
+        }));
+        QVERIFY2(menu, qPrintable(component.errorString()));
+        QCOMPARE(menu->property("controller").value<QObject*>(), session.streamGuests());
+        auto* controller = qobject_cast<StreamGuestController*>(session.streamGuests());
+        QVERIFY(controller && controller->ownerSession());
+        session.notifyFirstVideoFrame();
+        QTRY_COMPARE_WITH_TIMEOUT(m_Host->count("POST", QStringLiteral("/stream/identity")), 1, 1000);
+        m_Api->logout();
+        QVERIFY(!controller->ownerSession());
+        auto* window = qobject_cast<QQuickWindow*>(menu.data());
+        QVERIFY(window && !window->isVisible());
+        session.sessionFinished(0);
     }
 
     void connectionFailureWithoutMessageReturnsToDashboard_data()

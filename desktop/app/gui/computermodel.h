@@ -1,4 +1,5 @@
 #include "backend/computermanager.h"
+#include "backend/launcherapi.h"
 #include "streaming/session.h"
 
 #include <QAbstractListModel>
@@ -23,7 +24,7 @@ public:
     explicit ComputerModel(QObject* object = nullptr);
 
     // Must be called before any QAbstractListModel functions
-    Q_INVOKABLE void initialize(ComputerManager* computerManager);
+    Q_INVOKABLE void initialize(ComputerManager* computerManager, LauncherApi* launcher = nullptr);
 
     QVariant data(const QModelIndex &index, int role) const override;
 
@@ -58,4 +59,6 @@ private slots:
 private:
     QVector<NvComputer*> m_Computers;
     ComputerManager* m_ComputerManager;
+    QPointer<LauncherApi> m_Launcher;
+    quint64 m_Account = 0;
 };

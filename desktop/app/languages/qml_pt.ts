@@ -4,49 +4,49 @@
 <context>
     <name>AppView</name>
     <message>
-        <location filename="../gui/AppView.qml" line="156"/>
-        <location filename="../gui/AppView.qml" line="314"/>
+        <location filename="../gui/AppView.qml" line="157"/>
+        <location filename="../gui/AppView.qml" line="315"/>
         <source>Resume Game</source>
         <translation>Resumir Jogo</translation>
     </message>
     <message>
-        <location filename="../gui/AppView.qml" line="184"/>
-        <location filename="../gui/AppView.qml" line="319"/>
+        <location filename="../gui/AppView.qml" line="185"/>
+        <location filename="../gui/AppView.qml" line="320"/>
         <source>Quit Game</source>
         <translation>Sair do Jogo</translation>
     </message>
     <message>
-        <location filename="../gui/AppView.qml" line="314"/>
+        <location filename="../gui/AppView.qml" line="315"/>
         <source>Launch Game</source>
         <translation>Iniciar o Jogo</translation>
     </message>
     <message>
-        <location filename="../gui/AppView.qml" line="327"/>
+        <location filename="../gui/AppView.qml" line="328"/>
         <source>Direct Launch</source>
         <translation>Execução Direta</translation>
     </message>
     <message>
-        <location filename="../gui/AppView.qml" line="331"/>
+        <location filename="../gui/AppView.qml" line="332"/>
         <source>Launch this app immediately when the host is selected, bypassing the app selection grid.</source>
         <translation>Execute este aplicativo imediatamente quando o host for selecionado, ignorando a grade de seleção do aplicaivo.</translation>
     </message>
     <message>
-        <location filename="../gui/AppView.qml" line="340"/>
+        <location filename="../gui/AppView.qml" line="341"/>
         <source>Hide Game</source>
         <translation>Minimizar Jogo</translation>
     </message>
     <message>
-        <location filename="../gui/AppView.qml" line="344"/>
+        <location filename="../gui/AppView.qml" line="345"/>
         <source>Hide this game from the app grid. To access hidden games, right-click on the host and choose %1.</source>
         <translation>Esconda este jogo da grade de aplicativos. Para acessar jogos escondidos, botão-direito no host e escolha %1.</translation>
     </message>
     <message>
-        <location filename="../gui/AppView.qml" line="344"/>
+        <location filename="../gui/AppView.qml" line="345"/>
         <source>View All Apps</source>
         <translation>Ver Todos Aplicativos</translation>
     </message>
     <message>
-        <location filename="../gui/AppView.qml" line="359"/>
+        <location filename="../gui/AppView.qml" line="360"/>
         <source>Are you sure you want to quit %1? Any unsaved progress will be lost.</source>
         <translation>Tem certeza que deseja sair %1? Todo progresso não salvo será perdido.</translation>
     </message>
@@ -103,91 +103,91 @@
 <context>
     <name>ComputerModel</name>
     <message>
-        <location filename="../gui/computermodel.cpp" line="52"/>
+        <location filename="../gui/computermodel.cpp" line="54"/>
         <source>Online</source>
         <translation>Online</translation>
     </message>
     <message>
-        <location filename="../gui/computermodel.cpp" line="55"/>
+        <location filename="../gui/computermodel.cpp" line="57"/>
         <source>Offline</source>
         <translation>Offline</translation>
     </message>
     <message>
-        <location filename="../gui/computermodel.cpp" line="58"/>
-        <location filename="../gui/computermodel.cpp" line="70"/>
-        <location filename="../gui/computermodel.cpp" line="82"/>
+        <location filename="../gui/computermodel.cpp" line="60"/>
+        <location filename="../gui/computermodel.cpp" line="72"/>
         <location filename="../gui/computermodel.cpp" line="84"/>
-        <location filename="../gui/computermodel.cpp" line="85"/>
+        <location filename="../gui/computermodel.cpp" line="86"/>
+        <location filename="../gui/computermodel.cpp" line="87"/>
         <source>Unknown</source>
         <translation>Desconhecido</translation>
     </message>
     <message>
-        <location filename="../gui/computermodel.cpp" line="64"/>
+        <location filename="../gui/computermodel.cpp" line="66"/>
         <source>Paired</source>
         <translation>Conectado</translation>
     </message>
     <message>
-        <location filename="../gui/computermodel.cpp" line="67"/>
+        <location filename="../gui/computermodel.cpp" line="69"/>
         <source>Unpaired</source>
         <translation>Desconctado</translation>
     </message>
     <message>
-        <location filename="../gui/computermodel.cpp" line="74"/>
+        <location filename="../gui/computermodel.cpp" line="76"/>
         <source>Name: %1</source>
         <translation>Nome: %1</translation>
     </message>
     <message>
-        <location filename="../gui/computermodel.cpp" line="75"/>
+        <location filename="../gui/computermodel.cpp" line="77"/>
         <source>Status: %1</source>
         <translation>Status: %1</translation>
     </message>
     <message>
-        <location filename="../gui/computermodel.cpp" line="76"/>
+        <location filename="../gui/computermodel.cpp" line="78"/>
         <source>Active Address: %1</source>
         <translation>Endereço ativo: %1</translation>
     </message>
     <message>
-        <location filename="../gui/computermodel.cpp" line="77"/>
+        <location filename="../gui/computermodel.cpp" line="79"/>
         <source>UUID: %1</source>
         <translation>UUID: %1</translation>
     </message>
     <message>
-        <location filename="../gui/computermodel.cpp" line="78"/>
+        <location filename="../gui/computermodel.cpp" line="80"/>
         <source>Local Address: %1</source>
         <translation>Endereço local: %1</translation>
     </message>
     <message>
-        <location filename="../gui/computermodel.cpp" line="79"/>
+        <location filename="../gui/computermodel.cpp" line="81"/>
         <source>Remote Address: %1</source>
         <translation>Endereço remoto: %1</translation>
     </message>
     <message>
-        <location filename="../gui/computermodel.cpp" line="80"/>
+        <location filename="../gui/computermodel.cpp" line="82"/>
         <source>IPv6 Address: %1</source>
         <translation>Endereço IPv6: %1</translation>
     </message>
     <message>
-        <location filename="../gui/computermodel.cpp" line="81"/>
+        <location filename="../gui/computermodel.cpp" line="83"/>
         <source>Manual Address: %1</source>
         <translation>Endereço manual: %1</translation>
     </message>
     <message>
-        <location filename="../gui/computermodel.cpp" line="82"/>
+        <location filename="../gui/computermodel.cpp" line="84"/>
         <source>MAC Address: %1</source>
         <translation>Endereço MAC: %1</translation>
     </message>
     <message>
-        <location filename="../gui/computermodel.cpp" line="83"/>
+        <location filename="../gui/computermodel.cpp" line="85"/>
         <source>Pair State: %1</source>
         <translation>Status da conexão: %1</translation>
     </message>
     <message>
-        <location filename="../gui/computermodel.cpp" line="84"/>
+        <location filename="../gui/computermodel.cpp" line="86"/>
         <source>Running Game ID: %1</source>
         <translation>Executando Jogo ID: %1</translation>
     </message>
     <message>
-        <location filename="../gui/computermodel.cpp" line="85"/>
+        <location filename="../gui/computermodel.cpp" line="87"/>
         <source>HTTPS Port: %1</source>
         <translation>Porta HTTPS: %1</translation>
     </message>
@@ -232,7 +232,7 @@
     <message>
         <location filename="../gui/DownloadsView.qml" line="148"/>
         <source>Arquivos e ferramentas oficiais da SpaceCloud. &quot;Baixar na máquina&quot; manda o arquivo direto pra pasta Downloads da sua máquina em nuvem.</source>
-        <translation>Arquivos e ferramentas oficiais da SpaceCloud. "Baixar na máquina" manda o arquivo direto pra pasta Downloads da sua máquina em nuvem.</translation>
+        <translation>Arquivos e ferramentas oficiais da SpaceCloud. &quot;Baixar na máquina&quot; manda o arquivo direto pra pasta Downloads da sua máquina em nuvem.</translation>
     </message>
     <message>
         <location filename="../gui/DownloadsView.qml" line="174"/>
@@ -330,7 +330,7 @@
     <message>
         <location filename="../gui/EmulatorsView.qml" line="163"/>
         <source>Instale emuladores no seu PC em nuvem com um clique e jogue os clássicos. Seus arquivos de jogo (ROMs) são seus: envie do computador ou celular com &quot;Enviar arquivo&quot;.</source>
-        <translation>Instale emuladores no seu PC em nuvem com um clique e jogue os clássicos. Seus arquivos de jogo (ROMs) são seus: envie do computador ou celular com "Enviar arquivo".</translation>
+        <translation>Instale emuladores no seu PC em nuvem com um clique e jogue os clássicos. Seus arquivos de jogo (ROMs) são seus: envie do computador ou celular com &quot;Enviar arquivo&quot;.</translation>
     </message>
     <message>
         <location filename="../gui/EmulatorsView.qml" line="177"/>
@@ -710,310 +710,311 @@
 <context>
     <name>LauncherApi</name>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="828"/>
-        <location filename="../backend/launcherapi.cpp" line="857"/>
+        <location filename="../backend/launcherapi.cpp" line="899"/>
+        <location filename="../backend/launcherapi.cpp" line="928"/>
         <source>Automatic pairing failed. Please try again.</source>
         <translation>Não foi possível parear automaticamente. Tente novamente.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="593"/>
-        <location filename="../backend/launcherapi.cpp" line="599"/>
+        <location filename="../backend/launcherapi.cpp" line="627"/>
+        <location filename="../backend/launcherapi.cpp" line="633"/>
         <source>Could not join the queue. Please try again.</source>
         <translation>Não foi possível entrar na fila. Tente novamente.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="256"/>
+        <location filename="../backend/launcherapi.cpp" line="289"/>
         <source>Could not refresh this machine. Please try again.</source>
         <translation>Não foi possível atualizar esta máquina. Tente novamente.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="396"/>
-        <location filename="../backend/launcherapi.cpp" line="468"/>
+        <location filename="../backend/launcherapi.cpp" line="429"/>
+        <location filename="../backend/launcherapi.cpp" line="501"/>
         <source>ilimitado</source>
         <translation>ilimitado</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="402"/>
+        <location filename="../backend/launcherapi.cpp" line="435"/>
         <source> + %1h bônus</source>
         <translation> + %1h bônus</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="410"/>
+        <location filename="../backend/launcherapi.cpp" line="443"/>
         <source> · ativação %1</source>
         <translation> · ativação %1</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="420"/>
+        <location filename="../backend/launcherapi.cpp" line="453"/>
         <source>Em carência</source>
         <translation>Em carência</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="423"/>
+        <location filename="../backend/launcherapi.cpp" line="456"/>
         <source>Cancelada</source>
         <translation>Cancelada</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="426"/>
+        <location filename="../backend/launcherapi.cpp" line="459"/>
         <source>Expirada</source>
         <translation>Expirada</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="620"/>
+        <location filename="../backend/launcherapi.cpp" line="660"/>
+        <location filename="../backend/launcherapi.cpp" line="691"/>
         <source>Could not cancel the previous queue request. Check your machines.</source>
         <translation>Não foi possível cancelar o pedido anterior da fila. Confira suas máquinas.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="626"/>
+        <location filename="../backend/launcherapi.cpp" line="697"/>
         <source>Could not leave the queue. Check your connection and try again.</source>
         <translation>Não foi possível sair da fila. Confira sua conexão e tente novamente.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="647"/>
+        <location filename="../backend/launcherapi.cpp" line="718"/>
         <source>Could not connect to your machine. Please try again.</source>
         <translation>Não foi possível conectar à sua máquina. Tente novamente.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="689"/>
+        <location filename="../backend/launcherapi.cpp" line="760"/>
         <source>Connection is not available yet.</source>
         <translation>A conexão ainda não está disponível.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1051"/>
+        <location filename="../backend/launcherapi.cpp" line="1149"/>
         <source>Não foi possível abrir o arquivo para upload</source>
         <translation>Não foi possível abrir o arquivo para upload</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1096"/>
+        <location filename="../backend/launcherapi.cpp" line="1194"/>
         <source>Falha ao transferir arquivo para a VM</source>
         <translation>Falha ao transferir arquivo para a VM</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1203"/>
+        <location filename="../backend/launcherapi.cpp" line="1301"/>
         <source>Descreva o problema em pelo menos 10 caracteres.</source>
         <translation>Descreva o problema em pelo menos 10 caracteres.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1234"/>
+        <location filename="../backend/launcherapi.cpp" line="1332"/>
         <source>Relato enviado. Obrigado por avisar!</source>
         <translation>Relato enviado. Obrigado por avisar!</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1239"/>
+        <location filename="../backend/launcherapi.cpp" line="1337"/>
         <source>Não foi possível enviar o relato. Tente novamente.</source>
         <translation>Não foi possível enviar o relato. Tente novamente.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1289"/>
+        <location filename="../backend/launcherapi.cpp" line="1387"/>
         <source>Não foi possível encontrar esse usuário</source>
         <translation>Não foi possível encontrar esse usuário</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1309"/>
+        <location filename="../backend/launcherapi.cpp" line="1407"/>
         <source>Você voltou a receber pedidos de amizade</source>
         <translation>Você voltou a receber pedidos de amizade</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1310"/>
+        <location filename="../backend/launcherapi.cpp" line="1408"/>
         <source>Novos pedidos de amizade foram bloqueados</source>
         <translation>Novos pedidos de amizade foram bloqueados</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1315"/>
+        <location filename="../backend/launcherapi.cpp" line="1413"/>
         <source>Não foi possível atualizar os pedidos de amizade</source>
         <translation>Não foi possível atualizar os pedidos de amizade</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1331"/>
+        <location filename="../backend/launcherapi.cpp" line="1429"/>
         <source>Vocês já são amigos! (pedido mútuo aceito)</source>
         <translation>Vocês já são amigos! (pedido mútuo aceito)</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1332"/>
+        <location filename="../backend/launcherapi.cpp" line="1430"/>
         <source>Pedido de amizade enviado!</source>
         <translation>Pedido de amizade enviado!</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1336"/>
+        <location filename="../backend/launcherapi.cpp" line="1434"/>
         <source>Não foi possível adicionar</source>
         <translation>Não foi possível adicionar</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1432"/>
+        <location filename="../backend/launcherapi.cpp" line="1530"/>
         <source>Não consegui instalar (a VM precisa estar ligada).</source>
         <translation>Não consegui instalar (a VM precisa estar ligada).</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1444"/>
+        <location filename="../backend/launcherapi.cpp" line="1542"/>
         <source>Instalação demorou demais — verifique se abriu na VM e tente de novo.</source>
         <translation>Instalação demorou demais — verifique se abriu na VM e tente de novo.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1455"/>
+        <location filename="../backend/launcherapi.cpp" line="1553"/>
         <source>Falha ao consultar a instalação nesta máquina.</source>
         <translation>Falha ao consultar a instalação nesta máquina.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1463"/>
+        <location filename="../backend/launcherapi.cpp" line="1561"/>
         <source>Emulador instalado! Pode abrir.</source>
         <translation>Emulador instalado! Pode abrir.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1471"/>
+        <location filename="../backend/launcherapi.cpp" line="1569"/>
         <source>Falha ao instalar.</source>
         <translation>Falha ao instalar.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1481"/>
+        <location filename="../backend/launcherapi.cpp" line="1579"/>
         <source>A instalação se perdeu no servidor. Toque em Instalar de novo.</source>
         <translation>A instalação se perdeu no servidor. Toque em Instalar de novo.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1511"/>
+        <location filename="../backend/launcherapi.cpp" line="1609"/>
         <source>Emulador aberto na sua máquina!</source>
         <translation>Emulador aberto na sua máquina!</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1514"/>
+        <location filename="../backend/launcherapi.cpp" line="1612"/>
         <source>Não consegui abrir o emulador.</source>
         <translation>Não consegui abrir o emulador.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1539"/>
+        <location filename="../backend/launcherapi.cpp" line="1637"/>
         <source>Não foi possível salvar as permissões</source>
         <translation>Não foi possível salvar as permissões</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1554"/>
+        <location filename="../backend/launcherapi.cpp" line="1652"/>
         <source>Não foi possível conectar na máquina do seu amigo</source>
         <translation>Não foi possível conectar na máquina do seu amigo</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1582"/>
+        <location filename="../backend/launcherapi.cpp" line="1680"/>
         <source>Conexão ainda não disponível na máquina do seu amigo</source>
         <translation>Conexão ainda não disponível na máquina do seu amigo</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1615"/>
+        <location filename="../backend/launcherapi.cpp" line="1715"/>
         <source>Use de 6 a 32 caracteres, sem espaços ou acentos.</source>
         <translation>Use de 6 a 32 caracteres, sem espaços ou acentos.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1624"/>
+        <location filename="../backend/launcherapi.cpp" line="1725"/>
         <source>Senha salva para o próximo início do Windows.</source>
         <translation>Senha salva para o próximo início do Windows.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1625"/>
+        <location filename="../backend/launcherapi.cpp" line="1726"/>
         <source>Senha salva e aplicação solicitada. A confirmação do Windows ainda está pendente.</source>
         <translation>Senha salva e aplicação solicitada. A confirmação do Windows ainda está pendente.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1630"/>
+        <location filename="../backend/launcherapi.cpp" line="1731"/>
         <source>Não foi possível trocar a senha. Tente de novo.</source>
         <translation>Não foi possível trocar a senha. Tente de novo.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1660"/>
+        <location filename="../backend/launcherapi.cpp" line="1761"/>
         <source>Username salvo!</source>
         <translation>Username salvo!</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1663"/>
+        <location filename="../backend/launcherapi.cpp" line="1764"/>
         <source>Não foi possível salvar o username</source>
         <translation>Não foi possível salvar o username</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1758"/>
+        <location filename="../backend/launcherapi.cpp" line="1859"/>
         <source>Licença aplicada na sua máquina!</source>
         <translation>Licença aplicada na sua máquina!</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1758"/>
+        <location filename="../backend/launcherapi.cpp" line="1859"/>
         <source>Não consegui aplicar a licença agora.</source>
         <translation>Não consegui aplicar a licença agora.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1768"/>
+        <location filename="../backend/launcherapi.cpp" line="1869"/>
         <source>Link aberto no navegador.</source>
         <translation>Link aberto no navegador.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1785"/>
+        <location filename="../backend/launcherapi.cpp" line="1886"/>
         <source>Não consegui baixar na máquina.</source>
         <translation>Não consegui baixar na máquina.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1797"/>
+        <location filename="../backend/launcherapi.cpp" line="1898"/>
         <source>O download demorou demais. Verifique a pasta Downloads da máquina.</source>
         <translation>O download demorou demais. Verifique a pasta Downloads da máquina.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1806"/>
+        <location filename="../backend/launcherapi.cpp" line="1907"/>
         <source>Falha ao consultar o download nesta máquina.</source>
         <translation>Falha ao consultar o download nesta máquina.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1817"/>
+        <location filename="../backend/launcherapi.cpp" line="1918"/>
         <source>%1 baixado pra pasta Downloads da sua máquina.</source>
         <translation>%1 baixado pra pasta Downloads da sua máquina.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1820"/>
+        <location filename="../backend/launcherapi.cpp" line="1921"/>
         <source>O download falhou na máquina.</source>
         <translation>O download falhou na máquina.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1823"/>
+        <location filename="../backend/launcherapi.cpp" line="1924"/>
         <source>O download se perdeu. Toque em Baixar de novo.</source>
         <translation>O download se perdeu. Toque em Baixar de novo.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1842"/>
+        <location filename="../backend/launcherapi.cpp" line="1943"/>
         <source>Could not refresh machines and storage. Retrying shortly.</source>
         <translation>Não foi possível atualizar as máquinas e o armazenamento. Vamos tentar novamente.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1885"/>
+        <location filename="../backend/launcherapi.cpp" line="1986"/>
         <source>%1 is powered on. Open the app to connect.</source>
         <translation>%1 está ligada. Abra o app para conectar.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1892"/>
+        <location filename="../backend/launcherapi.cpp" line="1993"/>
         <source>Your session on %1 ends in about five minutes. Save your work.</source>
         <translation>Sua sessão em %1 termina em cerca de cinco minutos. Salve seu trabalho.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1907"/>
+        <location filename="../backend/launcherapi.cpp" line="2008"/>
         <source>Select a machine before continuing.</source>
         <translation>Selecione uma máquina antes de continuar.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1925"/>
+        <location filename="../backend/launcherapi.cpp" line="2026"/>
         <source>Request received. Follow its progress in Machines and storage.</source>
         <translation>Solicitação recebida. Acompanhe em Máquinas e armazenamento.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1929"/>
+        <location filename="../backend/launcherapi.cpp" line="2030"/>
         <source>The request could not be confirmed. Retry with the same identifier.</source>
         <translation>Não foi possível confirmar o pedido. Tente novamente com o mesmo identificador.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1946"/>
+        <location filename="../backend/launcherapi.cpp" line="2047"/>
         <source>Could not resume this operation.</source>
         <translation>Não foi possível retomar esta operação.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1947"/>
+        <location filename="../backend/launcherapi.cpp" line="2048"/>
         <source>Operation queued for recovery.</source>
         <translation>Operação na fila para recuperação.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1963"/>
+        <location filename="../backend/launcherapi.cpp" line="2064"/>
         <source>Máquina excluída.</source>
         <translation>Máquina excluída.</translation>
     </message>
     <message>
-        <location filename="../backend/launcherapi.cpp" line="1967"/>
+        <location filename="../backend/launcherapi.cpp" line="2068"/>
         <source>Não consegui excluir a máquina.</source>
         <translation>Não consegui excluir a máquina.</translation>
     </message>
@@ -1556,14 +1557,14 @@
     <name>MachineManagementView</name>
     <message>
         <location filename="../gui/LauncherView.qml" line="184"/>
-        <location filename="../gui/MachineManagementView.qml" line="112"/>
+        <location filename="../gui/MachineManagementView.qml" line="117"/>
         <source>Power on</source>
         <translation>Ligar</translation>
     </message>
     <message>
         <location filename="../gui/LauncherView.qml" line="560"/>
         <location filename="../gui/LauncherView.qml" line="742"/>
-        <location filename="../gui/MachineManagementView.qml" line="114"/>
+        <location filename="../gui/MachineManagementView.qml" line="119"/>
         <source>Shut down</source>
         <translation>Desligar</translation>
     </message>
@@ -1575,7 +1576,7 @@
     </message>
     <message>
         <location filename="../gui/LauncherView.qml" line="619"/>
-        <location filename="../gui/MachineManagementView.qml" line="163"/>
+        <location filename="../gui/MachineManagementView.qml" line="171"/>
         <source>Transfer this additional disk</source>
         <translation>Realocar este disco adicional</translation>
     </message>
@@ -1596,168 +1597,168 @@
         <translation>Forçar o reinício de %1? Alterações não salvas podem ser perdidas. O tempo de sessão e a cobrança continuam; as outras máquinas não serão afetadas.</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="53"/>
+        <location filename="../gui/MachineManagementView.qml" line="56"/>
         <source>Power off both machines and finish their operations. The destination needs an active plan on the same provider.</source>
         <translation>Desligue as duas máquinas e aguarde suas operações terminarem. O destino precisa de um plano ativo no mesmo provedor.</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="83"/>
+        <location filename="../gui/MachineManagementView.qml" line="87"/>
         <source>Your cloud, under your control</source>
         <translation>Sua nuvem, sob seu controle</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="84"/>
+        <location filename="../gui/MachineManagementView.qml" line="88"/>
         <source>Start, restart or manage your machines without entering Windows. Each powered-on VM uses its own plan.</source>
         <translation>Ligue, reinicie ou gerencie suas máquinas sem entrar no Windows. Cada VM ligada usa o próprio plano.</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="87"/>
+        <location filename="../gui/MachineManagementView.qml" line="91"/>
         <source>No machines to manage.</source>
         <translation>Nenhuma máquina para gerenciar.</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="102"/>
+        <location filename="../gui/MachineManagementView.qml" line="107"/>
         <source>Operation in progress</source>
         <translation>Operação em andamento</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="102"/>
+        <location filename="../gui/MachineManagementView.qml" line="107"/>
         <source>Queued for this machine</source>
         <translation>Na fila desta máquina</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="103"/>
+        <location filename="../gui/MachineManagementView.qml" line="108"/>
         <source>Powered on</source>
         <translation>Ligada</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="103"/>
+        <location filename="../gui/MachineManagementView.qml" line="108"/>
         <source>Powered off</source>
         <translation>Desligada</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="106"/>
+        <location filename="../gui/MachineManagementView.qml" line="111"/>
         <source>Windows disk: %1 GB · %2 reinstall credit(s)</source>
         <translation>Disco do Windows: %1 GB · %2 formatação(ões) disponível(is)</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="113"/>
+        <location filename="../gui/MachineManagementView.qml" line="118"/>
         <source>Restart</source>
         <translation>Reiniciar</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="115"/>
+        <location filename="../gui/MachineManagementView.qml" line="120"/>
         <source>Reinstall Windows</source>
         <translation>Formatar Windows</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="136"/>
-        <location filename="../gui/MachineManagementView.qml" line="248"/>
+        <location filename="../gui/MachineManagementView.qml" line="143"/>
+        <location filename="../gui/MachineManagementView.qml" line="264"/>
         <source>Windows password</source>
         <translation>Senha do Windows</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="141"/>
+        <location filename="../gui/MachineManagementView.qml" line="149"/>
         <source>Buy additional storage</source>
         <translation>Comprar armazenamento adicional</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="146"/>
+        <location filename="../gui/MachineManagementView.qml" line="154"/>
         <source>Buy a reinstall credit</source>
         <translation>Comprar formatação adicional</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="155"/>
+        <location filename="../gui/MachineManagementView.qml" line="163"/>
         <source>Separate additional disk · %1 GB</source>
         <translation>Disco adicional separado · %1 GB</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="157"/>
+        <location filename="../gui/MachineManagementView.qml" line="165"/>
         <source>Needs recovery. Check the operation below.</source>
         <translation>Precisa de recuperação. Confira a operação abaixo.</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="158"/>
+        <location filename="../gui/MachineManagementView.qml" line="166"/>
         <source>Available in Windows as %1:</source>
         <translation>Disponível no Windows como %1:</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="159"/>
+        <location filename="../gui/MachineManagementView.qml" line="167"/>
         <source>Disk preparation will be checked when Windows starts.</source>
         <translation>A preparação do disco será conferida quando o Windows iniciar.</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="172"/>
+        <location filename="../gui/MachineManagementView.qml" line="181"/>
         <source>Recent operations</source>
         <translation>Operações recentes</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="173"/>
+        <location filename="../gui/MachineManagementView.qml" line="182"/>
         <source>Accepted operations continue on the server if you close the app. Older upgrades integrated into Windows cannot be transferred separately. Data follows the retention period of its linked plan.</source>
         <translation>Operações aceitas continuam no servidor se você fechar o app. Expansões antigas integradas ao Windows não podem ser realocadas separadamente. Os dados seguem o prazo de retenção do plano vinculado.</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="183"/>
+        <location filename="../gui/MachineManagementView.qml" line="192"/>
         <source>The additional disk was already erased. Recovery resumes delivery of the empty disk; it cannot restore those files.</source>
         <translation>O disco adicional já foi apagado. A recuperação retoma a entrega do disco vazio; não recupera esses arquivos.</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="184"/>
+        <location filename="../gui/MachineManagementView.qml" line="193"/>
         <source>Retry safely</source>
         <translation>Retomar com segurança</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="193"/>
+        <location filename="../gui/MachineManagementView.qml" line="203"/>
         <source>Confirm machine operation</source>
         <translation>Confirmar operação da máquina</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="205"/>
+        <location filename="../gui/MachineManagementView.qml" line="218"/>
         <source>Request not confirmed</source>
         <translation>Pedido não confirmado</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="212"/>
+        <location filename="../gui/MachineManagementView.qml" line="225"/>
         <source>Retry uses the same identifier. Check the operations before creating a new request.</source>
         <translation>Tentar novamente usa o mesmo identificador. Confira as operações antes de criar outro pedido.</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="219"/>
+        <location filename="../gui/MachineManagementView.qml" line="234"/>
         <source>Transfer additional capacity</source>
         <translation>Realocar capacidade adicional</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="227"/>
+        <location filename="../gui/MachineManagementView.qml" line="242"/>
         <source>Choose a powered-off destination on the same provider.</source>
         <translation>Escolha uma máquina desligada no mesmo provedor.</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="230"/>
+        <location filename="../gui/MachineManagementView.qml" line="245"/>
         <source>ALL files only on this %1 GB additional disk will be erased. The destination receives an EMPTY disk, without Windows. Both VMs and their Windows disks remain intact. No new purchase is charged.</source>
         <translation>TODOS os arquivos somente deste adicional de %1 GB serão apagados. O destino recebe um disco VAZIO, sem Windows. As duas VMs e seus discos do Windows permanecem intactos. Não será cobrada uma nova compra.</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="257"/>
+        <location filename="../gui/MachineManagementView.qml" line="273"/>
         <source>New password</source>
         <translation>Nova senha</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="258"/>
+        <location filename="../gui/MachineManagementView.qml" line="274"/>
         <source>Confirm password</source>
         <translation>Confirmar senha</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="259"/>
+        <location filename="../gui/MachineManagementView.qml" line="275"/>
         <source>Show password</source>
         <translation>Mostrar senha</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="260"/>
+        <location filename="../gui/MachineManagementView.qml" line="276"/>
         <source>Use 6–32 letters, numbers or symbols without spaces.</source>
         <translation>Use de 6 a 32 letras, números ou símbolos, sem espaços.</translation>
     </message>
     <message>
-        <location filename="../gui/MachineManagementView.qml" line="263"/>
+        <location filename="../gui/MachineManagementView.qml" line="279"/>
         <source>Save password</source>
         <translation>Salvar senha</translation>
     </message>
@@ -1788,7 +1789,7 @@
 <context>
     <name>PcView</name>
     <message>
-        <location filename="../gui/PcView.qml" line="468"/>
+        <location filename="../gui/PcView.qml" line="471"/>
         <source>Remove &apos;%1&apos; from this app?
 
 This only removes the shortcut from your list — your VM in the cloud (and everything in it) is NOT deleted. You can add it back anytime.
@@ -1806,7 +1807,7 @@ Para eliminar a VM de verdade e libertar o disco, utilize o painel (spacecloud.g
         <translation>Computadores</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="166"/>
+        <location filename="../gui/PcView.qml" line="169"/>
         <source>Unable to connect to the specified PC.</source>
         <translation>Impossível conectar-se com o PC especificado.</translation>
     </message>
@@ -1815,7 +1816,7 @@ Para eliminar a VM de verdade e libertar o disco, utilize o painel (spacecloud.g
         <translation type="vanished">A conexão à Internet deste PC está bloqueando o Moonlight. Streamando pela Internet provávelmente não funcionará enquanto conectado à esta Rede.</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="172"/>
+        <location filename="../gui/PcView.qml" line="175"/>
         <source>Click the Help button for possible solutions.</source>
         <translation>Clique o botão de Ajuda por possíveis soluções.</translation>
     </message>
@@ -1828,22 +1829,22 @@ Para eliminar a VM de verdade e libertar o disco, utilize o painel (spacecloud.g
         <translation type="vanished">Acordar o PC</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="305"/>
+        <location filename="../gui/PcView.qml" line="308"/>
         <source>Test Network</source>
         <translation>Testar a Rede</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="314"/>
+        <location filename="../gui/PcView.qml" line="317"/>
         <source>Rename PC</source>
         <translation>Renomear o PC</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="323"/>
+        <location filename="../gui/PcView.qml" line="326"/>
         <source>Delete PC</source>
         <translation>Deletar o PC</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="363"/>
+        <location filename="../gui/PcView.qml" line="366"/>
         <source>View Details</source>
         <translation>Ver detalhes</translation>
     </message>
@@ -1852,7 +1853,7 @@ Para eliminar a VM de verdade e libertar o disco, utilize o painel (spacecloud.g
         <translation type="vanished">A versão do GeForce Experience no %1 não é suportada por esta versão do Moonlight. Você deve atualizar o Moonlight para streamar do %1.</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="506"/>
+        <location filename="../gui/PcView.qml" line="509"/>
         <source>This may take a few seconds…</source>
         <translation>Isto deve levar alguns segundos…</translation>
     </message>
@@ -1861,7 +1862,7 @@ Para eliminar a VM de verdade e libertar o disco, utilize o painel (spacecloud.g
         <translation type="vanished">Esta rede não aparenta estar bloqueando o Moonlight. Se ainda tens problemas para conectar-se, verifique sua configuração do Firewall do PC.</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="517"/>
+        <location filename="../gui/PcView.qml" line="520"/>
         <source>If you are trying to stream over the Internet, install the Moonlight Internet Hosting Tool on your gaming PC and run the included Internet Streaming Tester to check your gaming PC&apos;s Internet connection.</source>
         <translation>Se você está tentando streamar pela Internet, instale a Ferramenta de Internet Hosting do Moonlight no seu PC Gamer e execute o Testador de Internet Streaming para verificar a conexão à Internet do seu PC Gamer.</translation>
     </message>
@@ -1870,7 +1871,7 @@ Para eliminar a VM de verdade e libertar o disco, utilize o painel (spacecloud.g
         <translation type="vanished">A conexão de Rede atual de seu PC aparenta estar bloqueando o Moonlight. Streamando pela Internet deve não funcionar enquando conectado à esta Rede.</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="521"/>
+        <location filename="../gui/PcView.qml" line="524"/>
         <source>The following network ports were blocked:</source>
         <translation>Os seguintes portes da rede foram bloqueados:</translation>
     </message>
@@ -1879,135 +1880,135 @@ Para eliminar a VM de verdade e libertar o disco, utilize o painel (spacecloud.g
         <translation type="vanished">O teste de rede não pôde ser executado pois nenhum servidor de teste de conexão do Moonlight foi accesável por este PC. Verifique sua conexão à Internet ou tente novamente mais tarde.</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="169"/>
+        <location filename="../gui/PcView.qml" line="172"/>
         <source>This PC&apos;s Internet connection is blocking Space Connect. Streaming over the Internet may not work while connected to this network.</source>
         <translation>A conexão com a internet deste computador está bloqueando o Space Connect. A transmissão pela Internet pode não funcionar corretamente enquanto conectado a esta rede.</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="195"/>
+        <location filename="../gui/PcView.qml" line="198"/>
         <source>No PCs yet. Your PC will appear automatically once linked to your Space Connect account.</source>
         <translation>Nenhum PC ainda. Seu PC aparecerá automaticamente assim que for vinculado à sua conta Space Connect.</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="274"/>
+        <location filename="../gui/PcView.qml" line="277"/>
         <source>PC Status: %1</source>
         <translation>Status do PC: %1</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="274"/>
+        <location filename="../gui/PcView.qml" line="277"/>
         <source>Online</source>
         <translation>Online</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="274"/>
+        <location filename="../gui/PcView.qml" line="277"/>
         <source>Offline</source>
         <translation>Offline</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="280"/>
+        <location filename="../gui/PcView.qml" line="283"/>
         <source>View All Apps</source>
         <translation>Ver Todos Aplicativos</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="290"/>
+        <location filename="../gui/PcView.qml" line="293"/>
         <source>Turn on my VM</source>
         <translation>Ligar meu PC</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="299"/>
+        <location filename="../gui/PcView.qml" line="302"/>
         <source>Turn off my VM</source>
         <translation>Desligar meu PC</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="338"/>
+        <location filename="../gui/PcView.qml" line="341"/>
         <source>Trocar senha da VM</source>
         <translation>Trocar senha da VM</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="353"/>
+        <location filename="../gui/PcView.qml" line="356"/>
         <source>Excluir VM (apaga tudo)</source>
         <translation>Excluir VM (apaga tudo)</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="375"/>
+        <location filename="../gui/PcView.qml" line="378"/>
         <source>The version of GameStream on %1 is not supported by this build of Space Connect. You must update Space Connect to stream from %1.</source>
         <translation>A versão do GameStream em %1 não é suportada por esta versão do Space Connect. Você deve atualizar o Space Connect para transmitir de %1.</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="452"/>
+        <location filename="../gui/PcView.qml" line="455"/>
         <source>Please enter %1 on your host PC. This dialog will close when pairing is completed.</source>
         <translation>Por favor coloque %1 no seu PC principal. Esse dialogo será fechado quando a conexão for efetuada.</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="453"/>
+        <location filename="../gui/PcView.qml" line="456"/>
         <source>If your host PC is running Sunshine, navigate to the Sunshine web UI to enter the PIN.</source>
         <translation>Se seu PC principal estiver rodando Sunshine, navegue até a interface web para digitar o PIN.</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="482"/>
+        <location filename="../gui/PcView.qml" line="485"/>
         <source>⚠️ EXCLUIR &apos;%1&apos; PARA SEMPRE?
 
 Isso apaga a máquina virtual na nuvem e TUDO que tem nela (jogos, arquivos, configurações). Não tem como desfazer.
 
 Se só quer tirar o atalho deste app sem apagar a VM, use &quot;Delete PC&quot; em vez disso.</source>
-        <translation>⚠️ EXCLUIR '%1' PARA SEMPRE?
+        <translation>⚠️ EXCLUIR &apos;%1&apos; PARA SEMPRE?
 
 Isso apaga a máquina virtual na nuvem e TUDO que tem nela (jogos, arquivos, configurações). Não tem como desfazer.
 
-Se só quer tirar o atalho deste app sem apagar a VM, use "Delete PC" em vez disso.</translation>
+Se só quer tirar o atalho deste app sem apagar a VM, use &quot;Delete PC&quot; em vez disso.</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="491"/>
+        <location filename="../gui/PcView.qml" line="494"/>
         <source>Turn off your VM now? This will end your current session.</source>
         <translation>Desligar seu PC agora? Isso vai encerrar a sua sessão atual.</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="506"/>
+        <location filename="../gui/PcView.qml" line="509"/>
         <source>Space Connect is testing your network connection to determine if any required ports are blocked.</source>
         <translation>O Space Connect está testando sua conexão de rede para determinar se alguma porta necessária está bloqueada.</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="513"/>
+        <location filename="../gui/PcView.qml" line="516"/>
         <source>The network test could not be performed because none of Space Connect&apos;s connection testing servers were reachable from this PC. Check your Internet connection or try again later.</source>
         <translation>O teste de rede não pôde ser realizado porque nenhum dos servidores de teste de conexão do Space Connect pôde ser alcançado a partir deste computador. Verifique sua conexão com a Internet ou tente novamente mais tarde.</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="517"/>
+        <location filename="../gui/PcView.qml" line="520"/>
         <source>This network does not appear to be blocking Space Connect. If you still have trouble connecting, check your PC&apos;s firewall settings.</source>
         <translation>Esta rede não parece estar bloqueando o Space Connect. Se você ainda tiver problemas para se conectar, verifique as configurações de firewall do seu computador.</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="521"/>
+        <location filename="../gui/PcView.qml" line="524"/>
         <source>Your PC&apos;s current network connection seems to be blocking Space Connect. Streaming over the Internet may not work while connected to this network.</source>
         <translation>A conexão de rede atual do seu computador parece estar bloqueando o Space Connect. A transmissão pela Internet pode não funcionar enquanto estiver conectado a esta rede.</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="611"/>
+        <location filename="../gui/PcView.qml" line="617"/>
         <source>Nova senha do Windows (conta scg)</source>
         <translation>Nova senha do Windows (conta scg)</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="615"/>
+        <location filename="../gui/PcView.qml" line="621"/>
         <source>Troca a senha da VM &apos;%1&apos; sem formatar. De 6 a 32 caracteres, sem espaços ou acentos.</source>
-        <translation>Troca a senha da VM '%1' sem formatar. De 6 a 32 caracteres, sem espaços ou acentos.</translation>
+        <translation>Troca a senha da VM &apos;%1&apos; sem formatar. De 6 a 32 caracteres, sem espaços ou acentos.</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="625"/>
+        <location filename="../gui/PcView.qml" line="631"/>
         <source>Nova senha</source>
         <translation>Nova senha</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="639"/>
+        <location filename="../gui/PcView.qml" line="645"/>
         <source>Mostrar senha</source>
         <translation>Mostrar senha</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="639"/>
+        <location filename="../gui/PcView.qml" line="645"/>
         <source>Ocultar senha</source>
         <translation>Ocultar senha</translation>
     </message>
     <message>
-        <location filename="../gui/PcView.qml" line="533"/>
+        <location filename="../gui/PcView.qml" line="536"/>
         <source>Enter the new name for this PC:</source>
         <translation>Digite o novo nome para este PC:</translation>
     </message>
@@ -2132,68 +2133,68 @@ Se só quer tirar o atalho deste app sem apagar a VM, use "Delete PC" em vez dis
 <context>
     <name>Session</name>
     <message>
-        <location filename="../streaming/session.cpp" line="1648"/>
-        <location filename="../streaming/session.cpp" line="1655"/>
+        <location filename="../streaming/session.cpp" line="1822"/>
+        <location filename="../streaming/session.cpp" line="1829"/>
         <source>Your device is not authorized to open Desktop. Try again or contact support.</source>
         <translation>Seu dispositivo não está autorizado a abrir a área de trabalho. Tente novamente ou fale com o suporte.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1625"/>
+        <location filename="../streaming/session.cpp" line="1799"/>
         <source>Desktop is not available on this machine. Please contact support.</source>
         <translation>A área de trabalho não está disponível nesta máquina. Entre em contato com o suporte.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1631"/>
+        <location filename="../streaming/session.cpp" line="1805"/>
         <source>Another app is running on this machine. Close it before opening Desktop.</source>
         <translation>Outro aplicativo está aberto nesta máquina. Feche-o antes de abrir a área de trabalho.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="2116"/>
+        <location filename="../streaming/session.cpp" line="2292"/>
         <source>No video frame arrived. Check your connection and try again.</source>
         <translation>A imagem não chegou. Confira sua conexão e tente novamente.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="126"/>
+        <location filename="../streaming/session.cpp" line="127"/>
         <source>No video received from host.</source>
         <translation>Nenhum vídeo recebido do host.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="127"/>
+        <location filename="../streaming/session.cpp" line="128"/>
         <source>Check your firewall and port forwarding rules for port(s): %1</source>
         <translation>Verifique suas regras de Firewall e Port Forwarding para o(s) port(s): %1</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="132"/>
+        <location filename="../streaming/session.cpp" line="133"/>
         <source>Your network connection isn&apos;t performing well. Reduce your video bitrate setting or try a faster connection.</source>
         <translation>Sua conexão de rede não está funcionando bem. Reduza sua configuração de bitrate ou tente uma conexão mais rápida.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="138"/>
+        <location filename="../streaming/session.cpp" line="139"/>
         <source>Something went wrong on your host PC when starting the stream.</source>
         <translation>Algo deu errado no seu PC de host quando a stream estava iniciando-se.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="139"/>
+        <location filename="../streaming/session.cpp" line="140"/>
         <source>Make sure you don&apos;t have any DRM-protected content open on your host PC. You can also try restarting your host PC.</source>
         <translation>Assegure que não há nenhum conteúdo DRM-protegido aberto no seu PC de host. Você pode tentar re-iniciar seu PC de host.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="144"/>
+        <location filename="../streaming/session.cpp" line="145"/>
         <source>The host PC reported a fatal video encoding error.</source>
         <translation>O computador host relatou um erro fatal de codificação de vídeo.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="145"/>
+        <location filename="../streaming/session.cpp" line="146"/>
         <source>Try disabling HDR mode, changing the streaming resolution, or changing your host PC&apos;s display resolution.</source>
         <translation>Tente desativar o modo HDR, alterar a resolução de transmissão ou alterar a resolução de tela do seu computador host.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="153"/>
+        <location filename="../streaming/session.cpp" line="154"/>
         <source>Connection terminated</source>
         <translation>Conexão eliminada</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="154"/>
+        <location filename="../streaming/session.cpp" line="155"/>
         <source>Error code: %1</source>
         <translation>Código de erro: %1</translation>
     </message>
@@ -2202,7 +2203,7 @@ Se só quer tirar o atalho deste app sem apagar a VM, use "Delete PC" em vez dis
         <translation type="vanished">A versão do GeForce Experience no %1 não é suportada por esta versão do Moonlight. Você deve atualizar O Moonlight para streamar do %1.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="980"/>
+        <location filename="../streaming/session.cpp" line="1154"/>
         <source>Your selection to enable remote desktop mouse mode may cause problems in games.</source>
         <translation>A sua seleção para ativar o modo rato da área de trabalho remoto deve causar problemas em jogos.</translation>
     </message>
@@ -2211,123 +2212,133 @@ Se só quer tirar o atalho deste app sem apagar a VM, use "Delete PC" em vez dis
         <translation type="vanished">O HRD não é suportado com decodificação por software.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="984"/>
+        <location filename="../streaming/session.cpp" line="1158"/>
         <source>Your settings selection to force software decoding may cause poor streaming performance.</source>
         <translation>Suas configurações de seleção para forçar decodificação por software deve causar performance de streaming degradada.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1014"/>
+        <location filename="../streaming/session.cpp" line="1188"/>
         <source>Your host PC doesn&apos;t support encoding HEVC.</source>
         <translation>Seu computador host não oferece suporte à codificação HEVC.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1031"/>
+        <location filename="../streaming/session.cpp" line="1205"/>
         <source>Using software decoding due to your selection to force HEVC without GPU support. This may cause poor streaming performance.</source>
         <translation>Usando decodificação por software pela sua seleção para força HEVC sem suporte da GPU. Isso deve causar performance de streaming degradada.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="990"/>
+        <location filename="../streaming/session.cpp" line="1164"/>
         <source>Your host software or GPU doesn&apos;t support encoding AV1.</source>
         <translation>Seu software host ou GPU não oferece suporte à codificação AV1.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1007"/>
+        <location filename="../streaming/session.cpp" line="1181"/>
         <source>Using software decoding due to your selection to force AV1 without GPU support. This may cause poor streaming performance.</source>
         <translation>Usando decodificação por software devido à sua seleção de forçar AV1 sem suporte de GPU. Isso pode causar baixo desempenho na transmissão.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1073"/>
+        <location filename="../streaming/session.cpp" line="1247"/>
         <source>Your host PC doesn&apos;t support HDR streaming.</source>
         <translation>Seu computador host não oferece suporte à transmissão HDR.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1065"/>
+        <location filename="../streaming/session.cpp" line="1239"/>
         <source>HDR is not supported using the H.264 codec.</source>
         <translation>HDR não é suportado usando o codec H.264.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1088"/>
+        <location filename="../streaming/session.cpp" line="1262"/>
         <source>This PC&apos;s GPU doesn&apos;t support AV1 Main10 decoding for HDR streaming.</source>
         <translation>A GPU deste computador não oferece suporte à decodificação AV1 Main10 para transmissão HDR.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1069"/>
+        <location filename="../streaming/session.cpp" line="1243"/>
         <source>This PC&apos;s GPU doesn&apos;t support 10-bit HEVC or AV1 decoding for HDR streaming.</source>
         <translation>A GPU deste computador não oferece suporte à decodificação HEVC ou AV1 de 10 bits para transmissão HDR.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1121"/>
+        <location filename="../streaming/session.cpp" line="1295"/>
         <source>Your host PC and client PC don&apos;t support the same HDR video codecs.</source>
         <translation>Seu computador host e o computador cliente não oferecem suporte aos mesmos codecs de vídeo HDR.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1166"/>
+        <location filename="../streaming/session.cpp" line="1340"/>
         <source>GameStream 3.0 or higher is required for 4K streaming.</source>
         <translation>GameStream 3.0 ou superior é necessário para transmissão em 4K.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1192"/>
+        <location filename="../streaming/session.cpp" line="1366"/>
         <source>An attached gamepad has no mapping and won&apos;t be usable. Visit the Space Connect help to resolve this.</source>
         <translation>Um gamepad conectado não possui mapeamento e não poderá ser usado. Acesse a ajuda do Space Connect para resolver isso.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1214"/>
+        <location filename="../streaming/session.cpp" line="1388"/>
         <source>Video resolutions over 4K are not supported by the H.264 codec.</source>
         <translation>Resoluções de vídeo acima de 4K não são suportadas pelo codec H.264.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1649"/>
+        <location filename="../streaming/session.cpp" line="1823"/>
         <source>Host returned error: %1</source>
         <translation>O host retornou um erro: %1</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1045"/>
+        <location filename="../streaming/session.cpp" line="1219"/>
         <source>Using software decoding due to your selection to force H.264 without GPU support. This may cause poor streaming performance.</source>
         <translation>Usando decodificação por software pela sua seleção para forçar H.264 sem suporte de GPU. Isso deve causar performance de streaming degradada.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="975"/>
+        <location filename="../streaming/session.cpp" line="622"/>
+        <source>Guest controls require a window system with positioned overlays. On Linux, use an X11 session.</source>
+        <translation>O controle de convidados precisa de um sistema que permita posicionar janelas sobre o vídeo. No Linux, use uma sessão X11.</translation>
+    </message>
+    <message>
+        <location filename="../streaming/session.cpp" line="746"/>
+        <source>Could not position guest controls on this display.</source>
+        <translation>Não foi possível posicionar o controle de convidados nesta tela.</translation>
+    </message>
+    <message>
+        <location filename="../streaming/session.cpp" line="1149"/>
         <source>The version of GameStream on %1 is not supported by this build of Space Connect. You must update Space Connect to stream from %1.</source>
         <translation>A versão do GameStream em %1 não é suportada por esta versão do Space Connect. Você deve atualizar o Space Connect para transmitir de %1.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1055"/>
+        <location filename="../streaming/session.cpp" line="1229"/>
         <source>Your host PC and client PC don&apos;t support the same video codecs. This may cause poor streaming performance.</source>
         <translation>Seu PC de host e o PC de cliente não suportam os mesmos codecs de vídeo. Isso deve causar performance de streaming degradada.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1058"/>
+        <location filename="../streaming/session.cpp" line="1232"/>
         <source>Your client GPU doesn&apos;t support H.264 decoding. This may cause poor streaming performance.</source>
         <translation>Seu GPU do cliente não suporta decodificação H.264. Isso deve causar performance de streaming degradada.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1094"/>
-        <location filename="../streaming/session.cpp" line="1112"/>
+        <location filename="../streaming/session.cpp" line="1268"/>
+        <location filename="../streaming/session.cpp" line="1286"/>
         <source>Using software decoding due to your selection to force HDR without GPU support. This may cause poor streaming performance.</source>
         <translation>Usando decodificação por software devido à sua seleção de forçar HDR sem suporte de GPU. Isso pode causar baixo desempenho na transmissão.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1106"/>
+        <location filename="../streaming/session.cpp" line="1280"/>
         <source>This PC&apos;s GPU doesn&apos;t support HEVC Main10 decoding for HDR streaming.</source>
         <translation>A GPU deste PC não suporta decodificação HEVC Main10 para streaming em HDR.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1128"/>
+        <location filename="../streaming/session.cpp" line="1302"/>
         <source>Your host PC doesn&apos;t support YUV 4:4:4 streaming.</source>
         <translation>Seu computador host não oferece suporte à transmissão YUV 4:4:4.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1136"/>
+        <location filename="../streaming/session.cpp" line="1310"/>
         <source>Your host PC doesn&apos;t support YUV 4:4:4 streaming for selected video codec.</source>
         <translation>Seu computador host não oferece suporte à transmissão YUV 4:4:4 para o codec de vídeo selecionado.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1151"/>
+        <location filename="../streaming/session.cpp" line="1325"/>
         <source>Using software decoding due to your selection to force YUV 4:4:4 without GPU support. This may cause poor streaming performance.</source>
         <translation>Usando decodificação por software devido à sua seleção de forçar YUV 4:4:4 sem suporte de GPU. Isso pode causar baixo desempenho na transmissão.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1157"/>
+        <location filename="../streaming/session.cpp" line="1331"/>
         <source>This PC&apos;s GPU doesn&apos;t support YUV 4:4:4 decoding for selected video codec.</source>
         <translation>A GPU deste computador não oferece suporte à decodificação YUV 4:4:4 para o codec de vídeo selecionado.</translation>
     </message>
@@ -2336,12 +2347,12 @@ Se só quer tirar o atalho deste app sem apagar a VM, use "Delete PC" em vez dis
         <translation type="vanished">GeForce Experience 3.0 or superior é requerido para streaming em 4K.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1181"/>
+        <location filename="../streaming/session.cpp" line="1355"/>
         <source>Your selected surround sound setting is not supported by the current audio device.</source>
         <translation>Sua configuração de surround seleçionada não é suportada pelo dispositivo de áudio atual.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1187"/>
+        <location filename="../streaming/session.cpp" line="1361"/>
         <source>Failed to open audio device. Audio will be unavailable during this session.</source>
         <translation>Falha ao abrir o dispositivo de áudio. Áudio estará indisponível durante esta sessão.</translation>
     </message>
@@ -2350,22 +2361,22 @@ Se só quer tirar o atalho deste app sem apagar a VM, use "Delete PC" em vez dis
         <translation type="vanished">Um controle conectado não tem mapeamento e não será usável. Visite a Ajuda do Moonlight para resolver isso.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1210"/>
+        <location filename="../streaming/session.cpp" line="1384"/>
         <source>Your host PC&apos;s GPU doesn&apos;t support streaming video resolutions over 4K.</source>
         <translation>A GPU do seu PC de host não suporta streaming de resoluções de vídeo superiores à 4K.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1228"/>
+        <location filename="../streaming/session.cpp" line="1402"/>
         <source>Your selection to force hardware decoding cannot be satisfied due to missing hardware decoding support on this PC&apos;s GPU.</source>
         <translation>Sua seleção de forçar decodificação por hardware não pôde ser satisfeita pela fata de suporte à decodificação por hardware na GPU deste PC.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="1231"/>
+        <location filename="../streaming/session.cpp" line="1405"/>
         <source>Your codec selection and force hardware decoding setting are not compatible. This PC&apos;s GPU lacks support for decoding your chosen codec.</source>
         <translation>Sua seleção de codec e forçamento de decodificação por hardware não são compatíveis. A GPU deste PC não tem suprte para decodificar seu codec selecionado.</translation>
     </message>
     <message>
-        <location filename="../streaming/session.cpp" line="2418"/>
+        <location filename="../streaming/session.cpp" line="2617"/>
         <source>Unable to initialize video decoder. Please check your streaming settings and try again.</source>
         <translation>Impossivel inicializar o decodificador de vídeo. Por favor verificar suas configurações de streaming e tente novamente.</translation>
     </message>
@@ -2374,8 +2385,8 @@ Se só quer tirar o atalho deste app sem apagar a VM, use "Delete PC" em vez dis
     <name>SessionOrchestrator</name>
     <message>
         <location filename="../backend/sessionorchestrator.cpp" line="27"/>
-        <location filename="../backend/sessionorchestrator.cpp" line="223"/>
-        <location filename="../backend/sessionorchestrator.cpp" line="239"/>
+        <location filename="../backend/sessionorchestrator.cpp" line="214"/>
+        <location filename="../backend/sessionorchestrator.cpp" line="230"/>
         <source>Your machine did not respond. Please try connecting again.</source>
         <translation>Sua máquina não respondeu. Tente conectar novamente.</translation>
     </message>
@@ -2385,65 +2396,65 @@ Se só quer tirar o atalho deste app sem apagar a VM, use "Delete PC" em vez dis
         <translation>Resposta de estado inválida. Tente novamente.</translation>
     </message>
     <message>
-        <location filename="../backend/sessionorchestrator.cpp" line="94"/>
+        <location filename="../backend/sessionorchestrator.cpp" line="91"/>
         <source>Automatic pairing failed. Please try again.</source>
         <translation>Não foi possível parear automaticamente. Tente novamente.</translation>
     </message>
     <message>
-        <location filename="../backend/sessionorchestrator.cpp" line="120"/>
+        <location filename="../backend/sessionorchestrator.cpp" line="117"/>
         <source>Select a machine before connecting.</source>
         <translation>Selecione uma máquina antes de conectar.</translation>
     </message>
     <message>
-        <location filename="../backend/sessionorchestrator.cpp" line="140"/>
-        <location filename="../backend/sessionorchestrator.cpp" line="168"/>
+        <location filename="../backend/sessionorchestrator.cpp" line="138"/>
+        <location filename="../backend/sessionorchestrator.cpp" line="166"/>
         <source>Finding your machine...</source>
         <translation>Procurando sua máquina...</translation>
     </message>
     <message>
-        <location filename="../backend/sessionorchestrator.cpp" line="167"/>
+        <location filename="../backend/sessionorchestrator.cpp" line="165"/>
         <source>You are #%1 in queue</source>
         <translation>Você está na posição %1 da fila</translation>
     </message>
     <message>
-        <location filename="../backend/sessionorchestrator.cpp" line="179"/>
+        <location filename="../backend/sessionorchestrator.cpp" line="177"/>
         <source>Booting your machine...</source>
         <translation>Ligando sua máquina...</translation>
     </message>
     <message>
-        <location filename="../backend/sessionorchestrator.cpp" line="100"/>
-        <location filename="../backend/sessionorchestrator.cpp" line="207"/>
-        <location filename="../backend/sessionorchestrator.cpp" line="310"/>
+        <location filename="../backend/sessionorchestrator.cpp" line="97"/>
+        <location filename="../backend/sessionorchestrator.cpp" line="198"/>
+        <location filename="../backend/sessionorchestrator.cpp" line="302"/>
         <source>Connecting securely...</source>
         <translation>Conectando com segurança...</translation>
     </message>
     <message>
-        <location filename="../backend/sessionorchestrator.cpp" line="256"/>
+        <location filename="../backend/sessionorchestrator.cpp" line="247"/>
         <source>Authenticating your device...</source>
         <translation>Autenticando seu dispositivo...</translation>
     </message>
     <message>
-        <location filename="../backend/sessionorchestrator.cpp" line="291"/>
+        <location filename="../backend/sessionorchestrator.cpp" line="283"/>
         <source>Waiting for the first video frame...</source>
         <translation>Preparando a imagem...</translation>
     </message>
     <message>
-        <location filename="../backend/sessionorchestrator.cpp" line="296"/>
+        <location filename="../backend/sessionorchestrator.cpp" line="288"/>
         <source>Connected</source>
         <translation>Conectado</translation>
     </message>
     <message>
-        <location filename="../backend/sessionorchestrator.cpp" line="184"/>
+        <location filename="../backend/sessionorchestrator.cpp" line="182"/>
         <source>This session is ending. Wait for it to finish before connecting again.</source>
         <translation>Esta sessão está encerrando. Aguarde antes de conectar novamente.</translation>
     </message>
     <message>
-        <location filename="../backend/sessionorchestrator.cpp" line="273"/>
+        <location filename="../backend/sessionorchestrator.cpp" line="264"/>
         <source>Desktop is not available on this machine. Please contact support.</source>
         <translation>A área de trabalho não está disponível nesta máquina. Entre em contato com o suporte.</translation>
     </message>
     <message>
-        <location filename="../backend/sessionorchestrator.cpp" line="279"/>
+        <location filename="../backend/sessionorchestrator.cpp" line="270"/>
         <source>Another app is running on this machine. Close it before opening Desktop.</source>
         <translation>Outro aplicativo está aberto nesta máquina. Feche-o antes de abrir a área de trabalho.</translation>
     </message>
@@ -2636,7 +2647,7 @@ Se só quer tirar o atalho deste app sem apagar a VM, use "Delete PC" em vez dis
     <message>
         <location filename="../gui/SettingsView.qml" line="883"/>
         <source>Ainda não foi possível detectar o seu plano — usando o limite padrão de %1 Mbps. Se a sua VM é um host dedicado, escolha &apos;Host dedicado&apos; acima.</source>
-        <translation>Ainda não foi possível detectar o seu plano — usando o limite padrão de %1 Mbps. Se a sua VM é um host dedicado, escolha 'Host dedicado' acima.</translation>
+        <translation>Ainda não foi possível detectar o seu plano — usando o limite padrão de %1 Mbps. Se a sua VM é um host dedicado, escolha &apos;Host dedicado&apos; acima.</translation>
     </message>
     <message>
         <location filename="../gui/SettingsView.qml" line="1005"/>
@@ -3185,35 +3196,80 @@ Se só quer tirar o atalho deste app sem apagar a VM, use "Delete PC" em vez dis
     </message>
 </context>
 <context>
+    <name>StreamGuestController</name>
+    <message>
+        <location filename="../backend/streamguestcontroller.cpp" line="50"/>
+        <location filename="../backend/streamguestcontroller.cpp" line="272"/>
+        <source>Your account changed. Reconnect to use guest controls.</source>
+        <translation>Sua conta mudou. Reconecte para controlar os convidados.</translation>
+    </message>
+    <message>
+        <location filename="../backend/streamguestcontroller.cpp" line="212"/>
+        <source>Refresh the guests before selecting an account.</source>
+        <translation>Atualize os convidados antes de selecionar uma conta.</translation>
+    </message>
+    <message>
+        <location filename="../backend/streamguestcontroller.cpp" line="241"/>
+        <source>Disconnection requested. Your friend can reconnect.</source>
+        <translation>Desconexão solicitada. Seu amigo pode se conectar novamente.</translation>
+    </message>
+    <message>
+        <location filename="../backend/streamguestcontroller.cpp" line="242"/>
+        <location filename="../backend/streamguestcontroller.cpp" line="270"/>
+        <source>This friend is no longer connected.</source>
+        <translation>Este amigo não está mais conectado.</translation>
+    </message>
+    <message>
+        <location filename="../backend/streamguestcontroller.cpp" line="260"/>
+        <source>Could not manage guests. Refresh and try again.</source>
+        <translation>Não foi possível controlar os convidados. Atualize e tente novamente.</translation>
+    </message>
+    <message>
+        <location filename="../backend/streamguestcontroller.cpp" line="263"/>
+        <source>Guest controls are not available on this host.</source>
+        <translation>O controle de convidados não está disponível nesta máquina.</translation>
+    </message>
+    <message>
+        <location filename="../backend/streamguestcontroller.cpp" line="266"/>
+        <source>Only the connected owner can manage guests. The owner cannot be disconnected.</source>
+        <translation>Somente o dono conectado pode controlar os convidados. O dono não pode ser desconectado.</translation>
+    </message>
+    <message>
+        <location filename="../backend/streamguestcontroller.cpp" line="268"/>
+        <source>The host changed. Reconnect before managing guests.</source>
+        <translation>A máquina mudou. Reconecte antes de controlar os convidados.</translation>
+    </message>
+</context>
+<context>
     <name>StreamSegue</name>
     <message>
-        <location filename="../gui/StreamSegue.qml" line="27"/>
+        <location filename="../gui/StreamSegue.qml" line="33"/>
         <source>Could not start the video. Check your connection and try again.</source>
         <translation>Não foi possível iniciar o vídeo. Confira sua conexão e tente novamente.</translation>
     </message>
     <message>
-        <location filename="../gui/StreamSegue.qml" line="11"/>
+        <location filename="../gui/StreamSegue.qml" line="12"/>
         <source>Resuming %1...</source>
         <translation>Resumindo %1...</translation>
     </message>
     <message>
-        <location filename="../gui/StreamSegue.qml" line="12"/>
-        <location filename="../gui/StreamSegue.qml" line="20"/>
+        <location filename="../gui/StreamSegue.qml" line="13"/>
+        <location filename="../gui/StreamSegue.qml" line="26"/>
         <source>Starting %1...</source>
         <translation>Iniciando %1...</translation>
     </message>
     <message>
-        <location filename="../gui/StreamSegue.qml" line="31"/>
+        <location filename="../gui/StreamSegue.qml" line="37"/>
         <source>Starting %1 failed: Error %2</source>
         <translation>Iniciando %1 falhou: Erro %2</translation>
     </message>
     <message>
-        <location filename="../gui/StreamSegue.qml" line="34"/>
+        <location filename="../gui/StreamSegue.qml" line="40"/>
         <source>Check your firewall and port forwarding rules for port(s): %1</source>
         <translation>Verifique suas regras de firewall e/ou redirecionamento de portas para a(s) porta(s): %1</translation>
     </message>
     <message>
-        <location filename="../gui/StreamSegue.qml" line="89"/>
+        <location filename="../gui/StreamSegue.qml" line="95"/>
         <source>This PC&apos;s Internet connection is blocking Space Connect. Streaming over the Internet may not work while connected to this network.</source>
         <translation>A conexão com a internet deste computador está bloqueando o Space Connect. A transmissão pela Internet pode não funcionar corretamente enquanto conectado a esta rede.</translation>
     </message>
@@ -3222,24 +3278,105 @@ Se só quer tirar o atalho deste app sem apagar a VM, use "Delete PC" em vez dis
         <translation type="vanished">A conexão de internet deste PC está bloqueando o Moonlight. Streamando pela internet não deve funcionar enquanto conectado à esta rede.</translation>
     </message>
     <message>
-        <location filename="../gui/StreamSegue.qml" line="188"/>
+        <location filename="../gui/StreamSegue.qml" line="194"/>
         <source>Tip:</source>
         <translation>Dica:</translation>
     </message>
     <message>
-        <location filename="../gui/StreamSegue.qml" line="188"/>
+        <location filename="../gui/StreamSegue.qml" line="194"/>
         <source>Press %1 to disconnect your session</source>
         <translation>Pressione %1 para des-conectar sua sessão</translation>
     </message>
     <message>
-        <location filename="../gui/StreamSegue.qml" line="189"/>
+        <location filename="../gui/StreamSegue.qml" line="195"/>
         <source>Start+Select+L1+R1</source>
         <translation>Start+Select+L1+R1</translation>
     </message>
     <message>
-        <location filename="../gui/StreamSegue.qml" line="189"/>
+        <location filename="../gui/StreamSegue.qml" line="195"/>
         <source>Ctrl+Alt+Shift+Q</source>
         <translation>Ctrl+Alt+Shift+Q</translation>
+    </message>
+</context>
+<context>
+    <name>StreamSideMenuWindow</name>
+    <message>
+        <location filename="../gui/StreamSideMenuWindow.qml" line="17"/>
+        <source>Space Connect — Guests</source>
+        <translation>Space Connect — Convidados</translation>
+    </message>
+    <message>
+        <location filename="../gui/StreamSideMenuWindow.qml" line="96"/>
+        <location filename="../gui/StreamSideMenuWindow.qml" line="158"/>
+        <source>Guests</source>
+        <translation>Convidados</translation>
+    </message>
+    <message>
+        <location filename="../gui/StreamSideMenuWindow.qml" line="98"/>
+        <source>Guests · Ctrl+Alt+Shift+O</source>
+        <translation>Convidados · Ctrl+Alt+Shift+O</translation>
+    </message>
+    <message>
+        <location filename="../gui/StreamSideMenuWindow.qml" line="142"/>
+        <source>Close</source>
+        <translation>Fechar</translation>
+    </message>
+    <message>
+        <location filename="../gui/StreamSideMenuWindow.qml" line="158"/>
+        <location filename="../gui/StreamSideMenuWindow.qml" line="210"/>
+        <source>Disconnect %1?</source>
+        <translation>Desconectar %1?</translation>
+    </message>
+    <message>
+        <location filename="../gui/StreamSideMenuWindow.qml" line="165"/>
+        <source>This temporarily disconnects your friend&apos;s devices. They can reconnect. Your session, friendship and VM are preserved.</source>
+        <translation>Isso desconecta temporariamente os dispositivos do seu amigo. Ele pode se conectar novamente. Sua sessão, amizade e máquina são preservadas.</translation>
+    </message>
+    <message>
+        <location filename="../gui/StreamSideMenuWindow.qml" line="174"/>
+        <source>Loading guests</source>
+        <translation>Carregando convidados</translation>
+    </message>
+    <message>
+        <location filename="../gui/StreamSideMenuWindow.qml" line="187"/>
+        <source>Requested: %1 · Already disconnected: %2 · Failed: %3 · Not attempted: %4</source>
+        <translation>Solicitadas: %1 · Já desconectados: %2 · Falhas: %3 · Não tentadas: %4</translation>
+    </message>
+    <message>
+        <location filename="../gui/StreamSideMenuWindow.qml" line="200"/>
+        <source>No identified guests are connected.</source>
+        <translation>Nenhum convidado identificado está conectado.</translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../gui/StreamSideMenuWindow.qml" line="223"/>
+        <source>%n device(s)</source>
+        <translation>
+            <numerusform>%n dispositivo</numerusform>
+            <numerusform>%n dispositivos</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../gui/StreamSideMenuWindow.qml" line="232"/>
+        <source>%n unidentified connection(s). Ask your friend to reconnect with the updated app.</source>
+        <translation>
+            <numerusform>%n conexão não identificada. Peça ao seu amigo para reconectar pelo app atualizado.</numerusform>
+            <numerusform>%n conexões não identificadas. Peça ao seu amigo para reconectar pelo app atualizado.</numerusform>
+        </translation>
+    </message>
+    <message>
+        <location filename="../gui/StreamSideMenuWindow.qml" line="245"/>
+        <source>Refresh</source>
+        <translation>Atualizar</translation>
+    </message>
+    <message>
+        <location filename="../gui/StreamSideMenuWindow.qml" line="251"/>
+        <source>Cancel</source>
+        <translation>Cancelar</translation>
+    </message>
+    <message>
+        <location filename="../gui/StreamSideMenuWindow.qml" line="259"/>
+        <source>Disconnect</source>
+        <translation>Desconectar</translation>
     </message>
 </context>
 <context>

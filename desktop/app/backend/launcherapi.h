@@ -7,6 +7,7 @@
 #include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QObject>
+#include <QPointer>
 #include <QTimer>
 #include <QSet>
 #include <QUrl>
@@ -124,6 +125,11 @@ public:
     QString managementError() const { return m_ManagementError; }
     bool managementBusy() const { return m_ManagementBusy; }
 
+    quint64 accountGeneration() const { return m_AuthGeneration; }
+    using StreamResponseHandler = std::function<void(int, const QJsonObject&)>;
+    QNetworkReply* streamRequest(quint64 account, const QByteArray& method, const QString& path,
+                                const QJsonObject& body, QObject& receiver, StreamResponseHandler handler);
+
     Q_INVOKABLE void refreshManagement();
     Q_INVOKABLE QString newOperationRequestId() const;
     Q_INVOKABLE void machineAction(const QString& machineId, const QString& action, const QVariantMap& options = QVariantMap());
@@ -143,6 +149,7 @@ public:
     Q_INVOKABLE void submitPairPin(const QString& pin);
     void submitPairPinForMachine(const QString& pin, const QString& machineId);
     void cancelConnectionRequests();
+    void cancelQueuedAttempt(const QString& machineId, QObject& receiver, std::function<void()> finished);
     Q_INVOKABLE void uploadFileToVm(const QString& filePath);
     // Emuladores: catálogo oficial + instalar/lançar na VM (o backend usa o
     // guest agent do Proxmox — nao precisa de versao nova do agent Windows).
@@ -233,6 +240,7 @@ public:
     Q_INVOKABLE QVariantMap bitrateInfo() const;
 
 signals:
+    void accountChanging();
     void busyChanged();
     void loggedInChanged();
     void emailChanged();
@@ -273,16 +281,18 @@ signals:
 private:
     using ResponseHandler = std::function<void(int, const QJsonObject&)>;
 
-    void request(
+    QNetworkReply* request(
         const QByteArray& method,
         const QString& path,
         const QJsonObject& body,
         bool authenticated,
         ResponseHandler handler,
         bool connectionRequest = false,
-        int timeoutMs = 0);
+        int timeoutMs = 0,
+        const QString& accessToken = QString());
     void attemptLogin(const QString& email, const QString& password, const QString& recaptchaToken);
     void handleAuthResponse(int status, const QJsonObject& root);
+    void resetAccountData();
     void scheduleRefresh(int expiresInSeconds);
     void refreshTokens();
     void applyStatus(const QJsonObject& root);
@@ -300,6 +310,8 @@ private:
     const QUrl m_ApiBase;
     QNetworkAccessManager m_Network;
     QSet<QNetworkReply*> m_ConnectionReplies;
+    QPointer<QNetworkReply> m_QueueJoinReply;
+    QString m_QueueJoinMachineId;
     quint64 m_ConnectionGeneration = 0;
     bool m_ConnectionBusy = false;
     QTimer m_RefreshTimer;

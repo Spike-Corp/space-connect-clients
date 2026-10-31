@@ -3,6 +3,8 @@
 
 #include <QDebug>
 
+#include <memory>
+#include <stdexcept>
 #include <openssl/pem.h>
 #include <openssl/rsa.h>
 #include <openssl/x509.h>
@@ -13,6 +15,35 @@
 #define SER_KEY "key"
 
 IdentityManager* IdentityManager::s_Im = nullptr;
+
+QByteArray IdentityManager::signStreamChallenge(const QString& challenge)
+{
+    const QByteArray encoded = challenge.toUtf8();
+    if (encoded.isEmpty() || encoded.size() > 8192)
+        throw std::invalid_argument("Invalid stream identity challenge");
+
+    std::unique_ptr<BIO, decltype(&BIO_free)> bio(
+        BIO_new_mem_buf(const_cast<char*>(m_CachedPrivateKey.constData()), m_CachedPrivateKey.size()), BIO_free);
+    if (!bio)
+        throw std::bad_alloc();
+    std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)> key(
+        PEM_read_bio_PrivateKey(bio.get(), nullptr, nullptr, nullptr), EVP_PKEY_free);
+    std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> digest(EVP_MD_CTX_new(), EVP_MD_CTX_free);
+    EVP_PKEY_CTX* signing = nullptr;
+    const QByteArray payload = QByteArray("SpaceConnect stream identity v1\n") + encoded;
+    size_t length = 0;
+    if (!key || !digest || EVP_PKEY_base_id(key.get()) != EVP_PKEY_RSA
+            || EVP_DigestSignInit(digest.get(), &signing, EVP_sha256(), nullptr, key.get()) != 1
+            || EVP_PKEY_CTX_set_rsa_padding(signing, RSA_PKCS1_PADDING) != 1
+            || EVP_DigestSignUpdate(digest.get(), payload.constData(), payload.size()) != 1
+            || EVP_DigestSignFinal(digest.get(), nullptr, &length) != 1 || length == 0 || length > 1024)
+        throw std::runtime_error("Could not sign stream identity challenge");
+    QByteArray signature(static_cast<int>(length), 0);
+    if (EVP_DigestSignFinal(digest.get(), reinterpret_cast<unsigned char*>(signature.data()), &length) != 1)
+        throw std::runtime_error("Could not sign stream identity challenge");
+    signature.resize(static_cast<int>(length));
+    return signature.toBase64();
+}
 
 IdentityManager*
 IdentityManager::get()

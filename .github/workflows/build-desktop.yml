@@ -69,6 +69,10 @@ jobs:
           qmake moonlight-qt.pro CONFIG+=release || exit /b 1
           scripts\jom.exe release || exit /b 1
 
+      - name: Test account identity and stream controls
+        shell: powershell
+        run: ../ci/test-stream-controls.ps1
+
       - name: Deploy
         shell: cmd
         run: |
@@ -395,6 +399,10 @@ jobs:
           qmake moonlight-qt.pro CONFIG+=release || exit /b 1
           scripts\jom.exe release || exit /b 1
 
+      - name: Test account identity and stream controls with Qt5
+        shell: powershell
+        run: ../ci/test-stream-controls.ps1
+
       - name: Deploy
         shell: cmd
         run: |
@@ -628,6 +636,9 @@ jobs:
           make -j2
           ./session_orchestrator_test
           cd ../../..
+          mkdir -p build/guest-tests build/menu-tests
+          (cd build/guest-tests && qmake ../../app/tests/stream_guests_test.pro && make -j2 && ./stream_guests_test)
+          (cd build/menu-tests && qmake ../../app/tests/stream_menu_test.pro && make -j2 && ./stream_menu_test)
           qmltestrunner -input app/tests/qml -import app/tests/qml
 
       - name: Package AppImage

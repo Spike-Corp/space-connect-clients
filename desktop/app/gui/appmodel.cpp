@@ -7,8 +7,10 @@ AppModel::AppModel(QObject *parent)
             this, &AppModel::handleBoxArtLoaded);
 }
 
-void AppModel::initialize(ComputerManager* computerManager, int computerIndex, bool showHiddenGames)
+void AppModel::initialize(ComputerManager* computerManager, int computerIndex, bool showHiddenGames, LauncherApi* launcher)
 {
+    m_Launcher = launcher;
+    m_Account = launcher ? launcher->accountGeneration() : 0;
     m_ComputerManager = computerManager;
     connect(m_ComputerManager, &ComputerManager::computerStateChanged,
             this, &AppModel::handleComputerStateChanged);
@@ -44,7 +46,9 @@ Session* AppModel::createSessionForApp(int appIndex)
     Q_ASSERT(appIndex < m_VisibleApps.count());
     NvApp app = m_VisibleApps.at(appIndex);
 
-    return new Session(m_Computer, app);
+    auto* session = new Session(m_Computer, app);
+    session->initializeStreamControls(m_Launcher, m_Account);
+    return session;
 }
 
 int AppModel::getDirectLaunchAppIndex()

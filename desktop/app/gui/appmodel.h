@@ -2,6 +2,7 @@
 
 #include "backend/boxartmanager.h"
 #include "backend/computermanager.h"
+#include "backend/launcherapi.h"
 #include "streaming/session.h"
 
 #include <QAbstractListModel>
@@ -25,7 +26,8 @@ public:
     explicit AppModel(QObject *parent = nullptr);
 
     // Must be called before any QAbstractListModel functions
-    Q_INVOKABLE void initialize(ComputerManager* computerManager, int computerIndex, bool showHiddenGames);
+    Q_INVOKABLE void initialize(ComputerManager* computerManager, int computerIndex, bool showHiddenGames,
+                               LauncherApi* launcher = nullptr);
 
     Q_INVOKABLE Session* createSessionForApp(int appIndex);
 
@@ -68,4 +70,6 @@ private:
     QVector<NvApp> m_VisibleApps, m_AllApps;
     int m_CurrentGameId;
     bool m_ShowHiddenGames;
+    QPointer<LauncherApi> m_Launcher;
+    quint64 m_Account = 0;
 };

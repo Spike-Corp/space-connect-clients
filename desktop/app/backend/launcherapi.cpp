@@ -16,6 +16,7 @@
 #include <QSettings>
 #include <QDir>
 #include <QProcess>
+#include <QPointer>
 // Downloads/auto-update usam esses em TODAS as plataformas (não só Linux) —
 // ficar dentro do #elif Q_OS_LINUX quebrava o build do Windows (C2653).
 #include <QStandardPaths>
@@ -29,6 +30,7 @@
 #include <QSysInfo>
 #include <QUuid>
 #include <QUrl>
+#include <QUrlQuery>
 
 #include <cmath>
 #include <stdexcept>
@@ -54,20 +56,12 @@ LauncherApi::LauncherApi(QObject* parent, const QUrl& apiBase)
     m_ManagementTimer.setInterval(15000);
     connect(&m_ManagementTimer, &QTimer::timeout, this, &LauncherApi::refreshManagement);
     connect(this, &LauncherApi::loggedInChanged, this, [this]() {
-        ++m_AuthGeneration;
         if (m_LoggedIn) {
             m_ManagementTimer.start();
             refreshManagement();
             fetchMachines();
         } else {
             m_ManagementTimer.stop();
-            m_Management.clear();
-            m_ManagementError.clear();
-            m_ManagementLoading = m_ManagementBusy = m_NoticesInitialized = false;
-            m_SeenNotices.clear();
-            m_WaitingBoot.clear();
-            m_OwnOperations.clear();
-            emit managementChanged();
         }
     });
 
@@ -110,6 +104,25 @@ LauncherApi::LauncherApi(QObject* parent, const QUrl& apiBase)
     }
 }
 
+QNetworkReply* LauncherApi::streamRequest(quint64 account, const QByteArray& method, const QString& path,
+                                        const QJsonObject& body, QObject& receiver, StreamResponseHandler handler)
+{
+    if (!m_LoggedIn || account != m_AuthGeneration) {
+        QTimer::singleShot(0, &receiver, [handler]() {
+            handler(401, {{QStringLiteral("error"), QJsonObject{
+                {QStringLiteral("code"), QStringLiteral("ACCOUNT_CHANGED")}}}});
+        });
+        return nullptr;
+    }
+    QPointer<QObject> scope(&receiver);
+    auto* reply = request(method, path, body, true,
+                         [scope, handler](int status, const QJsonObject& root) {
+        if (scope) handler(status, root);
+    }, false, 100000);
+    connect(&receiver, &QObject::destroyed, reply, &QNetworkReply::abort);
+    return reply;
+}
+
 void LauncherApi::login(const QString& email, const QString& password)
 {
     if (m_Busy)
@@ -128,6 +141,7 @@ void LauncherApi::login(const QString& email, const QString& password)
 
 void LauncherApi::attemptLogin(const QString& email, const QString& password, const QString& recaptchaToken)
 {
+    const quint64 account = m_AuthGeneration;
     QJsonObject body{
         {QStringLiteral("email"), email},
         {QStringLiteral("password"), password},
@@ -141,13 +155,15 @@ void LauncherApi::attemptLogin(const QString& email, const QString& password, co
     }
 
     request("POST", QStringLiteral("auth/login"), body, false,
-            [this, email, password](int status, const QJsonObject& root) {
+            [this, email, password, account](int status, const QJsonObject& root) {
+                if (account != m_AuthGeneration) return;
                 const QJsonObject error = errorObject(root);
                 if (status == 400
                         && error.value(QStringLiteral("code")).toString() == QStringLiteral("RECAPTCHA_REQUIRED")) {
                     // Step up: this is the only path that opens a browser window.
                     m_Recaptcha.fetch(QStringLiteral("login"),
-                            [this, email, password](const QString& recaptchaToken) {
+                            [this, email, password, account](const QString& recaptchaToken) {
+                                if (account != m_AuthGeneration) return;
                                 if (recaptchaToken.isEmpty()) {
                                     setBusy(false);
                                     setError(QStringLiteral(
@@ -170,13 +186,15 @@ void LauncherApi::verifyTwoFactor(const QString& code)
 
     setBusy(true);
     setError(QString());
+    const quint64 account = m_AuthGeneration;
     request("POST", QStringLiteral("auth/2fa"),
             QJsonObject{
                 {QStringLiteral("tempToken"), m_TempToken},
                 {QStringLiteral("code"), code.trimmed()},
             },
             false,
-            [this](int status, const QJsonObject& root) {
+            [this, account](int status, const QJsonObject& root) {
+                if (account != m_AuthGeneration) return;
                 setBusy(false);
                 handleAuthResponse(status, root);
             });
@@ -185,6 +203,9 @@ void LauncherApi::verifyTwoFactor(const QString& code)
 void LauncherApi::handleAuthResponse(int status, const QJsonObject& root)
 {
     if (status >= 200 && status < 300) {
+        emit accountChanging();
+        ++m_AuthGeneration;
+        m_Refreshing = false;
         m_AccessToken = root.value(QStringLiteral("accessToken")).toString();
         m_RefreshToken = root.value(QStringLiteral("refreshToken")).toString();
         const QJsonObject user = root.value(QStringLiteral("user")).toObject();
@@ -195,6 +216,18 @@ void LauncherApi::handleAuthResponse(int status, const QJsonObject& root)
         m_TempToken.clear();
         const bool wasLoggedIn = m_LoggedIn;
         m_LoggedIn = !m_AccessToken.isEmpty() && !m_RefreshToken.isEmpty();
+        if (wasLoggedIn) {
+            cancelConnectionRequests();
+            resetAccountData();
+            emit managementChanged();
+            emit machinesChanged();
+            emit statusChanged();
+            if (m_LoggedIn) {
+                m_ManagementTimer.start();
+                refreshManagement();
+                fetchMachines();
+            }
+        }
         // Só emite em mudança real: handlers de navegação reagem a este sinal e
         // emissões espúrias provocavam replaces duplicados no StackView (views
         // duplicadas → dialogs duplicados, ex.: 2 modais de 2FA ao mesmo tempo).
@@ -581,7 +614,8 @@ void LauncherApi::joinQueue(const QString& machineId)
     const QString targetMachineId = machineId.isEmpty() ? effectiveMachineId() : machineId;
     if (!targetMachineId.isEmpty())
         body.insert(QStringLiteral("machineId"), targetMachineId);
-    request("POST", QStringLiteral("queue"),
+    m_QueueJoinMachineId = targetMachineId;
+    m_QueueJoinReply = request("POST", QStringLiteral("queue"),
             body,
             true,
             [this, targetMachineId](int status, const QJsonObject& root) {
@@ -598,6 +632,43 @@ void LauncherApi::joinQueue(const QString& machineId)
                     setError(responseErrorMessage(root,
                         tr("Could not join the queue. Please try again.")));
             }, false, 30000);
+}
+
+void LauncherApi::cancelQueuedAttempt(const QString& machineId, QObject& receiver, std::function<void()> finished)
+{
+    const QString token = m_AccessToken;
+    const quint64 account = m_AuthGeneration;
+    QPointer<QObject> scope(&receiver);
+    if (token.isEmpty() || machineId.isEmpty()) {
+        qWarning("Cannot cancel a queue attempt without its original account and machine");
+        QTimer::singleShot(0, &receiver, finished);
+        return;
+    }
+    const auto cleanup = [this, token, account, machineId, scope, finished]() {
+        QUrlQuery query;
+        query.addQueryItem(QStringLiteral("machineId"), machineId);
+        request("DELETE", QStringLiteral("queue?") + query.toString(QUrl::FullyEncoded), {}, false,
+                [this, account, machineId, scope, finished](int status, const QJsonObject& root) {
+            if (status < 200 || status >= 300)
+                qWarning("Could not cancel the original queue attempt");
+            if (account == m_AuthGeneration && m_LoggedIn) {
+                if (status >= 200 && status < 300) {
+                    emit machineStatusReceived(machineId, root);
+                    if (machineId == effectiveMachineId()) applyStatus(root);
+                }
+                else {
+                    emit backgroundNotice(tr("Could not cancel the previous queue request. Check your machines."));
+                }
+            }
+            if (scope) finished();
+        }, false, 30000, token);
+    };
+    // Logout clears the UI's busy flag, not the server-side POST. Wait for that
+    // specific reply before compensating, and never use the next account's JWT.
+    if (m_QueueJoinMachineId == machineId && m_QueueJoinReply && !m_QueueJoinReply->isFinished())
+        connect(m_QueueJoinReply, &QNetworkReply::finished, this, cleanup);
+    else
+        cleanup();
 }
 
 void LauncherApi::leaveQueue(const QString& machineId)
@@ -861,16 +932,17 @@ void LauncherApi::sendPairAttempt(const QString& pin, const QString& machineId, 
             }, true);
 }
 
-void LauncherApi::logout()
+void LauncherApi::resetAccountData()
 {
-    cancelConnectionRequests();
     ++m_ToolGeneration;
-    m_RefreshTimer.stop();
-    m_AccessToken.clear();
-    m_RefreshToken.clear();
-    m_TempToken.clear();
+    m_ManagementTimer.stop();
+    m_Management.clear();
+    m_ManagementError.clear();
+    m_ManagementLoading = m_ManagementBusy = m_NoticesInitialized = false;
+    m_SeenNotices.clear();
+    m_WaitingBoot.clear();
+    m_OwnOperations.clear();
     m_PendingFriendMachineId.clear();
-    m_Email.clear();
     m_PlanLocked = false;
     m_UpcomingPlanName.clear();
     m_UpcomingPlanAvailableAt.clear();
@@ -878,9 +950,23 @@ void LauncherApi::logout()
     m_SelectedMachineId.clear();
     m_StatusMachineId.clear();
     ++m_StatusGeneration;
-    setBusy(false);
     m_HasMachine = false;
     m_MachinesLoaded = false;
+}
+
+void LauncherApi::logout()
+{
+    emit accountChanging();
+    ++m_AuthGeneration;
+    m_Refreshing = false;
+    cancelConnectionRequests();
+    m_RefreshTimer.stop();
+    m_AccessToken.clear();
+    m_RefreshToken.clear();
+    m_TempToken.clear();
+    m_Email.clear();
+    resetAccountData();
+    setBusy(false);
     const bool wasLoggedIn = m_LoggedIn;
     m_LoggedIn = false;
 
@@ -889,6 +975,7 @@ void LauncherApi::logout()
     settings.remove(QStringLiteral("auth/savedAt"));
 
     emit emailChanged();
+    emit managementChanged();
     if (wasLoggedIn)
         emit loggedInChanged();
     emit statusChanged();
@@ -906,6 +993,7 @@ void LauncherApi::refreshTokens()
     if (m_Refreshing || m_RefreshToken.isEmpty())
         return;
     m_Refreshing = true;
+    const quint64 account = m_AuthGeneration;
 
     request("POST", QStringLiteral("auth/refresh"),
             QJsonObject{
@@ -913,9 +1001,14 @@ void LauncherApi::refreshTokens()
                 {QStringLiteral("deviceId"), deviceId()},
             },
             false,
-            [this](int status, const QJsonObject& root) {
+            [this, account](int status, const QJsonObject& root) {
+                if (account != m_AuthGeneration) return;
                 m_Refreshing = false;
                 if (status >= 200 && status < 300) {
+                    if (!m_LoggedIn) {
+                        emit accountChanging();
+                        ++m_AuthGeneration;
+                    }
                     m_AccessToken = root.value(QStringLiteral("accessToken")).toString();
                     m_RefreshToken = root.value(QStringLiteral("refreshToken")).toString();
                     const QJsonObject user = root.value(QStringLiteral("user")).toObject();
@@ -987,21 +1080,25 @@ void LauncherApi::applyStatus(const QJsonObject& root)
     }
 }
 
-void LauncherApi::request(
+QNetworkReply* LauncherApi::request(
     const QByteArray& method,
     const QString& path,
     const QJsonObject& body,
     bool authenticated,
     ResponseHandler handler,
     bool connectionRequest,
-    int timeoutMs)
+    int timeoutMs,
+    const QString& accessToken)
 {
     QNetworkRequest request(m_ApiBase.resolved(QUrl(path)));
     request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
     request.setRawHeader("Accept", "application/json");
     request.setRawHeader("User-Agent", "SpaceConnect-Qt/0.1.0");
-    if (authenticated && !m_AccessToken.isEmpty())
-        request.setRawHeader("Authorization", "Bearer " + m_AccessToken.toUtf8());
+    if (path.startsWith(QStringLiteral("stream/")))
+        request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
+    const QString token = accessToken.isNull() ? m_AccessToken : accessToken;
+    if ((authenticated || !accessToken.isNull()) && !token.isEmpty())
+        request.setRawHeader("Authorization", "Bearer " + token.toUtf8());
     request.setTransferTimeout(connectionRequest ? 30000 : timeoutMs);
 
     QNetworkReply* reply;
@@ -1029,13 +1126,14 @@ void LauncherApi::request(
         }
         const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         QJsonParseError parseError;
-        const QJsonDocument document = QJsonDocument::fromJson(reply->readAll(), &parseError);
+        const QJsonDocument document = QJsonDocument::fromJson(reply->isReadable() ? reply->readAll() : QByteArray(), &parseError);
         QJsonObject root;
         if (parseError.error == QJsonParseError::NoError && document.isObject())
             root = document.object();
         handler(status > 0 ? status : 503, root);
         reply->deleteLater();
     });
+    return reply;
 }
 
 void LauncherApi::uploadFileToVm(const QString& localFilePath)

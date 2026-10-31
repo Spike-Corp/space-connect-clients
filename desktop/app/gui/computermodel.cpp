@@ -5,8 +5,10 @@
 ComputerModel::ComputerModel(QObject* object)
     : QAbstractListModel(object) {}
 
-void ComputerModel::initialize(ComputerManager* computerManager)
+void ComputerModel::initialize(ComputerManager* computerManager, LauncherApi* launcher)
 {
+    m_Launcher = launcher;
+    m_Account = launcher ? launcher->accountGeneration() : 0;
     m_ComputerManager = computerManager;
     connect(m_ComputerManager, &ComputerManager::computerStateChanged,
             this, &ComputerModel::handleComputerStateChanged);
@@ -127,7 +129,9 @@ Session* ComputerModel::createSessionForCurrentGame(int computerIndex)
 
     for (NvApp& app : computer->appList) {
         if (app.id == computer->currentGameId) {
-            return new Session(computer, app);
+            auto* session = new Session(computer, app);
+            session->initializeStreamControls(m_Launcher, m_Account);
+            return session;
         }
     }
 

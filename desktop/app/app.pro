@@ -189,6 +189,7 @@ SOURCES += \
     backend/micleveltester.cpp \
     backend/launcherapi.cpp \
     backend/sessionorchestrator.cpp \
+    backend/streamguestcontroller.cpp \
     backend/xdapi.cpp \
     backend/latencytester.cpp \
     backend/launcherjson.cpp \
@@ -209,10 +210,12 @@ SOURCES += \
     streaming/input/abstouch.cpp \
     streaming/input/gamepad.cpp \
     streaming/input/input.cpp \
+    streaming/input/inputtimer.cpp \
     streaming/input/keyboard.cpp \
     streaming/input/mouse.cpp \
     streaming/input/reltouch.cpp \
     streaming/session.cpp \
+    streaming/streammenustate.cpp \
     streaming/audio/audio.cpp \
     streaming/audio/renderers/sdlaud.cpp \
     gui/computermodel.cpp \
@@ -239,6 +242,7 @@ HEADERS += \
     backend/micleveltester.h \
     backend/launcherapi.h \
     backend/sessionorchestrator.h \
+    backend/streamguestcontroller.h \
     backend/connectioncancel.h \
     backend/desktoplaunch.h \
     backend/launcherbitrate.h \
@@ -258,7 +262,9 @@ HEADERS += \
     cli/startstream.h \
     settings/streamingpreferences.h \
     streaming/input/input.h \
+    streaming/input/inputtimer.h \
     streaming/session.h \
+    streaming/streammenustate.h \
     streaming/audio/renderers/renderer.h \
     streaming/audio/renderers/sdl.h \
     gui/computermodel.h \

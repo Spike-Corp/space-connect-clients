@@ -17,6 +17,8 @@ public:
     QByteArray
     getPrivateKey();
 
+    QByteArray signStreamChallenge(const QString& challenge);
+
     QSslConfiguration
     getSslConfig();
 

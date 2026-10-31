@@ -66,6 +66,7 @@ private:
     QTimer m_Poll;
     QTimer m_HandshakeDeadline;
     quint64 m_Attempt = 0;
+    quint64 m_Account = 0;
     bool m_Active = false;
     bool m_JoinRequested = false;
     bool m_ConnectionRequested = false;

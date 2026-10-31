@@ -12,6 +12,10 @@
 #include "video/overlaymanager.h"
 #include "backend/micforwarder.h"
 #include "backend/connectioncancel.h"
+#include "streammenustate.h"
+
+class LauncherApi;
+class StreamGuestController;
 
 class SupportedVideoFormatList : public QList<int>
 {
@@ -94,6 +98,10 @@ public:
 class Session : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(QObject* streamGuests READ streamGuests NOTIFY streamMenuChanged)
+    Q_PROPERTY(QRect streamMenuBounds READ streamMenuBounds NOTIFY streamMenuChanged)
+    Q_PROPERTY(bool streamMenuVisible READ streamMenuVisible NOTIFY streamMenuChanged)
+    Q_PROPERTY(bool streamMenuOpen READ streamMenuOpen NOTIFY streamMenuChanged)
 
     friend class SdlInputHandler;
     friend class DeferredSessionCleanupTask;
@@ -112,6 +120,15 @@ public:
     Q_INVOKABLE void cancel();
     Q_INVOKABLE void completeReveal();
     void notifyFirstVideoFrame();
+    void initializeStreamControls(LauncherApi* launcher, quint64 account);
+    QObject* streamGuests() const;
+    QRect streamMenuBounds() const { return m_StreamMenuBounds; }
+    bool streamMenuVisible() const { return m_StreamMenuVisible; }
+    bool streamMenuOpen() const { return m_StreamMenuOpen; }
+    bool streamGuestControlsAvailable() const { return m_StreamMenuAllowed.load(); }
+    Q_INVOKABLE void toggleStreamMenu();
+    Q_INVOKABLE void closeStreamMenu(bool restoreCapture);
+    Q_INVOKABLE void setStreamMenuFocused(bool focused);
 
     static
     void getDecoderInfo(SDL_Window* window,
@@ -138,6 +155,8 @@ signals:
     void connectionStarted();
     void firstFramePresented();
     void streamWindowCreated();
+    void streamMenuChanged();
+    void streamMenuPresentation(QRect stream, QRect display, QString displayName, bool visible, bool open);
 
     void displayLaunchError(QString text);
 
@@ -151,6 +170,13 @@ signals:
     void readyForDeletion();
 
 private:
+    void finishStreamControls();
+    void postStreamMenuCommand(StreamMenuState::Command command);
+    void applyStreamMenuCommand(StreamMenuState::Command command);
+    void updateStreamMenu(bool force = false);
+    void applyStreamMenuPresentation(const QRect& stream, const QRect& display, const QString& displayName,
+                                    bool visible, bool open);
+
     void execInternal();
 
     bool initialize();
@@ -261,6 +287,15 @@ private:
     std::atomic_bool m_RevealComplete{true};
     bool m_ManagedDesktop = false;
     bool m_FreshlyPaired = false;
+    StreamGuestController* m_StreamGuests = nullptr;
+    std::atomic_bool m_StreamControlsEnded{false};
+    std::atomic_bool m_StreamMenuAllowed{false}, m_StreamInputReady{false};
+    StreamMenuState m_StreamMenuState;
+    Uint32 m_StreamMenuSerial = 0, m_MenuFocusLostAt = 0, m_MenuSampleAt = 0;
+    bool m_MenuWindowFocused = false;
+    QRect m_StreamMenuBounds;
+    bool m_StreamMenuVisible = false, m_StreamMenuOpen = false;
+    bool m_MenuGeometryWarning = false;
     NvApp m_App;
     SDL_Window* m_Window;
     IVideoDecoder* m_VideoDecoder;

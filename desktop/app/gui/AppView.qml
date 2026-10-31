@@ -4,6 +4,7 @@ import QtQuick.Controls.Material 2.2
 
 import AppModel 1.0
 import ComputerManager 1.0
+import LauncherApi 1.0
 import SdlGamepadKeyNavigation 1.0
 
 CenteredGridView {
@@ -64,7 +65,7 @@ CenteredGridView {
     function createModel()
     {
         var model = Qt.createQmlObject('import AppModel 1.0; AppModel {}', parent, '')
-        model.initialize(ComputerManager, computerIndex, showHiddenGames)
+        model.initialize(ComputerManager, computerIndex, showHiddenGames, LauncherApi)
         return model
     }
 

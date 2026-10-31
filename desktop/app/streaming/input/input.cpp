@@ -22,15 +22,11 @@ SdlInputHandler::SdlInputHandler(StreamingPreferences& prefs, int streamWidth, i
       m_FakeCaptureActive(false),
       m_CaptureSystemKeysMode(prefs.captureSysKeysMode),
       m_MouseCursorCapturedVisibilityState(SDL_DISABLE),
-      m_LongPressTimer(0),
       m_StreamWidth(streamWidth),
       m_StreamHeight(streamHeight),
       m_AbsoluteMouseMode(prefs.absoluteMouseMode),
       m_AbsoluteTouchMode(prefs.absoluteTouchMode),
       m_DisabledTouchFeedback(false),
-      m_LeftButtonReleaseTimer(0),
-      m_RightButtonReleaseTimer(0),
-      m_DragTimer(0),
       m_DragButton(0),
       m_NumFingersDown(0)
 {
@@ -110,6 +106,12 @@ SdlInputHandler::SdlInputHandler(StreamingPreferences& prefs, int streamWidth, i
     m_SpecialKeyCombos[KeyComboTogglePointerRegionLock].keyCode = SDLK_l;
     m_SpecialKeyCombos[KeyComboTogglePointerRegionLock].scanCode = SDL_SCANCODE_L;
     m_SpecialKeyCombos[KeyComboTogglePointerRegionLock].enabled = true;
+
+    m_SpecialKeyCombos[KeyComboToggleStreamMenu].keyCombo = KeyComboToggleStreamMenu;
+    m_SpecialKeyCombos[KeyComboToggleStreamMenu].keyCode = SDLK_o;
+    m_SpecialKeyCombos[KeyComboToggleStreamMenu].scanCode = SDL_SCANCODE_O;
+    m_SpecialKeyCombos[KeyComboToggleStreamMenu].enabled =
+            Session::get() && Session::get()->streamGuestControlsAvailable();
 
     m_OldIgnoreDevices = SDL_GetHint(SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES);
     m_OldIgnoreDevicesExcept = SDL_GetHint(SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT);
@@ -209,10 +211,10 @@ SdlInputHandler::~SdlInputHandler()
         }
     }
 
-    SDL_RemoveTimer(m_LongPressTimer);
-    SDL_RemoveTimer(m_LeftButtonReleaseTimer);
-    SDL_RemoveTimer(m_RightButtonReleaseTimer);
-    SDL_RemoveTimer(m_DragTimer);
+    m_LongPressTimer.cancel();
+    m_LeftButtonReleaseTimer.cancel();
+    m_RightButtonReleaseTimer.cancel();
+    m_DragTimer.cancel();
 
 #if !SDL_VERSION_ATLEAST(2, 0, 9)
     SDL_QuitSubSystem(SDL_INIT_HAPTIC);
@@ -244,6 +246,43 @@ SdlInputHandler::~SdlInputHandler()
 void SdlInputHandler::setWindow(SDL_Window *window)
 {
     m_Window = window;
+}
+
+void SdlInputHandler::suspendForMenu()
+{
+    setCaptureActive(false);
+    raiseAllKeys();
+    m_LongPressTimer.cancel();
+    m_LeftButtonReleaseTimer.cancel();
+    m_RightButtonReleaseTimer.cancel();
+    m_DragTimer.cancel();
+    m_DragButton = 0;
+    m_NumFingersDown = 0;
+    SDL_zero(m_LastTouchDownEvent);
+    SDL_zero(m_LastTouchUpEvent);
+    SDL_zero(m_TouchDownEvent);
+    for (int button = BUTTON_LEFT; button <= BUTTON_X2; ++button)
+        LiSendMouseButtonEvent(BUTTON_ACTION_RELEASE, button);
+    if (LiGetHostFeatureFlags() & LI_FF_PEN_TOUCH_EVENTS) {
+        LiSendTouchEvent(LI_TOUCH_EVENT_CANCEL_ALL, 0, 0, 0, 0, 0, 0, LI_ROT_UNKNOWN);
+        LiSendPenEvent(LI_TOUCH_EVENT_CANCEL, LI_TOOL_TYPE_UNKNOWN, 0, 0, 0, 0, 0, 0, LI_ROT_UNKNOWN, LI_TILT_UNKNOWN);
+    }
+}
+
+void SdlInputHandler::handleTouchTimerEvent(const SDL_Event& event)
+{
+    if (m_LongPressTimer.accept(event)) {
+        LiSendMouseButtonEvent(BUTTON_ACTION_RELEASE, BUTTON_LEFT);
+        LiSendMouseButtonEvent(BUTTON_ACTION_PRESS, BUTTON_RIGHT);
+    }
+    else if (m_LeftButtonReleaseTimer.accept(event))
+        LiSendMouseButtonEvent(BUTTON_ACTION_RELEASE, BUTTON_LEFT);
+    else if (m_RightButtonReleaseTimer.accept(event))
+        LiSendMouseButtonEvent(BUTTON_ACTION_RELEASE, BUTTON_RIGHT);
+    else if (m_DragTimer.accept(event) && m_NumFingersDown > 0) {
+        m_DragButton = m_NumFingersDown == 2 ? BUTTON_RIGHT : BUTTON_LEFT;
+        LiSendMouseButtonEvent(BUTTON_ACTION_PRESS, m_DragButton);
+    }
 }
 
 void SdlInputHandler::raiseAllKeys()

@@ -6,6 +6,7 @@ import SdlGamepadKeyNavigation 1.0
 import Session 1.0
 
 Item {
+    id: streamSegue
     property Session session
     property string appName
     property string stageText : isResume ? qsTr("Resuming %1...").arg(appName) :
@@ -13,6 +14,11 @@ Item {
     property bool isResume : false
     property bool quitAfter : false
     property bool managedDesktop: false
+
+    StreamSideMenuWindow {
+        session: streamSegue.session
+        reducedMotion: sessionOrchestrator.reducedMotion
+    }
 
     function stageStarting(stage)
     {

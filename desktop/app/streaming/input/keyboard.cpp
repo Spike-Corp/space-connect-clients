@@ -139,6 +139,10 @@ void SdlInputHandler::performSpecialKeyCombo(KeyCombo combo)
         updatePointerRegionLock();
         break;
 
+    case KeyComboToggleStreamMenu:
+        Session::get()->toggleStreamMenu();
+        break;
+
     default:
         Q_UNREACHABLE();
     }

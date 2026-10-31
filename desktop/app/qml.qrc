@@ -7,6 +7,7 @@
         <file>gui/AppView.qml</file>
         <file>gui/SettingsView.qml</file>
         <file>gui/StreamSegue.qml</file>
+        <file>gui/StreamSideMenuWindow.qml</file>
         <file>gui/LoadingOverlay.qml</file>
         <file>gui/StatusTicker.qml</file>
         <file>gui/SessionLoadingWindow.qml</file>

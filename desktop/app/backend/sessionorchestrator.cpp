@@ -80,10 +80,7 @@ void SessionOrchestrator::initialize(LauncherApi* launcher, ComputerManager* com
         if (m_Active && machineId == m_MachineId)
             reportError(message);
     });
-    connect(launcher, &LauncherApi::loggedInChanged, this, [this]() {
-        if (!m_Launcher->loggedIn())
-            cancel();
-    });
+    connect(launcher, &LauncherApi::accountChanging, this, &SessionOrchestrator::cancel);
     connect(computers, &ComputerManager::sessionHostPrepared, this, &SessionOrchestrator::hostPrepared);
     connect(computers, &ComputerManager::sessionPairingCompleted, this,
             [this](quint64 attempt, NvComputer* computer, const QString& error) {
@@ -122,6 +119,7 @@ void SessionOrchestrator::startDesktopSession()
     }
 
     m_Launcher->cancelConnectionRequests();
+    m_Account = m_Launcher->accountGeneration();
     m_Cancellation = std::make_shared<std::atomic_bool>(false);
     ++m_Attempt;
     m_Active = true;
@@ -191,14 +189,7 @@ void SessionOrchestrator::drive()
 {
     if (!m_Launcher || m_Launcher->busy())
         return;
-    if (m_CancelQueued) {
-        m_CancelQueued = false;
-        // A failed POST may already have joined remotely. DELETE only removes
-        // this queue entry; it never stops a VM that has started in the meantime.
-        m_Launcher->leaveQueue(m_MachineId);
-        emit changed();
-        return;
-    }
+    if (m_CancelQueued) return;
     if (!m_Active || m_ConnectionRequested)
         return;
     if (m_Status.state == QStringLiteral("ready") &&
@@ -284,6 +275,7 @@ void SessionOrchestrator::tryDesktop()
     m_WaitingForApps = false;
     stopPreparation();
     m_Session = new Session(computer, app, m_FreshlyPaired);
+    m_Session->initializeStreamControls(m_Launcher, m_Account);
     Session* session = m_Session;
     const quint64 attempt = m_Attempt;
     connect(session, &Session::connectionStarted, this, [this, session, attempt]() {
@@ -318,6 +310,12 @@ void SessionOrchestrator::cancel()
     m_CancelQueued = !m_ConnectionRequested && m_JoinRequested &&
             (m_Status.state == QStringLiteral("queued") || m_Launcher->busy());
     m_Active = false;
+    if (m_CancelQueued) {
+        m_Launcher->cancelQueuedAttempt(m_MachineId, *this, [this]() {
+            m_CancelQueued = false;
+            emit changed();
+        });
+    }
     stopPreparation();
     m_Cancellation->store(true);
     ++m_Attempt;
