@@ -65,6 +65,7 @@ jobs:
       - name: Build (Release, x64)
         shell: cmd
         run: |
+          lrelease app\languages\qml_pt_BR.ts app\languages\qml_pt.ts || exit /b 1
           qmake moonlight-qt.pro CONFIG+=release || exit /b 1
           scripts\jom.exe release || exit /b 1
 
@@ -239,6 +240,7 @@ jobs:
       - name: Build XD Console (Release, x64)
         shell: cmd
         run: |
+          lrelease app\languages\qml_pt_BR.ts app\languages\qml_pt.ts || exit /b 1
           qmake moonlight-qt.pro "CONFIG+=release xdconsole" || exit /b 1
           scripts\jom.exe release || exit /b 1
           if not exist app\release\XDConsole.exe exit /b 1
@@ -389,6 +391,7 @@ jobs:
       - name: Build (Release, x64, Qt5)
         shell: cmd
         run: |
+          lrelease app\languages\qml_pt_BR.ts app\languages\qml_pt.ts || exit /b 1
           qmake moonlight-qt.pro CONFIG+=release || exit /b 1
           scripts\jom.exe release || exit /b 1
 

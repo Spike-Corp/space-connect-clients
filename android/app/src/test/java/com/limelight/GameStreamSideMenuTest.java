@@ -2,18 +2,24 @@ package com.limelight;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.graphics.Rect;
 import android.media.AudioRecord;
 import android.os.Bundle;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.TextView;
 
 import com.limelight.binding.audio.MicForwarder;
+import com.limelight.binding.input.touch.TouchContext;
+import com.limelight.binding.input.virtual_controller.VirtualController;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.session.SessionLoadingLifecycleTest;
 import com.limelight.ui.StreamSideMenu;
@@ -45,6 +51,10 @@ public class GameStreamSideMenuTest {
     private final List<Game> games = new ArrayList<>();
 
     private Game createUi(Bundle saved) {
+        return createUi(saved, false);
+    }
+
+    private Game createUi(Bundle saved, boolean withController) {
         // Build only the real Activity's UI/input bridge, without launching a remote session.
         Game game = Robolectric.buildActivity(Game.class).get();
         games.add(game);
@@ -54,6 +64,15 @@ public class GameStreamSideMenuTest {
         ReflectionHelpers.setField(game, "connected", true);
         ReflectionHelpers.setField(game, "hostAddress", "127.0.0.1");
         ReflectionHelpers.setField(game, "prefConfig", PreferenceConfiguration.readPreferences(game));
+        PreferenceConfiguration preferences = ReflectionHelpers.getField(game, "prefConfig");
+        preferences.onscreenController = withController;
+        if (withController) {
+            VirtualController controls = new VirtualController(null,
+                    (FrameLayout) game.findViewById(R.id.backgroundTouchView).getParent(), game);
+            controls.refreshLayout();
+            controls.show();
+            ReflectionHelpers.setField(game, "virtualController", controls);
+        }
         ReflectionHelpers.setField(game, "gameMenu", new GameMenu(game));
         ReflectionHelpers.callInstanceMethod(game, "initializeStreamSideMenu", ClassParameter.from(Bundle.class, saved));
         View decor = game.getWindow().getDecorView();
@@ -71,6 +90,8 @@ public class GameStreamSideMenuTest {
         for (Game game : games) {
             ReflectionHelpers.callInstanceMethod(game, "stopConnection");
             menu(game).dispose();
+            VirtualController controls = ReflectionHelpers.getField(game, "virtualController");
+            if (controls != null) controls.dispose();
             MicForwarder mic = ReflectionHelpers.getField(game, "micForwarder");
             if (mic != null) awaitState(mic, MicForwarder.State.STOPPED);
         }
@@ -106,6 +127,97 @@ public class GameStreamSideMenuTest {
         assertTrue(restored.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_BACK)));
         assertFalse(menu(restored).isOpen());
         assertFalse(restored.isFinishing());
+    }
+
+    @Test public void hidingControlsKeepsMenuReachableAfterIdle() {
+        Game game = createUi(null, true);
+        VirtualController controls = ReflectionHelpers.getField(game, "virtualController");
+        assertTrue(controls.isVirtualGamepadVisible());
+        game.toggleOnScreenControls();
+        shadowOf(Looper.getMainLooper()).idleFor(10, TimeUnit.SECONDS);
+        assertFalse(controls.isVirtualGamepadVisible());
+        assertEquals(View.VISIBLE, menu(game).findViewById(R.id.streamSideHandle).getVisibility());
+        tapHandle(game);
+        assertTrue(menu(game).isOpen());
+        assertFalse(controls.isVirtualGamepadVisible());
+        menu(game).setOpen(false, false);
+        ReflectionHelpers.setField(game, "isHidingOverlays", true);
+        ReflectionHelpers.callInstanceMethod(game, "updateStreamSideMenu");
+        assertEquals(View.INVISIBLE, menu(game).findViewById(R.id.streamSideHandle).getVisibility());
+        ReflectionHelpers.setField(game, "isHidingOverlays", false);
+        ReflectionHelpers.callInstanceMethod(game, "updateStreamSideMenu");
+        shadowOf(Looper.getMainLooper()).idleFor(10, TimeUnit.SECONDS);
+        assertEquals(View.VISIBLE, menu(game).findViewById(R.id.streamSideHandle).getVisibility());
+    }
+
+    @Test public void hidingAnEditingControllerRestoresMenuWithoutDiscardingLayoutMode() {
+        Game game = createUi(null, true);
+        VirtualController controls = ReflectionHelpers.getField(game, "virtualController");
+        Button configure = ReflectionHelpers.getField(controls, "buttonConfigure");
+        configure.performClick();
+        assertEquals(VirtualController.ControllerMode.MoveButtons, controls.getControllerMode());
+        assertEquals(View.INVISIBLE, menu(game).findViewById(R.id.streamSideHandle).getVisibility());
+        game.toggleOnScreenControls();
+        shadowOf(Looper.getMainLooper()).idleFor(10, TimeUnit.SECONDS);
+        assertEquals(View.VISIBLE, menu(game).findViewById(R.id.streamSideHandle).getVisibility());
+        tapHandle(game);
+        assertTrue(menu(game).isOpen());
+        game.toggleOnScreenControls();
+        shadowOf(Looper.getMainLooper()).idle();
+        assertEquals(VirtualController.ControllerMode.MoveButtons, controls.getControllerMode());
+        assertEquals(View.VISIBLE, configure.getVisibility());
+        assertEquals(View.INVISIBLE, menu(game).findViewById(R.id.streamSideHandle).getVisibility());
+    }
+
+    @Test public void hiddenLayoutEditorDoesNotSwallowRemoteTouch() {
+        Game game = createUi(null, true);
+        VirtualController controls = ReflectionHelpers.getField(game, "virtualController");
+        Button configure = ReflectionHelpers.getField(controls, "buttonConfigure");
+        configure.performClick();
+        game.toggleOnScreenControls();
+        List<String> forwarded = new ArrayList<>();
+        TouchContext[] contexts = ReflectionHelpers.getField(game, "touchContextMap");
+        for (int i = 0; i < contexts.length; i++) {
+            final int index = i;
+            contexts[i] = new TouchContext() {
+                @Override public int getActionIndex() { return index; }
+                @Override public void setPointerCount(int count) {}
+                @Override public boolean touchDownEvent(int x, int y, long time, boolean newFinger) {
+                    forwarded.add("down:" + index);
+                    return true;
+                }
+                @Override public boolean touchMoveEvent(int x, int y, long time) { return true; }
+                @Override public void touchUpEvent(int x, int y, long time) { forwarded.add("up:" + index); }
+                @Override public void cancelTouch() { forwarded.add("cancel:" + index); }
+                @Override public boolean isCancelled() { return false; }
+            };
+        }
+        View surface = game.findViewById(R.id.surfaceView);
+        ReflectionHelpers.setField(game, "streamView", surface);
+        PreferenceConfiguration preferences = ReflectionHelpers.getField(game, "prefConfig");
+        preferences.enableMultiTouchScreen = false;
+        ReflectionHelpers.setField(game, "threeFingerDownTime", -10000L);
+        long now = SystemClock.uptimeMillis();
+        for (int action : new int[] {MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP}) {
+            MotionEvent event = MotionEvent.obtain(now, now + action * 20L, action, 100, 120, 0);
+            event.setSource(InputDevice.SOURCE_TOUCHSCREEN);
+            assertTrue(game.onTouch(surface, event));
+            event.recycle();
+        }
+        assertEquals(List.of("down:0", "up:0"), forwarded);
+    }
+
+    private void tapHandle(Game game) {
+        View handle = menu(game).findViewById(R.id.streamSideHandle);
+        Rect bounds = new Rect(0, 0, handle.getWidth(), handle.getHeight());
+        ((ViewGroup) game.getWindow().getDecorView()).offsetDescendantRectToMyCoords(handle, bounds);
+        long now = SystemClock.uptimeMillis();
+        for (int action : new int[] {MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP}) {
+            MotionEvent event = MotionEvent.obtain(now, now + action * 20L, action,
+                    bounds.exactCenterX(), bounds.exactCenterY(), 0);
+            assertTrue(game.dispatchTouchEvent(event));
+            event.recycle();
+        }
     }
 
     @Test public void deniedPermissionReenablesMicrophoneWithoutStartingCapture() {

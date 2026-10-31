@@ -312,6 +312,14 @@ private slots:
             {QStringLiteral("main"), QStringLiteral("Update available for Space Connect: Version %1. Click to install now.")},
             {QStringLiteral("main"), QStringLiteral("Downloading update... %1%")},
             {QStringLiteral("main"), QStringLiteral("Download failed (%1). Opening browser...")},
+            {QStringLiteral("MachineManagementView"), QStringLiteral("Your cloud, under your control")},
+            {QStringLiteral("MachineManagementView"), QStringLiteral("Start, restart or manage your machines without entering Windows. Each powered-on VM uses its own plan.")},
+            {QStringLiteral("MachineManagementView"), QStringLiteral("Machines and storage")},
+            {QStringLiteral("MachineManagementView"), QStringLiteral("Shut down")},
+            {QStringLiteral("MachineManagementView"), QStringLiteral("Windows disk: %1 GB \u00b7 %2 reinstall credit(s)")},
+            {QStringLiteral("MachineManagementView"), QStringLiteral("Transfer this additional disk")},
+            {QStringLiteral("MachineManagementView"), QStringLiteral("Accepted operations continue on the server if you close the app. Older upgrades integrated into Windows cannot be transferred separately. Data follows the retention period of its linked plan.")},
+            {QStringLiteral("LoadingOverlay"), QStringLiteral("Send files to your VM using Upload. Use a wired connection or 5 GHz Wi-Fi for smoother video.")},
         };
         for (const QString& locale : {QStringLiteral("pt_BR"), QStringLiteral("pt")}) {
             for (int i = 0; i < messages.size(); i++) {
@@ -326,7 +334,7 @@ private slots:
         QFETCH(QString, locale);
         QFETCH(QString, context);
         QFETCH(QString, source);
-        const QByteArray catalog = "../languages/qml_" + locale.toUtf8() + ".qm";
+        const QString catalog = QStringLiteral(":/languages/qml_") + locale + QStringLiteral(".qm");
         const QByteArray qmlPath = "../gui/" + context.toUtf8() + ".qml";
         QFile qml(QFINDTESTDATA(qmlPath.constData()));
         QVERIFY(qml.open(QIODevice::ReadOnly));
@@ -335,11 +343,12 @@ private slots:
         QVERIFY(QString::fromUtf8(qml.readAll()).contains(QStringLiteral("qsTr(\"") + escaped + QStringLiteral("\")")));
 
         QTranslator translator;
-        QVERIFY(translator.load(QFINDTESTDATA(catalog.constData())));
+        QVERIFY(translator.load(catalog));
         const QString translated = translator.translate(context.toUtf8().constData(), source.toUtf8().constData());
         QVERIFY(!translated.isEmpty());
         QVERIFY(translated != source);
         QCOMPARE(translated.count(QStringLiteral("%1")), source.count(QStringLiteral("%1")));
+        QCOMPARE(translated.count(QStringLiteral("%2")), source.count(QStringLiteral("%2")));
     }
 };
 

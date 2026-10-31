@@ -70,6 +70,7 @@ public final class StreamSideMenu extends FrameLayout {
     private final int[] windowLocation = new int[2];
     private boolean available;
     private boolean gamepadVisible;
+    private boolean handlePinned;
     private boolean editing;
     private boolean open;
     private boolean handleShown;
@@ -77,7 +78,7 @@ public final class StreamSideMenu extends FrameLayout {
     private final Runnable hideHandle = () -> {
         if (hasAccessibilityFocus()) {
             restartTimeouts();
-        } else if (!gamepadVisible && !open && !touchActive) {
+        } else if (!gamepadVisible && !handlePinned && !open && !touchActive) {
             setHandleVisible(false, true);
         }
     };
@@ -228,6 +229,13 @@ public final class StreamSideMenu extends FrameLayout {
         restartTimeouts();
     }
 
+    public void setHandlePinned(boolean pinned) {
+        if (handlePinned == pinned) return;
+        handlePinned = pinned;
+        updateHandleVisibility(false);
+        restartTimeouts();
+    }
+
     public void setAvailable(boolean value) {
         if (disposed || available == value) return;
         available = value;
@@ -302,7 +310,7 @@ public final class StreamSideMenu extends FrameLayout {
     }
 
     private void updateHandleVisibility(boolean animate) {
-        setHandleVisible(available && !editing && (gamepadVisible || open || handleShown), animate);
+        setHandleVisible(available && !editing && (gamepadVisible || handlePinned || open || handleShown), animate);
     }
 
     private void setHandleVisible(boolean show, boolean animate) {
@@ -343,7 +351,7 @@ public final class StreamSideMenu extends FrameLayout {
         handler.removeCallbacks(closePanel);
         if (disposed || !available || editing || touchActive || dragging) return;
         if (open) handler.postDelayed(closePanel, timeout(6000));
-        else if (!gamepadVisible && handleShown) handler.postDelayed(hideHandle, timeout(3000));
+        else if (!gamepadVisible && !handlePinned && handleShown) handler.postDelayed(hideHandle, timeout(3000));
     }
 
     /** Called before normal Activity dispatch, without taking ownership of any pointer. */

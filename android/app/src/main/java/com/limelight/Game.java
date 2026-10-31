@@ -890,8 +890,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private void updateStreamSideMenu() {
         if (streamSideMenu == null) return;
-        streamSideMenu.setControllerState(virtualController != null && virtualController.isVirtualGamepadVisible(),
-                virtualController != null && virtualController.getControllerMode() != VirtualController.ControllerMode.Active);
+        boolean gamepadVisible = virtualController != null && virtualController.isVirtualGamepadVisible();
+        streamSideMenu.setHandlePinned(onScreenControlsHidden);
+        streamSideMenu.setControllerState(gamepadVisible,
+                gamepadVisible && virtualController.getControllerMode() != VirtualController.ControllerMode.Active);
         streamSideMenu.setAvailable(connected && !connectionClosed && !isHidingOverlays && !isSessionOverlayVisible());
     }
 
@@ -2875,7 +2877,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             // This case is for fingers
             else
             {
-                if (virtualController != null &&
+                if (virtualController != null && virtualController.isVirtualGamepadVisible() &&
                         (virtualController.getControllerMode() == VirtualController.ControllerMode.MoveButtons ||
                          virtualController.getControllerMode() == VirtualController.ControllerMode.ResizeButtons)) {
                     // Ignore presses when the virtual controller is being configured

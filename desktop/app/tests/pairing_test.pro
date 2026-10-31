@@ -16,3 +16,4 @@ SOURCES += \
     ../backend/nvhttp.cpp \
     ../backend/nvpairingmanager.cpp
 HEADERS += ../backend/nvhttp.h
+RESOURCES += ../resources.qrc
