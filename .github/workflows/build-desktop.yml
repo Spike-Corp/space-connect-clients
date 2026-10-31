@@ -392,6 +392,12 @@ jobs:
           type qt5-tests.txt
           exit /b %TEST_EXIT%
 
+      - name: Prepare Qt5 TLS runtime
+        shell: powershell
+        run: |
+          ../ci/prepare-legacy-tls.ps1 -BuildDirectory "$env:RUNNER_TEMP\spaceconnect-legacy-tls"
+          "SPACE_CONNECT_LEGACY_TLS_DIR=$env:SPACE_CONNECT_LEGACY_TLS_DIR" >> $env:GITHUB_ENV
+
       - name: Build (Release, x64, Qt5)
         shell: cmd
         run: |
@@ -415,6 +421,14 @@ jobs:
           copy /Y libs\windows\lib\x64\discord-rpc.dll deploy\ || exit /b 1
           copy /Y app\SDL_GameControllerDB\gamecontrollerdb.txt deploy\ || exit /b 1
           windeployqt --release --qmldir app\gui --no-opengl-sw --no-sql deploy\SpaceConnect.exe || exit /b 1
+
+      - name: Bundle Qt5 TLS runtime
+        shell: powershell
+        run: |
+          if (-not $env:SPACE_CONNECT_LEGACY_TLS_DIR) { throw 'Legacy TLS runtime was not built' }
+          foreach ($file in @('libcrypto-1_1-x64.dll', 'libssl-1_1-x64.dll', 'OpenSSL-1.1.1-LICENSE.txt')) {
+            Copy-Item -LiteralPath "$env:SPACE_CONNECT_LEGACY_TLS_DIR\$file" -Destination deploy\ -Force
+          }
 
       - name: Bundle VC++ CRT DLLs
         # vcvars (Setup MSVC) nao persiste entre steps — cada step e um processo.

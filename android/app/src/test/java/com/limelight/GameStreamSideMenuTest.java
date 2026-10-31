@@ -29,6 +29,10 @@ import com.limelight.account.SpaceConnectApiClient;
 import com.limelight.account.StreamClientIdentity;
 import com.limelight.utils.RequestScope;
 import com.limelight.binding.input.capture.InputCaptureProvider;
+import com.limelight.binding.input.KeyboardTranslator;
+import com.limelight.nvstream.NvConnection;
+import com.limelight.nvstream.input.KeyboardPacket;
+import com.limelight.nvstream.jni.MoonBridge;
 
 import org.junit.After;
 import org.junit.Test;
@@ -36,7 +40,10 @@ import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
+import org.robolectric.annotation.Implementation;
+import org.robolectric.annotation.Implements;
 import org.robolectric.shadows.ShadowAudioRecord;
+import org.robolectric.shadows.ShadowInputDevice;
 import org.robolectric.shadows.ShadowToast;
 import org.robolectric.util.ReflectionHelpers;
 import org.robolectric.util.ReflectionHelpers.ClassParameter;
@@ -174,6 +181,74 @@ public class GameStreamSideMenuTest {
         guests.closePanel();
         game.onWindowFocusChanged(true);
         assertFalse(capture.isCapturingEnabled());
+    }
+
+    @Test
+    @Config(shadows = KeyboardBridge.class)
+    public void openingGuestsReleasesHeldKeysAndDoesNotReplayTheirLateRelease() {
+        Game game = createKeyboardGame();
+        StreamGuestsController guests = ReflectionHelpers.getField(game, "streamGuests");
+        assertTrue(game.handleKeyDown(key(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_W, 0)));
+        assertEquals(List.of("87:down"), KeyboardBridge.events);
+        guests.showPanel();
+        assertEquals(List.of("87:down", "87:up"), KeyboardBridge.events);
+        assertFalse(game.handleKeyDown(key(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_A, 0)));
+        guests.closePanel();
+        game.onWindowFocusChanged(true);
+        assertTrue(game.handleKeyDown(key(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_W, 1)));
+        assertTrue(game.handleKeyUp(key(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_W, 0)));
+        assertEquals(List.of("87:down", "87:up"), KeyboardBridge.events);
+        assertTrue(game.handleKeyDown(key(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_W, 0)));
+        assertTrue(game.handleKeyUp(key(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_W, 0)));
+        assertEquals(List.of("87:down", "87:up", "87:down", "87:up"), KeyboardBridge.events);
+    }
+
+    @Test
+    @Config(shadows = KeyboardBridge.class)
+    public void aKeyReleasedInsideTheDialogCanBePressedAgainWithoutAStaleModifier() {
+        Game game = createKeyboardGame();
+        StreamGuestsController guests = ReflectionHelpers.getField(game, "streamGuests");
+        assertTrue(game.handleKeyDown(key(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_CTRL_LEFT, 0)));
+        assertTrue(game.handleKeyDown(key(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_W, 0)));
+        guests.showPanel();
+        assertTrue(KeyboardBridge.events.contains("162:up"));
+        assertTrue(KeyboardBridge.events.contains("87:up"));
+        guests.closePanel();
+        game.onWindowFocusChanged(true);
+        // The dialog owned the physical KEY_UP, so the Activity only sees this new press.
+        assertTrue(game.handleKeyDown(key(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_W, 0)));
+        assertTrue(game.handleKeyUp(key(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_W, 0)));
+        assertEquals(6, KeyboardBridge.events.size());
+        assertEquals(0, (int) ReflectionHelpers.<Integer>getField(game, "modifierFlags"));
+    }
+
+    private Game createKeyboardGame() {
+        KeyboardBridge.events.clear();
+        Game game = createUi(null, false, true);
+        ReflectionHelpers.setField(game, "conn", new NvConnection(game, null, 0, "test", null, null, null));
+        ReflectionHelpers.setField(game, "keyboardTranslator", new KeyboardTranslator(
+                ReflectionHelpers.getField(game, "prefConfig")));
+        ReflectionHelpers.setField(game, "inputCaptureProvider", new InputCaptureProvider() {});
+        ReflectionHelpers.callInstanceMethod(game, "setInputGrabState", ClassParameter.from(boolean.class, true));
+        return game;
+    }
+
+    @Implements(MoonBridge.class)
+    public static class KeyboardBridge extends SessionLoadingLifecycleTest.NativeBridge {
+        static final List<String> events = new ArrayList<>();
+        @Implementation public static void sendKeyboardInput(short key, byte direction, byte modifiers, byte flags) {
+            events.add((key & 0xff) + ":" + (direction == KeyboardPacket.KEY_DOWN ? "down" : "up"));
+        }
+    }
+
+    private KeyEvent key(int action, int code, int repeat) {
+        long now = SystemClock.uptimeMillis();
+        KeyEvent event = new KeyEvent(now, now, action, code, repeat);
+        InputDevice device = ShadowInputDevice.makeInputDeviceNamed("Physical test keyboard");
+        ReflectionHelpers.setField(device, "mSources", InputDevice.SOURCE_KEYBOARD);
+        ReflectionHelpers.setField(device, "mKeyboardType", InputDevice.KEYBOARD_TYPE_ALPHABETIC);
+        shadowOf(event).setDevice(device);
+        return event;
     }
 
     @Test public void pipClosesGuestsWithoutRecapturingUntilTheStreamRegainsFocus() {

@@ -3,6 +3,9 @@ $ErrorActionPreference = 'Stop'
 $desktop = (Get-Location).Path
 $jom = Join-Path $SourceDirectory 'scripts\jom.exe'
 $env:PATH = "$SourceDirectory\libs\windows\lib\x64;$desktop\AntiHooking\release;$env:PATH"
+if ($env:SPACE_CONNECT_LEGACY_TLS_DIR) {
+    $env:PATH = "$env:SPACE_CONNECT_LEGACY_TLS_DIR;$env:PATH"
+}
 $env:QT_QPA_PLATFORM = 'offscreen'
 $env:QT_QUICK_BACKEND = 'software'
 $env:QT_QUICK_CONTROLS_STYLE = 'Material'

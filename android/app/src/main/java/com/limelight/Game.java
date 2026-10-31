@@ -103,6 +103,10 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Locale;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import com.limelight.account.LauncherActivity;
 import com.limelight.account.StreamClientIdentity;
 import com.limelight.nvstream.http.LimelightCryptoProvider;
@@ -198,9 +202,20 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private StreamGuestsController streamGuests;
     private boolean guestPanelVisible;
     private boolean restoreCaptureAfterGuests;
+    private final Map<Long, HeldKeyboardKey> heldKeyboardKeys = new HashMap<>();
+    private final Set<Long> releasedKeyboardKeys = new HashSet<>();
     private boolean menuBackCaptured;
     private static final String STATE_SIDE_MENU_OPEN = "stream-side-menu-open";
     private static final String STATE_CONTROLS_HIDDEN = "stream-controls-hidden";
+
+    private static final class HeldKeyboardKey {
+        final short translated;
+        final byte flags;
+        HeldKeyboardKey(short translated, byte flags) {
+            this.translated = translated;
+            this.flags = flags;
+        }
+    }
 
     private long sessionStartTimeMs;
     private boolean perfOverlayExpanded = true;
@@ -922,10 +937,28 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         guestPanelVisible = visible;
         if (visible) {
             restoreCaptureAfterGuests |= grabbedInput;
+            releaseHeldKeyboardKeys();
             setInputGrabState(false);
         } else {
             restoreGuestCapture(hasWindowFocus());
         }
+    }
+
+    private void releaseHeldKeyboardKeys() {
+        if (conn != null && !connectionClosed) {
+            for (HeldKeyboardKey key : heldKeyboardKeys.values()) {
+                conn.sendKeyboardInput(key.translated, KeyboardPacket.KEY_UP, (byte) 0, key.flags);
+            }
+        }
+        releasedKeyboardKeys.addAll(heldKeyboardKeys.keySet());
+        heldKeyboardKeys.clear();
+        modifierFlags = 0;
+        waitingForAllModifiersUp = false;
+        specialKeyCode = KeyEvent.KEYCODE_UNKNOWN;
+    }
+
+    private static long keyboardKeyId(KeyEvent event) {
+        return ((long) event.getDeviceId() << 32) | (event.getKeyCode() & 0xffffffffL);
     }
 
     private void restoreGuestCapture(boolean hasFocus) {
@@ -1755,10 +1788,15 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public boolean handleKeyDown(KeyEvent event) {
-        if (isSessionOverlayVisible() || connectionClosed) return false;
+        if (isSessionOverlayVisible() || connectionClosed || guestPanelVisible) return false;
         // Pass-through virtual navigation keys
         if ((event.getFlags() & KeyEvent.FLAG_VIRTUAL_HARD_KEY) != 0) {
             return false;
+        }
+        long keyId = keyboardKeyId(event);
+        if (releasedKeyboardKeys.contains(keyId)) {
+            if (event.getRepeatCount() > 0) return true;
+            releasedKeyboardKeys.remove(keyId);
         }
 
         // Handle a synthetic back button event that some Android OS versions
@@ -1832,8 +1870,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 return true;
             }
 
-            conn.sendKeyboardInput(translated, KeyboardPacket.KEY_DOWN, getModifierState(event),
-                    keyboardTranslator.hasNormalizedMapping(event.getKeyCode(), event.getDeviceId()) ? 0 : MoonBridge.SS_KBE_FLAG_NON_NORMALIZED);
+            byte flags = keyboardTranslator.hasNormalizedMapping(event.getKeyCode(), event.getDeviceId())
+                    ? 0 : MoonBridge.SS_KBE_FLAG_NON_NORMALIZED;
+            conn.sendKeyboardInput(translated, KeyboardPacket.KEY_DOWN, getModifierState(event), flags);
+            heldKeyboardKeys.put(keyId, new HeldKeyboardKey(translated, flags));
         }
 
         return true;
@@ -1846,7 +1886,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     public boolean handleKeyUp(KeyEvent event) {
-        if (isSessionOverlayVisible() || connectionClosed) return false;
+        long keyId = keyboardKeyId(event);
+        if (releasedKeyboardKeys.remove(keyId)) return true;
+        if (isSessionOverlayVisible() || connectionClosed || guestPanelVisible) return false;
         // Pass-through virtual navigation keys
         if ((event.getFlags() & KeyEvent.FLAG_VIRTUAL_HARD_KEY) != 0) {
             return false;
@@ -1907,6 +1949,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
             conn.sendKeyboardInput(translated, KeyboardPacket.KEY_UP, getModifierState(event),
                     keyboardTranslator.hasNormalizedMapping(event.getKeyCode(), event.getDeviceId()) ? 0 : MoonBridge.SS_KBE_FLAG_NON_NORMALIZED);
+            heldKeyboardKeys.remove(keyId);
         }
 
         return true;

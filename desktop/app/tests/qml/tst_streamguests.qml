@@ -1,6 +1,5 @@
 import QtQuick 2.15
 import QtTest 1.2
-import "../../gui" as Connect
 
 TestCase {
     id: testCase
@@ -41,9 +40,14 @@ TestCase {
         function closeStreamMenu(restore) { returnFocus = restore; streamMenuOpen = false; streamMenuChanged() }
         function setStreamMenuFocused(active) {}
     }
-    Component {
-        id: menuFactory
-        Connect.StreamSideMenuWindow { session: stream; reducedMotion: true }
+    property var menuFactory
+    function initTestCase() {
+        menuFactory = Qt.createComponent(Qt.resolvedUrl("../../gui/StreamSideMenuWindow.qml"))
+        tryCompare(menuFactory, "status", Component.Ready)
+    }
+
+    function createMenu() {
+        return createTemporaryObject(menuFactory, testCase, {session: stream, reducedMotion: true})
     }
 
     function init() {
@@ -62,7 +66,7 @@ TestCase {
     }
 
     function test_bubble_is_local_to_the_stream_and_has_a_real_touch_target() {
-        var menu = createTemporaryObject(menuFactory, testCase)
+        var menu = createMenu()
         verify(menu)
         tryCompare(menu, "visible", true)
         compare(menu.width, 48)
@@ -83,7 +87,7 @@ TestCase {
 
     function test_friend_selection_requires_confirmation_and_does_not_block_close() {
         stream.streamMenuOpen = true
-        var menu = createTemporaryObject(menuFactory, testCase)
+        var menu = createMenu()
         tryCompare(menu, "visible", true)
         verify(waitForRendering(menu.contentItem))
         var list = findChild(menu, "streamGuestsList")
@@ -106,7 +110,7 @@ TestCase {
         stream.streamMenuOpen = true
         guests.errorMessage = "Could not complete the operation."
         guests.partialResult = ({requested: 1, alreadyDisconnected: 2, failed: 1, notAttempted: 3})
-        var menu = createTemporaryObject(menuFactory, testCase)
+        var menu = createMenu()
         tryCompare(menu, "visible", true)
         compare(findChild(menu, "streamGuestsError").text, guests.errorMessage)
         var partial = findChild(menu, "streamGuestsPartial")
@@ -119,7 +123,7 @@ TestCase {
         stream.streamMenuBounds = Qt.rect(0, 0, 480, 240)
         stream.streamMenuOpen = true
         guests.confirmationName = "Friend with a very long account name that must remain readable"
-        var menu = createTemporaryObject(menuFactory, testCase)
+        var menu = createMenu()
         tryCompare(menu, "visible", true)
         verify(menu.height <= 240)
         var close = findChild(menu, "streamGuestsClose")
@@ -132,7 +136,7 @@ TestCase {
     }
 
     function test_owner_only_and_no_window_after_alt_tab_or_session_end() {
-        var menu = createTemporaryObject(menuFactory, testCase)
+        var menu = createMenu()
         tryCompare(menu, "visible", true)
         guests.ownerSession = false
         tryCompare(menu, "visible", false)
