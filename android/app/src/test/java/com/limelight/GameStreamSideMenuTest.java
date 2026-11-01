@@ -1,6 +1,7 @@
 package com.limelight;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Rect;
 import android.media.AudioRecord;
@@ -22,9 +23,11 @@ import com.limelight.binding.input.touch.TouchContext;
 import com.limelight.binding.input.virtual_controller.VirtualController;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.session.SessionLoadingLifecycleTest;
+import com.limelight.session.SessionOrchestrator;
 import com.limelight.ui.StreamSideMenu;
 import com.limelight.ui.StreamGuestsController;
 import com.limelight.account.AccountManager;
+import com.limelight.account.SessionAccountSafetyTest;
 import com.limelight.account.SpaceConnectApiClient;
 import com.limelight.account.StreamClientIdentity;
 import com.limelight.utils.RequestScope;
@@ -51,6 +54,7 @@ import org.robolectric.util.ReflectionHelpers.ClassParameter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -59,7 +63,9 @@ import static org.robolectric.Shadows.shadowOf;
 
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 28, qualifiers = "pt-rBR-w640dp-h360dp-land-mdpi",
-        shadows = SessionLoadingLifecycleTest.NativeBridge.class)
+        instrumentedPackages = "com.limelight.account",
+        shadows = {SessionLoadingLifecycleTest.NativeBridge.class,
+                SessionAccountSafetyTest.Store.class, SessionAccountSafetyTest.Api.class})
 public class GameStreamSideMenuTest {
     private final List<Game> games = new ArrayList<>();
 
@@ -107,6 +113,37 @@ public class GameStreamSideMenuTest {
         return ReflectionHelpers.getField(game, "streamSideMenu");
     }
 
+    private Game managedGame() throws Exception {
+        Game game = createUi(null);
+        SessionAccountSafetyTest.Api.micFailure = null;
+        SessionAccountSafetyTest.Api.micAccepted = true;
+        SessionAccountSafetyTest.Api.duringMic = () -> {};
+        AccountManager.logout(game);
+        SessionAccountSafetyTest.saveAccountFixture(game, "first");
+        String machineId = "507f1f77bcf86cd799439011";
+        SessionOrchestrator.Backend backend = ReflectionHelpers.callConstructor(
+                Class.forName("com.limelight.session.SessionBackend").asSubclass(SessionOrchestrator.Backend.class),
+                ClassParameter.from(Context.class, game), ClassParameter.from(String.class, machineId),
+                ClassParameter.from(boolean.class, false), ClassParameter.from(RequestScope.class, new RequestScope()));
+        SessionOrchestrator attempt = new SessionOrchestrator(machineId, false, backend,
+                new SessionOrchestrator.Host() {
+                    @Override public SessionOrchestrator.PreparedSession prepare(
+                            SpaceConnectApiClient.ConnectionResponse connection, Runnable onPairing) {
+                        throw new AssertionError("This streaming UI fixture must not open a remote connection");
+                    }
+                    @Override public void cancel() {}
+                }, new SessionOrchestrator.Callbacks() {
+                    @Override public void post(Runnable action) { game.runOnUiThread(action); }
+                    @Override public void clear() {}
+                }, null);
+        ReflectionHelpers.setField(game, "sessionAttempt", attempt);
+        shadowOf(game.getApplication()).grantPermissions(Manifest.permission.RECORD_AUDIO);
+        ShadowAudioRecord.setSource(new ShadowAudioRecord.AudioRecordSource() {
+            @Override public int readInByteArray(byte[] data, int offset, int size, boolean blocking) { return 0; }
+        });
+        return game;
+    }
+
     @After public void cleanup() throws Exception {
         for (Game game : games) {
             ReflectionHelpers.callInstanceMethod(game, "stopConnection");
@@ -118,6 +155,7 @@ public class GameStreamSideMenuTest {
             MicForwarder mic = ReflectionHelpers.getField(game, "micForwarder");
             if (mic != null) awaitState(mic, MicForwarder.State.STOPPED);
         }
+        SessionAccountSafetyTest.awaitAccountWorker();
         ShadowAudioRecord.clearSource();
         shadowOf(Looper.getMainLooper()).idle();
     }
@@ -279,6 +317,9 @@ public class GameStreamSideMenuTest {
         @Override public AccountManager.StreamRequests withScope(RequestScope scope) { return new GuestRequests(owner, scope); }
         @Override public boolean isCurrentAccount() { return true; }
         @Override public boolean isOwnerSession() { return owner; }
+        @Override public SpaceConnectApiClient.MicEnsureResponse ensureMicBridge() throws Exception {
+            throw new java.io.IOException("No remote host in this UI test");
+        }
         @Override public SpaceConnectApiClient.StreamIdentityResponse registerStream(StreamClientIdentity identity) throws Exception {
             throw new java.io.IOException("No remote host in this UI test");
         }
@@ -441,6 +482,78 @@ public class GameStreamSideMenuTest {
         assertEquals(game.getString(R.string.stream_side_mic_off), button.getContentDescription());
         assertTrue(stats.getText().toString().contains(game.getString(R.string.perf_overlay_mic_inactive)));
         assertEquals(game.getString(R.string.stream_side_mic_failed), ShadowToast.getTextOfLatestToast());
+    }
+
+    @Test public void managedMicrophoneWaitsForTheBridgeBeforeCapturing() throws Exception {
+        Game game = managedGame();
+        CountDownLatch entered = new CountDownLatch(1), release = new CountDownLatch(1);
+        SessionAccountSafetyTest.Api.duringMic = () -> {
+            entered.countDown();
+            try { assertTrue(release.await(4, TimeUnit.SECONDS)); }
+            catch (InterruptedException error) { Thread.currentThread().interrupt(); }
+        };
+        try {
+            ReflectionHelpers.callInstanceMethod(game, "toggleMicForwarding");
+            assertTrue(entered.await(2, TimeUnit.SECONDS));
+            ReflectionHelpers.callInstanceMethod(game, "toggleMicForwarding");
+            assertNull("No audio may be captured before bridge preparation succeeds",
+                    ReflectionHelpers.getField(game, "micForwarder"));
+            assertFalse(menu(game).findViewById(R.id.streamSideMicrophone).isEnabled());
+        } finally {
+            release.countDown();
+        }
+        SessionAccountSafetyTest.awaitAccountWorker();
+        shadowOf(Looper.getMainLooper()).idle();
+        MicForwarder mic = ReflectionHelpers.getField(game, "micForwarder");
+        assertNotNull(mic);
+        awaitState(mic, MicForwarder.State.RUNNING);
+        shadowOf(Looper.getMainLooper()).idle();
+        assertEquals(game.getString(R.string.stream_side_mic_on),
+                menu(game).findViewById(R.id.streamSideMicrophone).getContentDescription());
+    }
+
+    @Test public void managedMicrophoneFailureLeavesCaptureOffAndReportsTheError() throws Exception {
+        Game game = managedGame();
+        SessionAccountSafetyTest.Api.failMicrophone();
+        ReflectionHelpers.callInstanceMethod(game, "toggleMicForwarding");
+        SessionAccountSafetyTest.awaitAccountWorker();
+        shadowOf(Looper.getMainLooper()).idle();
+        assertNull(ReflectionHelpers.getField(game, "micForwarder"));
+        assertTrue(menu(game).findViewById(R.id.streamSideMicrophone).isEnabled());
+        assertEquals("Agente indisponível.", ShadowToast.getTextOfLatestToast());
+    }
+
+    @Test public void managedMicrophoneRequiresPositiveBridgeAcknowledgement() throws Exception {
+        for (Boolean accepted : new Boolean[] {false, null}) {
+            Game game = managedGame();
+            SessionAccountSafetyTest.Api.micAccepted = accepted;
+            ReflectionHelpers.callInstanceMethod(game, "toggleMicForwarding");
+            SessionAccountSafetyTest.awaitAccountWorker();
+            shadowOf(Looper.getMainLooper()).idle();
+            assertNull(ReflectionHelpers.getField(game, "micForwarder"));
+            assertTrue(menu(game).findViewById(R.id.streamSideMicrophone).isEnabled());
+            assertNotNull(ShadowToast.getTextOfLatestToast());
+        }
+    }
+
+    @Test public void managedMicrophoneCannotUseAnAccountChangedAfterStreamingStarted() throws Exception {
+        Game game = managedGame();
+        AccountManager.logout(game);
+        SessionAccountSafetyTest.saveAccountFixture(game, "second");
+        ReflectionHelpers.callInstanceMethod(game, "toggleMicForwarding");
+        SessionAccountSafetyTest.awaitAccountWorker();
+        shadowOf(Looper.getMainLooper()).idle();
+        assertNull(ReflectionHelpers.getField(game, "micForwarder"));
+        assertEquals(game.getString(R.string.stream_account_changed), ShadowToast.getTextOfLatestToast());
+    }
+
+    @Test public void managedMicrophoneResponseCannotStartCaptureAfterClosingTheStream() throws Exception {
+        Game game = managedGame();
+        ReflectionHelpers.callInstanceMethod(game, "toggleMicForwarding");
+        SessionAccountSafetyTest.awaitAccountWorker();
+        ReflectionHelpers.callInstanceMethod(game, "stopConnection");
+        shadowOf(Looper.getMainLooper()).idle();
+        assertNull(ReflectionHelpers.getField(game, "micForwarder"));
     }
 
     private static void awaitState(MicForwarder mic, MicForwarder.State state) throws Exception {

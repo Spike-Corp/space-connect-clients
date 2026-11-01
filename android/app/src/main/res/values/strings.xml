@@ -146,6 +146,7 @@
     <string name="stream_side_mic_off">Microphone off. Tap to turn on.</string>
     <string name="stream_side_mic_busy">Updating microphone…</string>
     <string name="stream_side_mic_failed">Could not start the microphone. Check its permission and input device.</string>
+    <string name="game_mic_bridge_failed">Could not prepare the microphone on your PC. Try again.</string>
     <string name="stream_side_reserved">Reserved for the streaming menu</string>
     <string name="stream_side_layout_adjusted">Controls adjusted to leave room for the menu. Your saved layout is unchanged until you save it.</string>
     <string name="stream_side_layout_conflict">Adjust the controls outside the highlighted strip before saving.</string>

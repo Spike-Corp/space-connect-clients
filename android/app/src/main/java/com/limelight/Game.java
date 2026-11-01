@@ -107,7 +107,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Future;
+import com.limelight.account.AccountManager;
 import com.limelight.account.LauncherActivity;
+import com.limelight.account.SpaceConnectApiClient;
 import com.limelight.account.StreamClientIdentity;
 import com.limelight.nvstream.http.LimelightCryptoProvider;
 import com.limelight.session.SessionOrchestrator;
@@ -198,6 +201,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private MicForwarder micForwarder;
     private static final int MIC_PERMISSION_REQUEST_CODE = 4200;
     private boolean micPermissionPending;
+    private AccountManager.StreamRequests micBridgeRequest;
+    private Future<?> micBridgeFuture;
     private StreamSideMenu streamSideMenu;
     private StreamGuestsController streamGuests;
     private boolean guestPanelVisible;
@@ -2399,13 +2404,15 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private void updateMicrophoneState() {
         MicForwarder.State state = micForwarder != null ? micForwarder.getState() : MicForwarder.State.STOPPED;
         if (streamSideMenu != null) streamSideMenu.setMicrophoneState(state == MicForwarder.State.RUNNING,
-                micPermissionPending || state == MicForwarder.State.STARTING || state == MicForwarder.State.STOPPING);
+                micPermissionPending || micBridgeRequest != null
+                        || state == MicForwarder.State.STARTING || state == MicForwarder.State.STOPPING);
         TextView stats = findViewById(R.id.perfOverlayExtra);
         if (stats != null) stats.setText(buildExtraOverlayText());
     }
 
     private void toggleMicForwarding() {
-        if (connectionClosed || !connected || isFinishing() || isDestroyed() || micPermissionPending) return;
+        if (connectionClosed || !connected || isFinishing() || isDestroyed()
+                || micPermissionPending || micBridgeRequest != null) return;
         MicForwarder.State state = micForwarder != null ? micForwarder.getState() : MicForwarder.State.STOPPED;
         if (state == MicForwarder.State.RUNNING) {
             micForwarder.stop();
@@ -2421,18 +2428,59 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void startMicForwarding() {
-        if (connectionClosed || !connected || isFinishing() || isDestroyed()) return;
+        if (connectionClosed || !connected || isFinishing() || isDestroyed() || micBridgeRequest != null) return;
         if (hostAddress == null) {
             LimeLog.warning("MicForwarder: stream host unavailable");
             Toast.makeText(this, R.string.stream_side_mic_failed, Toast.LENGTH_LONG).show();
             return;
         }
-        // Garante que o MicBridge está RODANDO na VM antes de mandar áudio —
-        // o processo morre entre boots e a task ONLOGON não ressuscita, então
-        // sem isso o mic ia pra um buraco negro (UDP sem listener).
         if (sessionAttempt != null && !sessionAttempt.isFriend()) {
-            com.limelight.account.AccountManager.ensureMicBridge(this, sessionAttempt.machineId, null);
+            AccountManager.StreamRequests requests = sessionAttempt.streamRequests(new RequestScope());
+            micBridgeRequest = requests;
+            micBridgeFuture = AccountManager.ensureMicBridge(this, requests,
+                    new AccountManager.ResultCallback<SpaceConnectApiClient.MicEnsureResponse>() {
+                        @Override public void onSuccess(SpaceConnectApiClient.MicEnsureResponse result) {
+                            if (!completeMicBridgeRequest(requests)) return;
+                            if (!requests.isCurrentAccount()) {
+                                Toast.makeText(Game.this, R.string.stream_account_changed, Toast.LENGTH_LONG).show();
+                            } else if (result == null || !Boolean.TRUE.equals(result.ok)) {
+                                Toast.makeText(Game.this, R.string.game_mic_bridge_failed, Toast.LENGTH_LONG).show();
+                            } else {
+                                startMicCapture();
+                            }
+                        }
+                        @Override public void onError(String message) {
+                            if (!completeMicBridgeRequest(requests)) return;
+                            Toast.makeText(Game.this, message, Toast.LENGTH_LONG).show();
+                        }
+                    });
+            updateMicrophoneState();
+            return;
         }
+        startMicCapture();
+    }
+
+    private boolean completeMicBridgeRequest(AccountManager.StreamRequests requests) {
+        if (micBridgeRequest != requests) return false;
+        micBridgeRequest = null;
+        micBridgeFuture = null;
+        updateMicrophoneState();
+        return !connectionClosed && connected && !isFinishing() && !isDestroyed();
+    }
+
+    private void cancelMicBridgeRequest() {
+        if (micBridgeRequest != null) {
+            micBridgeRequest.close();
+            micBridgeRequest = null;
+        }
+        if (micBridgeFuture != null) {
+            micBridgeFuture.cancel(true);
+            micBridgeFuture = null;
+        }
+    }
+
+    private void startMicCapture() {
+        if (connectionClosed || !connected || isFinishing() || isDestroyed()) return;
         int micPort = (streamPort > 0 && streamPort != NvHTTP.DEFAULT_HTTP_PORT && streamPort != 47989)
                 ? (streamPort + 25)
                 : MicForwarder.DEFAULT_PORT;
@@ -3229,6 +3277,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         restoreCaptureAfterGuests = false;
         if (streamGuests != null) streamGuests.dispose();
         micPermissionPending = false;
+        cancelMicBridgeRequest();
         if (micForwarder != null) {
             micForwarder.setListener(null);
             micForwarder.stop();

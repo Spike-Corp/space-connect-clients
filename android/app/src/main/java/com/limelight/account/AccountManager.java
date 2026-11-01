@@ -1,6 +1,7 @@
 package com.limelight.account;
 
 import com.limelight.BuildConfig;
+import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.utils.RequestScope;
 
@@ -268,6 +269,7 @@ public final class AccountManager {
         StreamRequests withScope(RequestScope scope);
         boolean isCurrentAccount();
         boolean isOwnerSession();
+        SpaceConnectApiClient.MicEnsureResponse ensureMicBridge() throws Exception;
         SpaceConnectApiClient.StreamIdentityResponse registerStream(StreamClientIdentity identity) throws Exception;
         SpaceConnectApiClient.StreamGuestsResponse streamGuests(String bindingId) throws Exception;
         SpaceConnectApiClient.StreamDisconnectResponse disconnectStreamGuest(String bindingId, String guestUserId) throws Exception;
@@ -345,6 +347,11 @@ public final class AccountManager {
 
         @Override public StreamRequests withScope(RequestScope scope) {
             return new SessionRequests(context, machineId, friend, scope, api, accountGeneration);
+        }
+
+        @Override public SpaceConnectApiClient.MicEnsureResponse ensureMicBridge() throws Exception {
+            if (friend) throw new IllegalStateException("Only the owner can prepare the microphone bridge");
+            return execute(token -> api.ensureMicBridge(token, machineId));
         }
 
         @Override public SpaceConnectApiClient.StreamIdentityResponse registerStream(StreamClientIdentity identity) throws Exception {
@@ -493,7 +500,25 @@ public final class AccountManager {
             Context context,
             String machineId,
             ResultCallback<SpaceConnectApiClient.MicEnsureResponse> callback) {
-        executeAuthenticated(context, token -> API.ensureMicBridge(token, machineId), callback);
+        ensureMicBridge(context, sessionRequests(context, machineId, false, new RequestScope()), callback);
+    }
+
+    public static Future<?> ensureMicBridge(Context context, StreamRequests requests,
+            ResultCallback<SpaceConnectApiClient.MicEnsureResponse> callback) {
+        Context appContext = context.getApplicationContext();
+        return EXECUTOR.submit(() -> {
+            try (StreamRequests ownedRequests = requests) {
+                SpaceConnectApiClient.MicEnsureResponse result = ownedRequests.ensureMicBridge();
+                if (callback != null) post(() -> {
+                    if (ownedRequests.isCurrentAccount()) callback.onSuccess(result);
+                    else callback.onError(appContext.getString(R.string.stream_account_changed));
+                });
+            } catch (Exception error) {
+                LimeLog.warning("MicBridge preparation failed: " + error.getClass().getSimpleName());
+                if (callback != null) post(() -> callback.onError(requests.isCurrentAccount()
+                        ? userMessage(error) : appContext.getString(R.string.stream_account_changed)));
+            }
+        });
     }
 
     // Biblioteca de downloads (aba Downloads do app).
