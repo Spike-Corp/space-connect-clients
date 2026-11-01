@@ -20,6 +20,7 @@ import com.limelight.Game;
 import com.limelight.R;
 import com.limelight.account.AccountManager;
 import com.limelight.account.LauncherActivity;
+import com.limelight.account.VmMonitorService;
 import com.limelight.account.SpaceConnectApiClient.StatusResponse;
 import com.limelight.computers.ComputerManagerService;
 import com.limelight.utils.RequestScope;
@@ -30,22 +31,29 @@ public class SessionLoadingActivity extends Activity implements SessionOrchestra
     private static final String MACHINE = "session.machine";
     private static final String ACCOUNT_NAME = "session.accountName";
     private static final String FRIEND = "session.friend";
+    private static final String GENERATION = "session.accountGeneration";
     private final Handler callbacks = new Handler(Looper.getMainLooper());
     private SessionOverlayView overlay;
     private SessionOrchestrator attempt;
     private boolean bound;
     private boolean transferred;
     private boolean closed;
+    private long accountGeneration;
 
     public static Intent intent(Context context, String machineId, String accountName, boolean friend) {
         return new Intent(context, SessionLoadingActivity.class)
                 .putExtra(MACHINE, machineId).putExtra(ACCOUNT_NAME, accountName).putExtra(FRIEND, friend)
+                .putExtra(GENERATION, AccountManager.currentAccountGeneration())
                 .addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
     }
 
     private final ServiceConnection service = new ServiceConnection() {
         @Override public void onServiceConnected(ComponentName name, IBinder binder) {
             if (closed || isFinishing() || attempt != null) return;
+            if (accountGeneration != AccountManager.currentAccountGeneration()) {
+                onFailure(SessionOrchestrator.Failure.ACCOUNT_CHANGED);
+                return;
+            }
             callbacks.removeCallbacks(bindingTimeout);
             try {
                 attempt = createAttempt((ComputerManagerService.ComputerManagerBinder) binder);
@@ -67,7 +75,7 @@ public class SessionLoadingActivity extends Activity implements SessionOrchestra
         String machineId = getIntent().getStringExtra(MACHINE);
         boolean friend = getIntent().getBooleanExtra(FRIEND, false);
         RequestScope scope = new RequestScope();
-        SessionBackend backend = new SessionBackend(this, machineId, friend, scope);
+        SessionBackend backend = new SessionBackend(this, machineId, friend, scope, accountGeneration);
         ManagedSessionHost host = new ManagedSessionHost(this, machineId,
                 getIntent().getStringExtra(ACCOUNT_NAME), friend, binder, backend.requests, scope);
         return new SessionOrchestrator(machineId, friend, backend, host, new HandlerCallbacks(callbacks), this);
@@ -83,6 +91,7 @@ public class SessionLoadingActivity extends Activity implements SessionOrchestra
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         UiHelper.setLocale(this);
+        accountGeneration = getIntent().getLongExtra(GENERATION, AccountManager.currentAccountGeneration());
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN
@@ -91,6 +100,7 @@ public class SessionLoadingActivity extends Activity implements SessionOrchestra
         setContentView(overlay);
         overlay.showMessage(getString(R.string.session_preparing));
         overlay.setOnCancel(this::cancelAndFinish);
+        if (!getIntent().getBooleanExtra(FRIEND, false)) overlay.setOnBackground(this::followInBackground);
         // A recreated activity must never resurrect an old join/pair after cancellation.
         // Orientation/size changes are handled in-place by the manifest.
         if (savedInstanceState != null || getIntent().getStringExtra(MACHINE) == null) {
@@ -106,11 +116,16 @@ public class SessionLoadingActivity extends Activity implements SessionOrchestra
         if (!closed && attempt != null && attempt.isActive()) {
             overlay.showMessage(SessionMessages.message(this, stage, status));
             overlay.setTips(status != null && status.bootTexts != null ? status.bootTexts.tips : null);
+            overlay.setBackgroundEnabled(attempt.canBackground());
         }
     }
 
     @Override public void onPrepared(SessionOrchestrator.PreparedSession prepared) {
         if (closed || isFinishing() || attempt == null || !attempt.isActive()) return;
+        if (accountGeneration != AccountManager.currentAccountGeneration()) {
+            onFailure(SessionOrchestrator.Failure.ACCOUNT_CHANGED);
+            return;
+        }
         String address = prepared.computer.activeAddress.toString();
         AccountManager.rememberMachineLink(address, attempt.machineId, getIntent().getStringExtra(ACCOUNT_NAME));
         if (prepared.connection.maxBitrateKbps > 0) {
@@ -148,6 +163,16 @@ public class SessionLoadingActivity extends Activity implements SessionOrchestra
     }
 
     private void cancelAndFinish() {
+        close();
+        finish();
+        overridePendingTransition(0, 0);
+    }
+
+    private void followInBackground() {
+        if (closed || isFinishing() || attempt == null) return;
+        if (!attempt.followInBackground(() ->
+                VmMonitorService.observe(this, attempt.machineId, true, accountGeneration))) return;
+        transferred = true;
         close();
         finish();
         overridePendingTransition(0, 0);

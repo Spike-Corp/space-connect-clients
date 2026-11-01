@@ -209,30 +209,52 @@ public final class AccountManager {
         return executeScoped(context, scope, (api, token) -> api.getStatus(token, machineId), callback);
     }
 
+    static Future<?> getStatus(Context context, String machineId, RequestScope scope, long generation,
+            ResultCallback<SpaceConnectApiClient.StatusResponse> callback) {
+        return executeScoped(context, scope, generation, (api, token) -> api.getStatus(token, machineId), callback);
+    }
+
     private interface ScopedOperation<T> {
         T run(SpaceConnectApiClient api, String token) throws Exception;
     }
 
     private static <T> Future<?> executeScoped(Context context, RequestScope scope,
             ScopedOperation<T> operation, ResultCallback<T> callback) {
+        return executeScoped(context, scope, currentAccountGeneration(), operation, callback);
+    }
+
+    private static <T> Future<?> executeScoped(Context context, RequestScope scope, long generation,
+            ScopedOperation<T> operation, ResultCallback<T> callback) {
         Context appContext = context.getApplicationContext();
         SpaceConnectApiClient api = API.withScope(scope);
         return EXECUTOR.submit(() -> {
             try {
                 scope.checkCancelled();
+                checkAccountGeneration(generation, appContext);
                 SecureSessionStore.Session session = validSession(appContext, api, scope);
+                checkAccountGeneration(generation, appContext);
                 T result;
                 try {
                     result = operation.run(api, session.accessToken);
                 } catch (SpaceConnectApiClient.ApiException e) {
                     if (e.status != 401) throw e;
+                    scope.checkCancelled();
+                    checkAccountGeneration(generation, appContext);
                     session = refresh(appContext, session, api, scope);
+                    checkAccountGeneration(generation, appContext);
                     result = operation.run(api, session.accessToken);
                 }
                 T response = result;
-                post(() -> { if (!scope.isCancelled()) callback.onSuccess(response); });
+                post(() -> {
+                    if (scope.isCancelled()) return;
+                    if (currentAccountGeneration() == generation) callback.onSuccess(response);
+                    else callback.onError(appContext.getString(R.string.stream_account_changed));
+                });
             } catch (Exception e) {
-                post(() -> { if (!scope.isCancelled()) callback.onError(userMessage(e)); });
+                post(() -> {
+                    if (!scope.isCancelled()) callback.onError(currentAccountGeneration() == generation
+                            ? userMessage(e) : appContext.getString(R.string.stream_account_changed));
+                });
             }
         });
     }
@@ -419,6 +441,11 @@ public final class AccountManager {
         return new SessionRequests(context, machineId, friend, scope);
     }
 
+    public static SessionRequests sessionRequests(Context context, String machineId,
+            boolean friend, RequestScope scope, long generation) {
+        return new SessionRequests(context, machineId, friend, scope, API, generation);
+    }
+
     public static void getMachines(
             Context context,
             ResultCallback<SpaceConnectApiClient.MachinesResponse> callback) {
@@ -428,6 +455,11 @@ public final class AccountManager {
     public static Future<?> getManagement(Context context, RequestScope scope,
             ResultCallback<SpaceConnectApiClient.ManagementResponse> callback) {
         return executeScoped(context, scope, (api, token) -> api.getManagement(token), callback);
+    }
+
+    static Future<?> getManagement(Context context, RequestScope scope, long generation,
+            ResultCallback<SpaceConnectApiClient.ManagementResponse> callback) {
+        return executeScoped(context, scope, generation, (api, token) -> api.getManagement(token), callback);
     }
 
     public static void machineAction(Context context, String machineId, SpaceConnectApiClient.MachineAction input,
@@ -777,7 +809,7 @@ public final class AccountManager {
         }
     }
 
-    private static long currentAccountGeneration() {
+    public static long currentAccountGeneration() {
         synchronized (AUTH_STATE_LOCK) { return accountGeneration; }
     }
 
