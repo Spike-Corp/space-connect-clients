@@ -103,5 +103,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "core-ipc-$env:GITHUB_RUN_NUMBER"
-          gh release create $tag SpaceConnect-core-ipc-windows-x64.zip --prerelease --target core-ipc --title "core-ipc build $env:GITHUB_RUN_NUMBER" --notes "Branch build, not for distribution."
+          $h = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/vnd.github+json" }
+          $repo = $env:GITHUB_REPOSITORY
+          $body = @{ tag_name = "core-ipc-$env:GITHUB_RUN_NUMBER"; target_commitish = "core-ipc"; name = "core-ipc build $env:GITHUB_RUN_NUMBER"; body = "Branch build, not for distribution."; prerelease = $true } | ConvertTo-Json
+          $rel = Invoke-RestMethod -Method Post -Headers $h -Uri "https://api.github.com/repos/$repo/releases" -Body $body -ContentType "application/json"
+          $up = "https://uploads.github.com/repos/$repo/releases/$($rel.id)/assets?name=SpaceConnect-core-ipc-windows-x64.zip"
+          Invoke-RestMethod -Method Post -Headers $h -Uri $up -InFile SpaceConnect-core-ipc-windows-x64.zip -ContentType "application/zip" | Out-Null
+          Write-Host "release: $($rel.html_url)"
