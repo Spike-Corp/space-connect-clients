@@ -182,6 +182,7 @@ SOURCES += \
     backend/nvaddress.cpp \
     backend/nvapp.cpp \
     cli/pair.cpp \
+    cli/ipcconnect.cpp \
     main.cpp \
     backend/computerseeker.cpp \
     backend/identitymanager.cpp \
@@ -233,6 +234,8 @@ HEADERS += \
     backend/nvaddress.h \
     backend/nvapp.h \
     cli/pair.h \
+    cli/ipcconnect.h \
+    streaming/video/ipcstats.h \
     settings/compatfetcher.h \
     settings/mappingfetcher.h \
     utils.h \

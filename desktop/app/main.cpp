@@ -47,6 +47,7 @@
 #include "backend/computermanager.h"
 #include "backend/systemproperties.h"
 #include "backend/launcherapi.h"
+#include "cli/ipcconnect.h"
 #include "backend/sessionorchestrator.h"
 #include "backend/xdapi.h"
 #include "backend/latencytester.h"
@@ -584,6 +585,10 @@ int main(int argc, char *argv[])
     GlobalCommandLineParser parser;
     GlobalCommandLineParser::ParseResult commandLineParserResult = parser.parse(app.arguments());
     switch (commandLineParserResult) {
+    case GlobalCommandLineParser::ConnectIpcRequested:
+        // stdout carries the JSON protocol; logs stay on stderr and quiet
+        s_SuppressVerboseOutput = true;
+        break;
     case GlobalCommandLineParser::ListRequested:
         // Don't log to the console since it will jumble the command output
         s_SuppressVerboseOutput = true;
@@ -819,6 +824,10 @@ int main(int argc, char *argv[])
             engine.rootContext()->setContextProperty("launcher", launcher);
             break;
         }
+    case GlobalCommandLineParser::ConnectIpcRequested:
+        CliIpcConnect::start(&app);
+        hasGUI = false;
+        break;
     case GlobalCommandLineParser::ListRequested:
         {
             ListCommandLineParser listParser;

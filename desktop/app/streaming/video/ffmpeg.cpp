@@ -1,5 +1,6 @@
 #include <Limelight.h>
 #include "ffmpeg.h"
+#include "ipcstats.h"
 #include "streaming/session.h"
 
 #include <h264_stream.h>
@@ -1763,6 +1764,8 @@ int FFmpegVideoDecoder::submitDecodeUnit(PDECODE_UNIT du)
         return DR_NEED_IDR;
     }
 
+    IpcStats::addBytes(du->fullLength);
+
     if (!m_LastFrameNumber) {
         m_ActiveWndVideoStats.measurementStartTimestamp = SDL_GetTicks();
         m_LastFrameNumber = du->frameNumber;
@@ -1777,15 +1780,32 @@ int FFmpegVideoDecoder::submitDecodeUnit(PDECODE_UNIT du)
     // Flip stats windows roughly every second
     if (SDL_TICKS_PASSED(SDL_GetTicks(), m_ActiveWndVideoStats.measurementStartTimestamp + 1000)) {
         // Update overlay stats if it's enabled
-        if (Session::get()->getOverlayManager().isOverlayEnabled(Overlay::OverlayDebug)) {
+        const bool overlayEnabled = Session::get()->getOverlayManager().isOverlayEnabled(Overlay::OverlayDebug);
+        if (overlayEnabled || IpcStats::enabled()) {
             VIDEO_STATS lastTwoWndStats = {};
             addVideoStats(m_LastWndVideoStats, lastTwoWndStats);
             addVideoStats(m_ActiveWndVideoStats, lastTwoWndStats);
 
-            stringifyVideoStats(lastTwoWndStats,
-                                Session::get()->getOverlayManager().getOverlayText(Overlay::OverlayDebug),
-                                Session::get()->getOverlayManager().getOverlayMaxTextLength());
-            Session::get()->getOverlayManager().setOverlayTextUpdated(Overlay::OverlayDebug);
+            if (overlayEnabled) {
+                stringifyVideoStats(lastTwoWndStats,
+                                    Session::get()->getOverlayManager().getOverlayText(Overlay::OverlayDebug),
+                                    Session::get()->getOverlayManager().getOverlayMaxTextLength());
+                Session::get()->getOverlayManager().setOverlayTextUpdated(Overlay::OverlayDebug);
+            }
+
+            if (IpcStats::enabled()) {
+                IpcStats::Snapshot snap;
+                snap.fps = lastTwoWndStats.renderedFps;
+                snap.decodeMs = lastTwoWndStats.decodedFrames ?
+                            (double)lastTwoWndStats.totalDecodeTime / lastTwoWndStats.decodedFrames : 0;
+                snap.renderMs = lastTwoWndStats.renderedFrames ?
+                            (double)lastTwoWndStats.totalRenderTime / lastTwoWndStats.renderedFrames : 0;
+                snap.rttMs = lastTwoWndStats.lastRtt;
+                snap.lossPct = lastTwoWndStats.totalFrames ?
+                            100.0 * lastTwoWndStats.networkDroppedFrames / lastTwoWndStats.totalFrames : 0;
+                snap.codec = IpcStats::codecName(m_VideoFormat);
+                IpcStats::publish(snap);
+            }
         }
 
         // Accumulate these values into the global stats
