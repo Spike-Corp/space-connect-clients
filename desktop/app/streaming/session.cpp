@@ -700,6 +700,10 @@ void Session::updateStreamMenu(bool force)
     m_MenuSampleAt = now;
     const Uint32 flags = SDL_GetWindowFlags(m_Window);
     const bool streamFocused = (flags & SDL_WINDOW_INPUT_FOCUS) != 0;
+    if (m_CaptureOnFocus && streamFocused) {
+        m_CaptureOnFocus = false;
+        m_InputHandler->setCaptureActive(true);
+    }
     if (!streamFocused && m_StreamMenuState.isOpen() && !m_MenuWindowFocused) {
         if (!m_MenuFocusLostAt) m_MenuFocusLostAt = now;
         if (now - m_MenuFocusLostAt >= 150) {
@@ -766,10 +770,60 @@ void Session::cancel()
         LiInterruptConnection();
 }
 
-void Session::completeReveal()
+void Session::completeReveal(bool activate)
 {
-    if (m_FirstFramePresented.load() && !connectionCancelled(m_ConnectionCancellation))
+    if (m_FirstFramePresented.load() && !connectionCancelled(m_ConnectionCancellation)) {
+        m_ActivateOnReveal.store(activate);
         m_RevealComplete.store(true);
+    }
+}
+
+void Session::showStreamWindow()
+{
+    // Keep the new video window below its loader, even if the user has left the app.
+#ifdef Q_OS_WIN32
+    SDL_SysWMinfo info{};
+    SDL_VERSION(&info.version);
+    if (m_QtWindow && SDL_GetWindowWMInfo(m_Window, &info) && info.subsystem == SDL_SYSWM_WINDOWS &&
+            !SetWindowPos(info.info.win.window, reinterpret_cast<HWND>(m_QtWindow->winId()),
+                          0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE)) {
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Could not stack the stream behind its loader: %lu", GetLastError());
+    }
+#endif
+    const char* hint = "SDL_WINDOW_NO_ACTIVATION_WHEN_SHOWN";
+    const QByteArray previous = SDL_GetHint(hint);
+    SDL_SetHint(hint, "1");
+    SDL_ShowWindow(m_Window);
+    if (m_Preferences->muteOnFocusLoss)
+        m_AudioMuted = !(SDL_GetWindowFlags(m_Window) & SDL_WINDOW_INPUT_FOCUS) && !m_MenuWindowFocused;
+    if (previous.isNull()) {
+#if SDL_VERSION_ATLEAST(2, 24, 0)
+        SDL_ResetHint(hint);
+#else
+        // Older SDL has no per-hint reset; restore this hint's default.
+        SDL_SetHint(hint, "0");
+#endif
+    } else {
+        SDL_SetHint(hint, previous.constData());
+    }
+}
+
+void Session::revealStreamWindow()
+{
+    bool appFocused = QGuiApplication::applicationState() == Qt::ApplicationActive
+            || (SDL_GetWindowFlags(m_Window) & SDL_WINDOW_INPUT_FOCUS);
+#ifdef Q_OS_WIN32
+    DWORD process = 0;
+    GetWindowThreadProcessId(GetForegroundWindow(), &process);
+    appFocused = process == GetCurrentProcessId();
+#endif
+    if (m_ActivateOnReveal.load() && appFocused)
+        SDL_RaiseWindow(m_Window);
+    const bool focused = (SDL_GetWindowFlags(m_Window) & SDL_WINDOW_INPUT_FOCUS) != 0;
+    if (m_Preferences->muteOnFocusLoss)
+        m_AudioMuted = !focused && !m_MenuWindowFocused;
+    m_InputHandler->setCaptureActive(focused);
+    m_CaptureOnFocus = !focused;
 }
 
 void Session::notifyFirstVideoFrame()
@@ -2089,6 +2143,8 @@ void Session::execInternal()
 
     // We always want a resizable window with High DPI enabled
     Uint32 defaultWindowFlags = SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_RESIZABLE;
+    if (m_ManagedDesktop)
+        defaultWindowFlags |= SDL_WINDOW_HIDDEN;
 
     // If we're starting in windowed mode and the Moonlight GUI is maximized or
     // minimized, match that with the streaming window.
@@ -2216,8 +2272,10 @@ void Session::execInternal()
     if (m_IsFullScreen) {
         SDL_SetWindowFullscreen(m_Window, m_FullScreenFlag);
     }
-    if (m_ManagedDesktop)
+    if (m_ManagedDesktop) {
+        showStreamWindow();
         emit streamWindowCreated();
+    }
 
     bool needsFirstEnterCapture = false;
     bool needsPostDecoderCreationCapture = false;
@@ -2299,8 +2357,7 @@ void Session::execInternal()
         }
         if (!revealApplied && m_RevealComplete.load()) {
             revealApplied = true;
-            SDL_RaiseWindow(m_Window);
-            m_InputHandler->setCaptureActive(true);
+            revealStreamWindow();
             needsFirstEnterCapture = false;
             needsPostDecoderCreationCapture = false;
         }
@@ -2313,7 +2370,7 @@ void Session::execInternal()
             lastBackgroundPump = nowTicks;
             QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
         }
-        if (m_StreamMenuAllowed.load() || m_StreamMenuState.isOpen())
+        if (m_StreamMenuAllowed.load() || m_StreamMenuState.isOpen() || m_CaptureOnFocus)
             updateStreamMenu();
         if (m_RevealComplete.load() && nowTicks - lastClipboardCheckTicks >= 500) {
             lastClipboardCheckTicks = nowTicks;

@@ -738,6 +738,46 @@
 <context>
     <name>LauncherApi</name>
     <message>
+        <source>Your plan has expired. Renew it before starting this machine.</source>
+        <translation>Seu plano venceu. Renove antes de ligar esta máquina.</translation>
+    </message>
+    <message>
+        <source>Your plan does not have enough hours to start this machine.</source>
+        <translation>Seu plano não tem horas suficientes para ligar esta máquina.</translation>
+    </message>
+    <message>
+        <source>Another operation is in progress on this machine. Wait for it to finish.</source>
+        <translation>Outra operação está em andamento nesta máquina. Aguarde a conclusão.</translation>
+    </message>
+    <message>
+        <source>Wait for this machine's cooldown before starting it again.</source>
+        <translation>Aguarde o intervalo de reinício desta máquina antes de ligá-la novamente.</translation>
+    </message>
+    <message>
+        <source>Your account changed. Please sign in again.</source>
+        <translation>Sua conta mudou. Entre novamente.</translation>
+    </message>
+    <message>
+        <source>This machine is no longer available to your account.</source>
+        <translation>Esta máquina não está mais disponível para sua conta.</translation>
+    </message>
+    <message>
+        <source>The secure connection could not be verified. Check your network and system clock.</source>
+        <translation>Não foi possível verificar a conexão segura. Confira sua rede e o relógio do sistema.</translation>
+    </message>
+    <message>
+        <source>Startup monitoring timed out. Check Machines and storage; your request continues on the server.</source>
+        <translation>O acompanhamento atingiu o limite. Confira Máquinas e armazenamento; sua solicitação continua no servidor.</translation>
+    </message>
+    <message>
+        <source>Could not refresh a machine being followed. Retrying shortly; check Machines and storage.</source>
+        <translation>Não foi possível atualizar uma máquina acompanhada. Tentaremos novamente; confira Máquinas e armazenamento.</translation>
+    </message>
+    <message>
+        <source>Startup could not continue. Check Machines and storage.</source>
+        <translation>Não foi possível continuar o início da máquina. Confira Máquinas e armazenamento.</translation>
+    </message>
+    <message>
         <location filename="../backend/launcherapi.cpp" line="899"/>
         <location filename="../backend/launcherapi.cpp" line="928"/>
         <source>Automatic pairing failed. Please try again.</source>
@@ -1501,6 +1541,14 @@
 </context>
 <context>
     <name>LoadingOverlay</name>
+    <message>
+        <source>Follow in the background</source>
+        <translation>Acompanhar em segundo plano</translation>
+    </message>
+    <message>
+        <source>Keep Space Connect open to receive the ready notification. Connect only when you choose.</source>
+        <translation>Mantenha o Space Connect aberto para receber o aviso de máquina pronta. Conecte quando quiser.</translation>
+    </message>
     <message>
         <location filename="../gui/LoadingOverlay.qml" line="12"/>
         <source>Switching machines does not shut down your other VM. Each one uses its own plan.</source>
@@ -2443,6 +2491,18 @@ Se só quer tirar o atalho deste app sem apagar a VM, use &quot;Delete PC&quot; 
 </context>
 <context>
     <name>SessionOrchestrator</name>
+    <message>
+        <source>Connection interrupted. Retrying machine status...</source>
+        <translation>Conexão interrompida. Tentando consultar a máquina novamente...</translation>
+    </message>
+    <message>
+        <source>Enable machine-ready notifications in Settings before following in the background.</source>
+        <translation>Ative os avisos de máquina pronta nas Configurações antes de acompanhar em segundo plano.</translation>
+    </message>
+    <message>
+        <source>Following startup in the background. We will notify you when your machine is ready.</source>
+        <translation>Acompanhando o início em segundo plano. Avisaremos quando sua máquina estiver pronta.</translation>
+    </message>
     <message>
         <location filename="../backend/sessionorchestrator.cpp" line="27"/>
         <location filename="../backend/sessionorchestrator.cpp" line="214"/>

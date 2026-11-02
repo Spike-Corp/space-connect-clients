@@ -43,8 +43,32 @@ QJsonObject errorObject(const QJsonObject& root)
 
 QString responseErrorMessage(const QJsonObject& root, const QString& fallback)
 {
-    const QString message = errorObject(root).value(QStringLiteral("message")).toString().trimmed();
+    const QJsonObject error = errorObject(root);
+    const QString code = error.value(QStringLiteral("code")).toString();
+    if (code == QStringLiteral("PLAN_EXPIRED"))
+        return LauncherApi::tr("Your plan has expired. Renew it before starting this machine.");
+    if (code == QStringLiteral("INSUFFICIENT_BALANCE"))
+        return LauncherApi::tr("Your plan does not have enough hours to start this machine.");
+    if (code == QStringLiteral("MACHINE_OPERATION_IN_PROGRESS") || code == QStringLiteral("ACTIVE_SESSION_EXISTS"))
+        return LauncherApi::tr("Another operation is in progress on this machine. Wait for it to finish.");
+    if (code == QStringLiteral("COOLDOWN_ACTIVE"))
+        return LauncherApi::tr("Wait for this machine's cooldown before starting it again.");
+    if (code == QStringLiteral("ACCOUNT_CHANGED"))
+        return LauncherApi::tr("Your account changed. Please sign in again.");
+    if (code == QStringLiteral("MACHINE_NOT_FOUND"))
+        return LauncherApi::tr("This machine is no longer available to your account.");
+    if (code == QStringLiteral("CLIENT_TLS_ERROR"))
+        return LauncherApi::tr("The secure connection could not be verified. Check your network and system clock.");
+    const QString message = error.value(QStringLiteral("message")).toString().trimmed();
     return message.isEmpty() ? fallback : message;
+}
+
+bool retryableStatusFailure(int status, const QJsonObject& root)
+{
+    const QString code = errorObject(root).value(QStringLiteral("code")).toString();
+    if (code == QStringLiteral("CLIENT_TRANSIENT_NETWORK_ERROR")) return true;
+    return code.isEmpty() && (status == 408 || status == 429 || status == 500 ||
+                             status == 502 || status == 503 || status == 504);
 }
 }
 
@@ -286,7 +310,8 @@ void LauncherApi::refreshStatus(const QString& machineId)
                     emit machineStatusReceived(targetMachineId, root);
                 else if (status != 401)
                     emit machineRequestFailed(targetMachineId, responseErrorMessage(root,
-                        tr("Could not refresh this machine. Please try again.")));
+                        tr("Could not refresh this machine. Please try again.")),
+                        errorObject(root).value(QStringLiteral("code")).toString(), retryableStatusFailure(status, root));
                 if (statusGeneration != m_StatusGeneration || targetMachineId != effectiveMachineId()) {
                     refreshStatus();
                     return;
@@ -624,7 +649,8 @@ void LauncherApi::joinQueue(const QString& machineId)
                     emit machineStatusReceived(targetMachineId, root);
                 else
                     emit machineRequestFailed(targetMachineId, responseErrorMessage(root,
-                        tr("Could not join the queue. Please try again.")));
+                        tr("Could not join the queue. Please try again.")),
+                        errorObject(root).value(QStringLiteral("code")).toString());
                 if (targetMachineId != effectiveMachineId()) { refreshStatus(); return; }
                 if (status >= 200 && status < 300)
                     applyStatus(root);
@@ -716,7 +742,7 @@ void LauncherApi::requestConnection(const QString& machineId)
                 if (status < 200 || status >= 300) {
                     const QString message = responseErrorMessage(root,
                         tr("Could not connect to your machine. Please try again."));
-                    emit machineRequestFailed(targetMachineId, message);
+                    emit machineRequestFailed(targetMachineId, message, errorObject(root).value(QStringLiteral("code")).toString());
                     setError(message);
                     return;
                 }
@@ -940,7 +966,9 @@ void LauncherApi::resetAccountData()
     m_ManagementError.clear();
     m_ManagementLoading = m_ManagementBusy = m_NoticesInitialized = false;
     m_SeenNotices.clear();
+    for (const QString& id : m_WaitingBoot.keys()) stopObservingMachineStartup(id);
     m_WaitingBoot.clear();
+    m_ReadySessionByMachine.clear();
     m_OwnOperations.clear();
     m_PendingFriendMachineId.clear();
     m_PlanLocked = false;
@@ -1130,6 +1158,27 @@ QNetworkReply* LauncherApi::request(
         QJsonObject root;
         if (parseError.error == QJsonParseError::NoError && document.isObject())
             root = document.object();
+        if (status == 0) {
+            QString code = QStringLiteral("CLIENT_NETWORK_ERROR");
+            switch (reply->error()) {
+            case QNetworkReply::ConnectionRefusedError:
+            case QNetworkReply::RemoteHostClosedError:
+            case QNetworkReply::HostNotFoundError:
+            case QNetworkReply::TimeoutError:
+            case QNetworkReply::TemporaryNetworkFailureError:
+            case QNetworkReply::NetworkSessionFailedError:
+                code = QStringLiteral("CLIENT_TRANSIENT_NETWORK_ERROR");
+                break;
+            case QNetworkReply::SslHandshakeFailedError:
+                code = QStringLiteral("CLIENT_TLS_ERROR");
+                break;
+            default:
+                break;
+            }
+            root = {{QStringLiteral("error"), QJsonObject{{QStringLiteral("code"), code}}}};
+            if (reply->error() != QNetworkReply::OperationCanceledError)
+                qWarning() << "Launcher transport failed:" << code << reply->error();
+        }
         handler(status > 0 ? status : 503, root);
         reply->deleteLater();
     });
@@ -1932,9 +1981,116 @@ QString LauncherApi::newOperationRequestId() const
     return QUuid::createUuid().toString(QUuid::WithoutBraces);
 }
 
+bool LauncherApi::queueJoinPending(const QString& machineId) const
+{
+    return m_QueueJoinMachineId == machineId && m_QueueJoinReply && !m_QueueJoinReply->isFinished();
+}
+
+bool LauncherApi::observeMachineStartup(const QString& machineId, quint64 account)
+{
+    if (!m_LoggedIn || account != m_AuthGeneration || machineId.isEmpty() ||
+            !sessionNotifyEnabled(QStringLiteral("notifyOnReady")))
+        return false;
+    if (!m_WaitingBoot.contains(machineId) || m_WaitingBoot.value(machineId).finished) {
+        BootWatch watch;
+        watch.serial = ++m_BootWatchSerial;
+        watch.elapsed.start();
+        m_WaitingBoot.insert(machineId, watch);
+    }
+    refreshBoots();
+    return true;
+}
+
+void LauncherApi::stopObservingMachineStartup(const QString& machineId)
+{
+    auto watch = m_WaitingBoot.find(machineId);
+    if (watch == m_WaitingBoot.end()) return;
+    // Keep the terminal watch so management cannot silently restart the same boot.
+    watch->finished = true;
+    const auto reply = watch->reply;
+    watch->reply.clear();
+    if (reply) reply->abort();
+}
+
+void LauncherApi::refreshBoots()
+{
+    if (!m_LoggedIn) return;
+    for (const QString& machineId : m_WaitingBoot.keys()) {
+        auto watch = m_WaitingBoot.find(machineId);
+        if (watch == m_WaitingBoot.end() || watch->finished) continue;
+        if (watch->elapsed.elapsed() >= 30 * 60000) {
+            stopObservingMachineStartup(machineId);
+            emit backgroundNotice(tr("Startup monitoring timed out. Check Machines and storage; your request continues on the server."));
+            continue;
+        }
+        if (watch->reply) continue;
+        const quint64 serial = watch->serial;
+        const quint64 account = m_AuthGeneration;
+        QUrlQuery query;
+        query.addQueryItem(QStringLiteral("machineId"), machineId);
+        watch->reply = request("GET", QStringLiteral("status?") + query.toString(QUrl::FullyEncoded), {}, true,
+                [this, machineId, serial, account](int status, const QJsonObject& root) {
+            auto current = m_WaitingBoot.find(machineId);
+            if (current == m_WaitingBoot.end() || current->serial != serial || current->finished
+                    || !m_LoggedIn || account != m_AuthGeneration) return;
+            current->reply.clear();
+            const auto finishReadFailure = [this, &current, &machineId, &root](bool retryable) {
+                if (retryable && ++current->failedReads < 3) {
+                    if (!current->errorReported) {
+                        current->errorReported = true;
+                        emit backgroundNotice(tr("Could not refresh a machine being followed. Retrying shortly; check Machines and storage."));
+                    }
+                } else {
+                    stopObservingMachineStartup(machineId);
+                    emit backgroundNotice(responseErrorMessage(root, tr("Startup could not continue. Check Machines and storage.")));
+                }
+            };
+            if (status < 200 || status >= 300) {
+                finishReadFailure(status == 401 || retryableStatusFailure(status, root));
+                if (status == 401 && m_LoggedIn && account == m_AuthGeneration) refreshTokens();
+                return;
+            }
+            const QString state = root.value(QStringLiteral("state")).toString();
+            const QJsonObject session = root.value(QStringLiteral("session")).toObject();
+            const QJsonObject machine = session.value(QStringLiteral("machine")).toObject();
+            const QJsonObject queue = root.value(QStringLiteral("queue")).toObject();
+            if (state.isEmpty() || (!session.isEmpty() && machine.value(QStringLiteral("id")).toString() != machineId) ||
+                    (!queue.isEmpty() && queue.value(QStringLiteral("machineId")).toString() != machineId)) {
+                qWarning("Startup monitor rejected an invalid or mismatched status");
+                finishReadFailure(true);
+                return;
+            }
+            const QString sessionId = session.value(QStringLiteral("id")).toString();
+            if (!sessionId.isEmpty()) current->sessionId = sessionId;
+            if (state != QStringLiteral("ready")) {
+                current->failedReads = 0;
+                current->errorReported = false;
+                return;
+            }
+            if (sessionId.isEmpty() || machine.value(QStringLiteral("id")).toString() != machineId) {
+                qWarning("Startup monitor rejected ready without its machine and session");
+                finishReadFailure(true);
+                return;
+            }
+            m_WaitingBoot.erase(current);
+            if (m_ReadySessionByMachine.value(machineId) == sessionId) return;
+            m_ReadySessionByMachine.insert(machineId, sessionId);
+            if (!sessionNotifyEnabled(QStringLiteral("notifyOnReady"))) return;
+            const QString name = machine.value(QStringLiteral("name")).toString(machineId);
+            const QString message = tr("%1 is powered on. Open the app to connect.").arg(name);
+            emit backgroundNotice(message);
+            if (!m_LoggedIn || account != m_AuthGeneration) return;
+            emit machineBootReady(machineId, message);
+            if (sessionNotifyEnabled(QStringLiteral("soundOnReady"))) playNotifySound();
+        }, false, 20000);
+    }
+}
+
 void LauncherApi::refreshManagement()
 {
-    if (!m_LoggedIn || m_ManagementLoading) return;
+    if (!m_LoggedIn) return;
+    refreshBoots();
+    if (m_ManagementLoading) return;
     m_ManagementLoading = true;
     request("GET", QStringLiteral("vm-management"), QJsonObject(), true,
             [this](int status, const QJsonObject& root) {
@@ -1967,8 +2123,6 @@ void LauncherApi::refreshManagement()
                 notifyOnce(QStringLiteral("operation:") + id + QLatin1Char(':') + state,
                            operation.value(QStringLiteral("message")).toString(), m_OwnOperations.contains(id), QString());
                 m_OwnOperations.remove(id);
-                if (state == QStringLiteral("failed") && operation.value(QStringLiteral("kind")).toString() == QStringLiteral("power_on"))
-                    m_WaitingBoot.remove(operation.value(QStringLiteral("machineId")).toString());
             }
         }
         QDateTime now = QDateTime::fromString(root.value(QStringLiteral("serverNow")).toString(), Qt::ISODate);
@@ -1976,16 +2130,21 @@ void LauncherApi::refreshManagement()
         for (const QJsonValue& value : root.value(QStringLiteral("machines")).toArray()) {
             const QJsonObject machine = value.toObject();
             const QJsonObject session = machine.value(QStringLiteral("session")).toObject();
-            const QJsonObject phases = machine.value(QStringLiteral("phases")).toObject();
             const QString id = machine.value(QStringLiteral("id")).toString();
             const QString name = machine.value(QStringLiteral("name")).toString();
             const QString sessionId = session.value(QStringLiteral("id")).toString();
             if (sessionId.isEmpty()) continue;
-            if (phases.value(QStringLiteral("creation")).toString().isEmpty()
-                    && phases.value(QStringLiteral("shutdown")).toString().isEmpty()) {
-                notifyOnce(QStringLiteral("ready:") + sessionId, tr("%1 is powered on. Open the app to connect.").arg(name),
-                           m_WaitingBoot.remove(id), QStringLiteral("notifyOnReady"));
-            }
+            auto watch = m_WaitingBoot.find(id);
+            if (watch != m_WaitingBoot.end() && watch->finished && !watch->sessionId.isEmpty()
+                    && watch->sessionId != sessionId)
+                m_WaitingBoot.erase(watch);
+            if (!m_NoticesInitialized && !m_WaitingBoot.contains(id))
+                m_ReadySessionByMachine.insert(id, sessionId);
+            else if (m_ReadySessionByMachine.value(id) != sessionId && !m_WaitingBoot.contains(id))
+                observeMachineStartup(id, m_AuthGeneration);
+            watch = m_WaitingBoot.find(id);
+            if (watch != m_WaitingBoot.end() && watch->sessionId.isEmpty())
+                watch->sessionId = sessionId;
             const QDateTime end = QDateTime::fromString(session.value(QStringLiteral("endAt")).toString(), Qt::ISODate);
             const qint64 remaining = now.msecsTo(end);
             if (end.isValid() && remaining > 0 && remaining <= 5 * 60000) {
@@ -2022,7 +2181,7 @@ void LauncherApi::machineAction(const QString& machineId, const QString& action,
         if (ok) {
             const QString operationId = root.value(QStringLiteral("operation")).toObject().value(QStringLiteral("id")).toString();
             if (!operationId.isEmpty()) m_OwnOperations.insert(operationId);
-            if (action == QStringLiteral("power_on")) m_WaitingBoot.insert(machineId);
+            if (action == QStringLiteral("power_on")) observeMachineStartup(machineId, m_AuthGeneration);
             emit managementActionFinished(true, tr("Request received. Follow its progress in Machines and storage."));
             refreshManagement();
             refreshStatus();

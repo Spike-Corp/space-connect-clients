@@ -118,7 +118,7 @@ public:
 
     Q_INVOKABLE void exec(QWindow* qtWindow);
     Q_INVOKABLE void cancel();
-    Q_INVOKABLE void completeReveal();
+    Q_INVOKABLE void completeReveal(bool activate = true);
     void notifyFirstVideoFrame();
     void initializeStreamControls(LauncherApi* launcher, quint64 account);
     QObject* streamGuests() const;
@@ -178,6 +178,8 @@ private:
                                     bool visible, bool open);
 
     void execInternal();
+    void showStreamWindow();
+    void revealStreamWindow();
 
     bool initialize();
 
@@ -285,6 +287,8 @@ private:
     ConnectionCancellation m_ConnectionCancellation = std::make_shared<std::atomic_bool>(false);
     std::atomic_bool m_FirstFramePresented{false};
     std::atomic_bool m_RevealComplete{true};
+    std::atomic_bool m_ActivateOnReveal{true};
+    bool m_CaptureOnFocus = false;
     bool m_ManagedDesktop = false;
     bool m_FreshlyPaired = false;
     StreamGuestController* m_StreamGuests = nullptr;
