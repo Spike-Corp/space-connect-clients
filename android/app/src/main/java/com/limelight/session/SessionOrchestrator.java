@@ -192,15 +192,19 @@ public final class SessionOrchestrator {
         }
     }
 
-    private boolean retryStatusRead(Exception error) {
+    public static boolean isRetryableStatusRead(Exception error) {
         boolean temporary = error instanceof IOException && !(error instanceof javax.net.ssl.SSLException);
         if (error instanceof ApiException) {
             ApiException api = (ApiException) error;
             temporary = businessFailure(api) == null
                     && (api.status == 500 || api.status == 502 || api.status == 503 || api.status == 504);
         }
+        return temporary;
+    }
+
+    private boolean retryStatusRead(Exception error) {
         synchronized (REGISTRY_LOCK) {
-            if (!isActive() || !temporary || failedStatusReads >= 2) return false;
+            if (!isActive() || !isRetryableStatusRead(error) || failedStatusReads >= 2) return false;
             failedStatusReads++;
             SessionLog.failure("status retry", error);
             worker.schedule(this::poll, pollMillis, TimeUnit.MILLISECONDS);

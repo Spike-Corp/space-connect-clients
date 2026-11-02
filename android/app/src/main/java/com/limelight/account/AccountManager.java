@@ -95,6 +95,7 @@ public final class AccountManager {
     public interface ResultCallback<T> {
         void onSuccess(T result);
         void onError(String message);
+        default void onFailure(Exception error) { onError(userMessage(error)); }
     }
 
     private interface AuthenticatedOperation<T> {
@@ -252,8 +253,9 @@ public final class AccountManager {
                 });
             } catch (Exception e) {
                 post(() -> {
-                    if (!scope.isCancelled()) callback.onError(currentAccountGeneration() == generation
-                            ? userMessage(e) : appContext.getString(R.string.stream_account_changed));
+                    if (scope.isCancelled()) return;
+                    if (currentAccountGeneration() == generation) callback.onFailure(e);
+                    else callback.onError(appContext.getString(R.string.stream_account_changed));
                 });
             }
         });

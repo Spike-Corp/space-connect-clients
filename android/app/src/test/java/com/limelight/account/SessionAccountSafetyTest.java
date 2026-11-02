@@ -309,13 +309,13 @@ public class SessionAccountSafetyTest {
             response.state = "already_running";
             return response;
         }
-        @Implementation protected SpaceConnectApiClient.StatusResponse getStatus(String token, String machineId) {
+        @Implementation protected SpaceConnectApiClient.StatusResponse getStatus(String token, String machineId) throws Exception {
             tokens.add(token);
             SpaceConnectApiClient.StatusResponse status = new SpaceConnectApiClient.StatusResponse();
             status.state = "ready";
             return status;
         }
-        @Implementation protected SpaceConnectApiClient.StatusResponse leaveQueue(String token, String machineId) {
+        @Implementation protected SpaceConnectApiClient.StatusResponse leaveQueue(String token, String machineId) throws Exception {
             assertEquals(MACHINE, machineId);
             return getStatus(token, machineId);
         }

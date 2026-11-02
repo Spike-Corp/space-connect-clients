@@ -41,6 +41,7 @@
     <string name="vm_monitor_stop">Stop monitoring</string>
     <string name="vm_monitor_unavailable">Android did not allow background monitoring. Your server operation continues; reopen Machines and storage to follow it.</string>
     <string name="vm_monitor_timeout">Background monitoring has ended. Your server operations continue; reopen the app to check them.</string>
+    <string name="vm_monitor_failed">Could not continue monitoring. Check Machines and storage; your accepted request continues on the server.</string>
     <string name="vm_machine_on">%1$s is powered on. Open the app to connect.</string>
     <string name="vm_session_ending">Your session on %1$s is approaching its time limit. Save your work.</string>
     <string name="vm_off">Powered off</string>

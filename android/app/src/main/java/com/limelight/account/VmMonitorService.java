@@ -18,6 +18,7 @@ import android.os.SystemClock;
 import android.widget.Toast;
 
 import com.limelight.R;
+import com.limelight.session.SessionOrchestrator;
 import com.limelight.utils.RequestScope;
 
 import java.util.HashSet;
@@ -41,6 +42,7 @@ public class VmMonitorService extends Service {
     private long started, idleSince;
     private boolean loading, destroyed;
     private boolean observing;
+    private int managementReadFailures;
     private long accountGeneration;
     private String account, startedIso;
     private final Runnable poll = this::refresh;
@@ -49,6 +51,7 @@ public class VmMonitorService extends Service {
         final String machineId;
         RequestScope scope;
         Future<?> request;
+        int failedReads;
         BootWatch(String machineId) { this.machineId = machineId; }
         void cancel() {
             if (scope != null) scope.close();
@@ -171,6 +174,7 @@ public class VmMonitorService extends Service {
         scope = null;
         request = null;
         loading = false;
+        managementReadFailures = 0;
         idleSince = 0;
         started = SystemClock.elapsedRealtime();
         accountGeneration = AccountManager.currentAccountGeneration();
@@ -189,6 +193,7 @@ public class VmMonitorService extends Service {
         }
         if (accountGeneration != current) resetAccount();
         observing = true;
+        managementReadFailures = 0;
         if (intent != null && intent.getBooleanExtra("boot", false)) {
             String id = intent.getStringExtra("machineId");
             if (id != null && id.matches("^[a-fA-F0-9]{24}$")) {
@@ -220,6 +225,7 @@ public class VmMonitorService extends Service {
             public void onSuccess(ManagementResponse response) {
                 if (response == null) { onError(getString(R.string.vm_refresh_error)); return; }
                 if (!finishManagementRead(managementScope)) return;
+                managementReadFailures = 0;
                 boolean pending = false;
                 SharedPreferences preferences = getSharedPreferences("vm_operation_notices_" + (account == null ? 0 : account.hashCode()), MODE_PRIVATE);
                 Set<String> seen = new HashSet<>(preferences.getStringSet("seen", new HashSet<>()));
@@ -257,10 +263,27 @@ public class VmMonitorService extends Service {
             }
             public void onError(String message) {
                 if (!finishManagementRead(managementScope)) return;
-                showRefreshError();
-                handler.postDelayed(poll, 15_000);
+                managementReadFailed(false);
+            }
+            public void onFailure(Exception error) {
+                if (!finishManagementRead(managementScope)) return;
+                com.limelight.LimeLog.warning("VM management read failed: " + error.getClass().getSimpleName());
+                managementReadFailed(SessionOrchestrator.isRetryableStatusRead(error));
             }
         });
+    }
+
+    private void managementReadFailed(boolean retryable) {
+        if (retryable && ++managementReadFailures < 3) {
+            showRefreshError();
+            handler.postDelayed(poll, 15_000);
+            return;
+        }
+        alert(this, "monitor_failed", getString(R.string.vm_monitor_failed));
+        handler.removeCallbacks(poll);
+        for (BootWatch watch : waitingForBoot.values()) watch.cancel();
+        waitingForBoot.clear();
+        stopSelf();
     }
 
     private boolean isCurrentAccount() {
@@ -292,29 +315,46 @@ public class VmMonitorService extends Service {
                     new AccountManager.ResultCallback<StatusResponse>() {
                         public void onSuccess(StatusResponse response) {
                             if (!finishBootRead(watch, statusScope)) return;
-                            if (response == null || (response.session != null && response.session.machine != null
+                            if (response == null || response.state == null || response.state.isEmpty()
+                                    || (response.session != null && response.session.machine != null
                                     && !watch.machineId.equals(response.session.machine.id))
                                     || (response.queue != null && !watch.machineId.equals(response.queue.machineId))) {
                                 com.limelight.LimeLog.warning("VM monitor received an invalid or mismatched status");
-                                showRefreshError();
+                                bootReadFailed(watch, true);
                                 return;
                             }
-                            if (!"ready".equals(response.state)) return;
-                            if (response.session == null || response.session.id == null || response.session.machine == null) {
+                            if ("ready".equals(response.state) && (response.session == null || response.session.id == null
+                                    || response.session.id.isEmpty() || response.session.machine == null)) {
                                 com.limelight.LimeLog.warning("VM monitor received ready without a session");
-                                showRefreshError();
+                                bootReadFailed(watch, true);
                                 return;
                             }
+                            watch.failedReads = 0;
+                            if (!"ready".equals(response.state)) return;
                             waitingForBoot.remove(watch.machineId);
                             String name = response.session.machine.name != null
                                     ? response.session.machine.name : watch.machineId;
                             sessionNotice(VmMonitorService.this, true, response.session.id, name);
                         }
                         public void onError(String message) {
-                            if (finishBootRead(watch, statusScope)) showRefreshError();
+                            if (finishBootRead(watch, statusScope)) bootReadFailed(watch, false);
+                        }
+                        public void onFailure(Exception error) {
+                            if (!finishBootRead(watch, statusScope)) return;
+                            com.limelight.LimeLog.warning("VM startup read failed: " + error.getClass().getSimpleName());
+                            bootReadFailed(watch, SessionOrchestrator.isRetryableStatusRead(error));
                         }
                     });
         }
+    }
+
+    private void bootReadFailed(BootWatch watch, boolean retryable) {
+        if (retryable && ++watch.failedReads < 3) {
+            showRefreshError();
+            return;
+        }
+        waitingForBoot.remove(watch.machineId);
+        alert(this, "boot_failed:" + watch.machineId, getString(R.string.vm_monitor_failed));
     }
 
     private boolean finishBootRead(BootWatch watch, RequestScope completed) {

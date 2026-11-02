@@ -46,6 +46,8 @@ public class VmMonitorServiceTest {
         shadowOf(context.getSystemService(NotificationManager.class)).setNotificationsEnabled(true);
         Api.statuses.clear();
         Api.reads.clear();
+        Api.failures.clear();
+        Api.managementFailure = null;
         Api.managementReads = 0;
         Api.management = new ManagementResponse();
         Api.management.serverNow = Instant.now().toString();
@@ -115,6 +117,111 @@ public class VmMonitorServiceTest {
         assertFalse(VmMonitorService.hasSessionNotice(context, true, "session-" + SECOND));
     }
 
+    private void pollAgain() throws Exception {
+        shadowOf(Looper.getMainLooper()).idleFor(15, TimeUnit.SECONDS);
+        settle();
+    }
+
+    private void assertBootReadStops(Exception failure, int attempts) throws Exception {
+        Api.failures.put(FIRST, failure);
+        service = Robolectric.buildService(VmMonitorService.class).create();
+        service.get().onStartCommand(observation(FIRST), 0, 1);
+        settle();
+        for (int i = 0; i < 4; i++) pollAgain();
+        assertEquals(attempts, Api.reads.size());
+        assertNotNull(shadowOf(context.getSystemService(NotificationManager.class))
+                .getNotification("boot_failed:" + FIRST, 1));
+        Api.failures.clear();
+        Api.statuses.put(FIRST, status(FIRST, "ready"));
+        pollAgain();
+        assertEquals(attempts, Api.reads.size());
+        assertFalse(VmMonitorService.hasSessionNotice(context, true, "session-" + FIRST));
+        assertNull(shadowOf(RuntimeEnvironment.getApplication()).getNextStartedActivity());
+    }
+
+    @Test public void aTlsFailureEndsBootObservationInsteadOfRetrying() throws Exception {
+        assertBootReadStops(new javax.net.ssl.SSLHandshakeException("Untrusted fixture certificate"), 1);
+    }
+
+    @Test public void accessDeniedEndsBootObservationInsteadOfRetrying() throws Exception {
+        assertBootReadStops(new ApiException(403, "ACCESS_DENIED", "Denied", null), 1);
+    }
+
+    @Test public void transportFailuresEndBootObservationAfterThreeReads() throws Exception {
+        assertBootReadStops(new java.io.IOException("Fixture transport failure"), 3);
+    }
+
+    @Test public void successfulReadsResetTheConsecutiveFailureBudget() throws Exception {
+        service = Robolectric.buildService(VmMonitorService.class).create();
+        Api.failures.put(FIRST, new java.io.IOException("First outage"));
+        service.get().onStartCommand(observation(FIRST), 0, 1);
+        settle();
+        pollAgain();
+        Api.failures.clear();
+        pollAgain();
+        Api.failures.put(FIRST, new java.io.IOException("Second outage"));
+        pollAgain();
+        pollAgain();
+        Api.failures.clear();
+        Api.statuses.put(FIRST, status(FIRST, "ready"));
+        pollAgain();
+        assertTrue(VmMonitorService.hasSessionNotice(context, true, "session-" + FIRST));
+        assertEquals(6, Api.reads.size());
+    }
+
+    @Test public void aNewExplicitObservationCanRetryAfterATerminalFailure() throws Exception {
+        Api.failures.put(FIRST, new ApiException(403, "ACCESS_DENIED", "Denied", null));
+        service = Robolectric.buildService(VmMonitorService.class).create();
+        service.get().onStartCommand(observation(FIRST), 0, 1);
+        settle();
+        assertNotNull(shadowOf(context.getSystemService(NotificationManager.class))
+                .getNotification("boot_failed:" + FIRST, 1));
+        Api.failures.clear();
+        Api.statuses.put(FIRST, status(FIRST, "ready"));
+        service.get().onStartCommand(observation(FIRST), 0, 2);
+        settle();
+        assertTrue(VmMonitorService.hasSessionNotice(context, true, "session-" + FIRST));
+        assertEquals(2, Api.reads.size());
+    }
+
+    @Test public void oneFailedMachineDoesNotEndAnotherMachinesObservation() throws Exception {
+        Api.failures.put(FIRST, new ApiException(403, "ACCESS_DENIED", "Denied", null));
+        service = Robolectric.buildService(VmMonitorService.class).create();
+        service.get().onStartCommand(observation(FIRST), 0, 1);
+        service.get().onStartCommand(observation(SECOND), 0, 2);
+        settle();
+        Api.statuses.put(SECOND, status(SECOND, "ready"));
+        pollAgain();
+        assertTrue(VmMonitorService.hasSessionNotice(context, true, "session-" + SECOND));
+        assertFalse(VmMonitorService.hasSessionNotice(context, true, "session-" + FIRST));
+        assertEquals(1, java.util.Collections.frequency(Api.reads, FIRST));
+    }
+
+    private void assertManagementReadStops(Exception failure, int attempts) throws Exception {
+        Api.managementFailure = failure;
+        service = Robolectric.buildService(VmMonitorService.class).create();
+        service.get().onStartCommand(observation(FIRST), 0, 1);
+        settle();
+        for (int i = 0; i < 4; i++) pollAgain();
+        assertEquals(attempts, Api.managementReads);
+        assertTrue(shadowOf(service.get()).isStoppedBySelf());
+        assertNotNull(shadowOf(context.getSystemService(NotificationManager.class))
+                .getNotification("monitor_failed", 1));
+        Api.managementFailure = null;
+        Api.statuses.put(FIRST, status(FIRST, "ready"));
+        pollAgain();
+        assertFalse(VmMonitorService.hasSessionNotice(context, true, "session-" + FIRST));
+        assertTrue(Api.reads.isEmpty());
+    }
+
+    @Test public void accessDeniedAlsoStopsManagementPolling() throws Exception {
+        assertManagementReadStops(new ApiException(403, "ACCESS_DENIED", "Denied", null), 1);
+    }
+
+    @Test public void managementTransportFailuresAreBounded() throws Exception {
+        assertManagementReadStops(new java.io.IOException("Fixture transport failure"), 3);
+    }
+
     @Test public void anOlderFailedStartCannotCancelTheNewBootObservation() throws Exception {
         VmOperation old = new VmOperation();
         old.id = "old-start";
@@ -181,20 +288,24 @@ public class VmMonitorServiceTest {
     @Implements(value = SpaceConnectApiClient.class, isInAndroidSdk = false)
     public static class Api extends SessionAccountSafetyTest.Api {
         static final Map<String, StatusResponse> statuses = new HashMap<>();
+        static final Map<String, Exception> failures = new HashMap<>();
         static final List<String> reads = new ArrayList<>();
         static ManagementResponse management;
+        static Exception managementFailure;
         static int managementReads;
 
-        @Implementation protected ManagementResponse getManagement(String token) {
+        @Implementation protected ManagementResponse getManagement(String token) throws Exception {
             assertEquals("first-access", token);
             managementReads++;
+            if (managementFailure != null) throw managementFailure;
             return management;
         }
 
-        @Override @Implementation protected StatusResponse getStatus(String token, String machineId) {
+        @Override @Implementation protected StatusResponse getStatus(String token, String machineId) throws Exception {
             assertEquals("first-access", token);
             reads.add(machineId);
             assertTrue("Only explicit observed machines may be polled", statuses.containsKey(machineId));
+            if (failures.containsKey(machineId)) throw failures.get(machineId);
             return statuses.get(machineId);
         }
     }
