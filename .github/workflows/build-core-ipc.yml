@@ -1,0 +1,107 @@
+name: Build Core IPC (Windows, branch core-ipc only)
+
+# Windows x64 build of the desktop client with the headless `connect --ipc`
+# mode. Runs only on the core-ipc branch and never publishes a release.
+
+on:
+  push:
+    branches: [ core-ipc ]
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/build-core-ipc.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Windows x64 (core-ipc)
+    runs-on: [self-hosted, Windows, x64]
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSVC (x64)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4.3.1
+        with:
+          version: '6.7.3'
+          host: windows
+          target: desktop
+          arch: win64_msvc2019_64
+          modules: 'qtimageformats'
+          cache: true
+
+      - name: Build (Release, x64)
+        shell: cmd
+        run: |
+          lrelease app\languages\qml_pt_BR.ts app\languages\qml_pt.ts || exit /b 1
+          qmake moonlight-qt.pro CONFIG+=release || exit /b 1
+          scripts\jom.exe release || exit /b 1
+
+      - name: Deploy
+        shell: cmd
+        run: |
+          mkdir deploy || exit /b 1
+          copy /Y app\release\SpaceConnect.exe deploy\ || exit /b 1
+          copy /Y libs\windows\lib\x64\*.dll deploy\ || exit /b 1
+          copy /Y AntiHooking\release\AntiHooking.dll deploy\ || exit /b 1
+          copy /Y app\SDL_GameControllerDB\gamecontrollerdb.txt deploy\ || exit /b 1
+          windeployqt --release --qmldir app\gui --no-opengl-sw --no-sql --no-system-d3d-compiler --no-system-dxc-compiler --skip-plugin-types qmltooling,generic --no-ffmpeg --no-quickcontrols2fusion --no-quickcontrols2imagine --no-quickcontrols2universal deploy\SpaceConnect.exe || exit /b 1
+
+      - name: Bundle VC++ CRT DLLs
+        shell: powershell
+        run: |
+          $crt = Get-ChildItem 'C:\Program Files (x86)\Microsoft Visual Studio\2022\*\VC\Redist\MSVC\*\x64\Microsoft.VC143.CRT' -Directory -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $crt) { throw 'Pasta Microsoft.VC143.CRT x64 nao encontrada no VS Build Tools' }
+          Copy-Item "$($crt.FullName)\*.dll" deploy\ -Force
+
+      - name: Smoke test connect --ipc
+        shell: powershell
+        run: |
+          $psi = New-Object System.Diagnostics.ProcessStartInfo
+          $psi.FileName = (Resolve-Path deploy\SpaceConnect.exe).Path
+          $psi.Arguments = 'connect --ipc'
+          $psi.RedirectStandardInput = $true
+          $psi.RedirectStandardOutput = $true
+          $psi.UseShellExecute = $false
+          $p = [System.Diagnostics.Process]::Start($psi)
+          $p.StandardInput.WriteLine('{"cmd":"connect","address":"127.0.0.1","port":1,"ports":{},"pin":"1234","app":"Desktop","settings":{}}')
+          $p.StandardInput.Flush()
+          $line = $p.StandardOutput.ReadLine()
+          Write-Host $line
+          if ($line -notmatch 'HOST_UNREACHABLE') { $p.Kill(); throw "unexpected first event: $line" }
+          $p.StandardInput.Close()
+          if (-not $p.WaitForExit(30000)) { $p.Kill(); throw 'did not exit' }
+          if ($p.ExitCode -eq 0) { throw 'expected non-zero exit' }
+
+      - name: Package zip
+        shell: powershell
+        run: |
+          Compress-Archive -Path deploy/* -DestinationPath "../SpaceConnect-core-ipc-windows-x64.zip" -Force
+
+      - name: Upload artifact
+        id: upload
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpaceConnect-core-ipc-windows-x64
+          path: SpaceConnect-core-ipc-windows-x64.zip
+
+      - name: Fallback - prerelease asset (artifact storage unavailable)
+        if: ${{ steps.upload.outcome == 'failure' }}
+        shell: powershell
+        working-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "core-ipc-$env:GITHUB_RUN_NUMBER"
+          gh release create $tag SpaceConnect-core-ipc-windows-x64.zip --prerelease --target core-ipc --title "core-ipc build $env:GITHUB_RUN_NUMBER" --notes "Branch build, not for distribution."
