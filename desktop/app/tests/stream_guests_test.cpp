@@ -66,7 +66,7 @@ public:
                 else if (path == QStringLiteral("/vm-management"))
                     write(socket, 200, {{QStringLiteral("machines"), QJsonArray{QJsonObject{
                         {QStringLiteral("id"), managedMachine}}}}});
-                else if (path.startsWith(QStringLiteral("/stream/")) && streamHandler)
+                else if ((path.startsWith(QStringLiteral("/stream/")) || path == QStringLiteral("/mic/ensure")) && streamHandler)
                     streamHandler(socket, request);
                 else if (path == QStringLiteral("/stream/guests") && holdGuests)
                     pendingGuests = socket;
@@ -143,6 +143,56 @@ private slots:
         IdentityManager::get();
     }
     void init() { QSettings().clear(); }
+
+    void microphoneWaitsForInstallationAndKeepsItsOriginalMachine()
+    {
+        GuestApiFixture host;
+        LauncherApi api(nullptr, host.base());
+        login(api);
+        host.streamHandler = [&host](QTcpSocket* socket, const GuestApiFixture::Request&) {
+            const bool ready = host.count(QStringLiteral("/mic/ensure")) > 1;
+            GuestApiFixture::write(socket, 200, {{QStringLiteral("ok"), ready},
+                {QStringLiteral("state"), ready ? QStringLiteral("ready") : QStringLiteral("installing")},
+                {QStringLiteral("protocol"), 2}});
+        };
+        QObject receiver;
+        int delivered = 0;
+        QString state;
+        api.ensureMicBridge(QStringLiteral("original-vm"), api.accountGeneration(), receiver,
+            [&](int status, const QJsonObject& response) {
+                QCOMPARE(status, 200);
+                delivered++;
+                state = response.value(QStringLiteral("state")).toString();
+            });
+        api.setSelectedMachineId(QStringLiteral("different-vm"));
+        QTRY_COMPARE_WITH_TIMEOUT(state, QStringLiteral("ready"), 5000);
+        QCOMPARE(delivered, 1);
+        QCOMPARE(host.count(QStringLiteral("/mic/ensure")), 2);
+        for (const auto& request : host.requests) {
+            if (request.url.path() != QStringLiteral("/mic/ensure")) continue;
+            QCOMPARE(request.body.value(QStringLiteral("machineId")).toString(), QStringLiteral("original-vm"));
+            QCOMPARE(request.body.value(QStringLiteral("protocol")).toInt(), 2);
+        }
+    }
+
+    void leavingTheStreamCancelsPendingMicrophoneInstallation()
+    {
+        GuestApiFixture host;
+        LauncherApi api(nullptr, host.base());
+        login(api);
+        host.streamHandler = [](QTcpSocket* socket, const GuestApiFixture::Request&) {
+            GuestApiFixture::write(socket, 200, {{QStringLiteral("ok"), false},
+                                               {QStringLiteral("state"), QStringLiteral("installing")}});
+        };
+        auto* receiver = new QObject;
+        api.ensureMicBridge(QStringLiteral("original-vm"), api.accountGeneration(), *receiver,
+                            [](int, const QJsonObject&) {});
+        QTRY_COMPARE(host.count(QStringLiteral("/mic/ensure")), 1);
+        QTest::qWait(50);
+        delete receiver;
+        QTest::qWait(2100);
+        QCOMPARE(host.count(QStringLiteral("/mic/ensure")), 1);
+    }
 
     void proofUsesTheExistingPairedCertificateAndProtocolDomain() {
         auto* identity = IdentityManager::get();

@@ -772,14 +772,6 @@ void LauncherApi::requestConnection(const QString& machineId)
                     }
                     m_MachineIdByAddress.insert(address, targetMachineId);
                     m_PendingFriendMachineId.clear();
-                    // Mic bridge: se o usuário encaminha o mic (padrão ligado),
-                    // garante que o bridge está RODANDO na VM antes da sessão
-                    // começar — o processo morre entre boots e a task ONLOGON
-                    // não ressuscita. Sem isso o mic ia pra um buraco negro.
-                    QSettings micPrefs;
-                    if (micPrefs.value(QStringLiteral("micforwarding"), true).toBool()) {
-                        ensureMicBridge(targetMachineId);
-                    }
                     emit connectionReady(address, targetMachineId, name);
                 }
                 catch (const std::exception&) {
@@ -789,18 +781,23 @@ void LauncherApi::requestConnection(const QString& machineId)
             }, true);
 }
 
-void LauncherApi::ensureMicBridge(const QString& machineId)
+void LauncherApi::ensureMicBridge(const QString& machineId, quint64 account, QObject& receiver,
+                                  StreamResponseHandler handler, int remaining)
 {
-    if (!m_LoggedIn) return;
-    // Fire-and-forget: o resultado não bloqueia a sessão. Se a VM ainda não tem
-    // o bridge (build antigo), o backend responde 409 e a gente só loga.
-    request("POST", QStringLiteral("mic/ensure"),
-            QJsonObject{{QStringLiteral("machineId"), machineId.isEmpty() ? effectiveMachineId() : machineId}}, true,
-            [this](int status, const QJsonObject&) {
-                if (status < 200 || status >= 300) {
-                    qWarning() << "MicBridge ensure falhou (status" << status << ")";
-                }
+    QPointer<QObject> scope(&receiver);
+    QPointer<LauncherApi> owner(this);
+    streamRequest(account, "POST", QStringLiteral("mic/ensure"),
+                  {{QStringLiteral("machineId"), machineId}, {QStringLiteral("protocol"), 2}}, receiver,
+                  [owner, machineId, account, scope, handler, remaining](int status, const QJsonObject& root) {
+        if (!scope) return;
+        if (status >= 200 && status < 300 && root.value(QStringLiteral("ok")).isBool()
+                && !root.value(QStringLiteral("ok")).toBool()
+                && root.value(QStringLiteral("state")).toString() == QStringLiteral("installing") && remaining > 1) {
+            QTimer::singleShot(2000, scope, [owner, machineId, account, scope, handler, remaining]() {
+                if (owner && scope) owner->ensureMicBridge(machineId, account, *scope, handler, remaining - 1);
             });
+        } else handler(status, root);
+    });
 }
 
 LauncherBitrate::Detection LauncherApi::detectBitrate() const

@@ -100,6 +100,7 @@
     <string name="stream_side_mic_busy">Atualizando microfone…</string>
     <string name="stream_side_mic_failed">Não foi possível iniciar o microfone. Confira a permissão e o dispositivo de entrada.</string>
     <string name="game_mic_bridge_failed">Não foi possível preparar o microfone no PC. Tente novamente.</string>
+    <string name="game_mic_owner_only">Só o dono da máquina pode ativar o microfone.</string>
     <string name="stream_side_reserved">Área reservada ao menu da transmissão</string>
     <string name="stream_side_layout_adjusted">Controles ajustados para dar espaço ao menu. Seu layout salvo só muda quando você salvar.</string>
     <string name="stream_side_layout_conflict">Ajuste os controles fora da faixa destacada antes de salvar.</string>

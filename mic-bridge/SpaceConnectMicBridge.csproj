@@ -8,6 +8,7 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Version>0.3.49</Version>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <!-- Publish settings so a plain "dotnet publish -c Release -r win-x64" produces a single,
          self-contained .exe that end users can download and run with NO .NET install required. -->
@@ -19,6 +20,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="tests/**/*.cs" />
     <PackageReference Include="NAudio" Version="2.2.1" />
   </ItemGroup>
 

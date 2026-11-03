@@ -564,7 +564,7 @@ Session::Session(NvComputer* computer, NvApp& app, StreamingPreferences *prefere
       m_QtWindow(nullptr),
       m_UnexpectedTermination(true), // Failure prior to streaming is unexpected
       m_InputHandler(nullptr),
-      m_MicForwarder(nullptr),
+      m_MicForwarder(new MicForwarder(this)),
       m_MouseEmulationRefCount(0),
       m_FlushingWindowEventsRef(0),
       m_AsyncConnectionSuccess(false),
@@ -577,6 +577,9 @@ Session::Session(NvComputer* computer, NvApp& app, StreamingPreferences *prefere
     static std::atomic<Uint32> nextMenuSerial{0};
     do { m_StreamMenuSerial = ++nextMenuSerial; } while (!m_StreamMenuSerial);
     connect(this, &Session::streamMenuPresentation, this, &Session::applyStreamMenuPresentation);
+    QReadLocker lock(&m_Computer->lock);
+    m_MicManaged = m_Computer->scOrigin == QStringLiteral("launcher")
+            || m_Computer->scOrigin == QStringLiteral("friend");
 }
 
 Session::Session(std::shared_ptr<NvComputer> computer, NvApp& app, bool freshlyPaired)
@@ -615,6 +618,45 @@ void Session::initializeStreamControls(LauncherApi* launcher, quint64 account)
         if (!m_StreamControlsEnded.load() && !connectionCancelled(m_ConnectionCancellation))
             m_StreamGuests->start();
     });
+    const QString micMachine = m_Computer->scMachineId;
+    const QPointer<LauncherApi> api(launcher);
+    connect(m_MicForwarder, &MicForwarder::failed, launcher, &LauncherApi::backgroundNotice);
+    connect(launcher, &LauncherApi::accountChanging, this, [this]() {
+        delete m_MicRequest.data();
+        QMutexLocker lock(&m_MicLock);
+        m_MicForwarder->stopForwarding();
+    });
+    connect(this, &Session::firstFramePresented, this, [this, api, account, micMachine]() {
+        if (!api || !m_Preferences->enableMicForwarding || m_StreamControlsEnded.load()
+                || connectionCancelled(m_ConnectionCancellation)) return;
+        m_MicRequest = new QObject(this);
+        api->ensureMicBridge(micMachine, account, *m_MicRequest,
+            [this, api](int status, const QJsonObject& root) {
+                if (!api || m_StreamControlsEnded.load() || connectionCancelled(m_ConnectionCancellation)) return;
+                const int port = root.value(QStringLiteral("port")).toInt();
+                const QByteArray id = QByteArray::fromBase64(root.value(QStringLiteral("sessionId")).toString().toLatin1(),
+                                                            QByteArray::AbortOnBase64DecodingErrors);
+                const QByteArray key = QByteArray::fromBase64(root.value(QStringLiteral("key")).toString().toLatin1(),
+                                                             QByteArray::AbortOnBase64DecodingErrors);
+                if (status < 200 || status >= 300 || !root.value(QStringLiteral("ok")).toBool()
+                        || root.value(QStringLiteral("state")).toString() != QStringLiteral("ready")
+                        || root.value(QStringLiteral("protocol")).toInt() != 2
+                        || port < 1 || port > 65535 || id.size() != 16 || key.size() != 32) {
+                    emit api->backgroundNotice(root.value(QStringLiteral("error")).toObject()
+                        .value(QStringLiteral("message")).toString(
+                            tr("The microphone receiver is not ready. Reconnect after checking the host.")));
+                } else {
+                    QMutexLocker micLock(&m_MicLock);
+                    if (!m_StreamControlsEnded.load()) {
+                        QReadLocker computerLock(&m_Computer->lock);
+                        m_MicForwarder->startForwarding(m_Computer->activeAddress.address(), quint16(port),
+                                                        m_Preferences->micCaptureDeviceName, id, key);
+                    }
+                }
+                if (m_MicRequest) m_MicRequest->deleteLater();
+                m_MicRequest = nullptr;
+            });
+    });
     connect(this, &Session::sessionFinished, this, &Session::finishStreamControls);
     connect(m_StreamGuests, &StreamGuestController::noticeRaised, launcher, &LauncherApi::backgroundNotice);
     if (m_StreamGuests->ownerSession() && !positionedWindows) {
@@ -630,6 +672,11 @@ QObject* Session::streamGuests() const { return m_StreamGuests; }
 void Session::finishStreamControls()
 {
     m_StreamControlsEnded.store(true);
+    delete m_MicRequest.data();
+    {
+        QMutexLocker lock(&m_MicLock);
+        m_MicForwarder->stopForwarding();
+    }
     m_StreamMenuAllowed.store(false);
     m_StreamMenuVisible = m_StreamMenuOpen = false;
     m_StreamMenuBounds = {};
@@ -1978,12 +2025,11 @@ bool Session::startConnectionAsync()
 
     emit connectionStarted();
 
-    if (m_Preferences->enableMicForwarding) {
+    if (m_Preferences->enableMicForwarding && !m_MicManaged) {
         quint16 basePort = m_Computer->activeAddress.port();
         quint16 micPort = (basePort > 0 && basePort != 47989)
                 ? static_cast<quint16>(basePort + 25)
                 : MicForwarder::DEFAULT_PORT;
-        m_MicForwarder = new MicForwarder();
         m_MicForwarder->startForwarding(m_Computer->activeAddress.address(),
                                          micPort,
                                          m_Preferences->micCaptureDeviceName);
@@ -2760,10 +2806,9 @@ DispatchDeferredCleanup:
     QMetaObject::invokeMethod(this, [this]() { finishStreamControls(); }, Qt::AutoConnection);
     // Stop forwarding the local microphone before anything else - no ordering
     // dependency with the input handler/decoder cleanup below.
-    if (m_MicForwarder != nullptr) {
+    {
+        QMutexLocker lock(&m_MicLock);
         m_MicForwarder->stopForwarding();
-        delete m_MicForwarder;
-        m_MicForwarder = nullptr;
     }
 
     // Uncapture the mouse and hide the window immediately,

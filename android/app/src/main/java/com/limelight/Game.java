@@ -2434,30 +2434,47 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             Toast.makeText(this, R.string.stream_side_mic_failed, Toast.LENGTH_LONG).show();
             return;
         }
-        if (sessionAttempt != null && !sessionAttempt.isFriend()) {
-            AccountManager.StreamRequests requests = sessionAttempt.streamRequests(new RequestScope());
-            micBridgeRequest = requests;
-            micBridgeFuture = AccountManager.ensureMicBridge(this, requests,
-                    new AccountManager.ResultCallback<SpaceConnectApiClient.MicEnsureResponse>() {
-                        @Override public void onSuccess(SpaceConnectApiClient.MicEnsureResponse result) {
-                            if (!completeMicBridgeRequest(requests)) return;
-                            if (!requests.isCurrentAccount()) {
-                                Toast.makeText(Game.this, R.string.stream_account_changed, Toast.LENGTH_LONG).show();
-                            } else if (result == null || !Boolean.TRUE.equals(result.ok)) {
-                                Toast.makeText(Game.this, R.string.game_mic_bridge_failed, Toast.LENGTH_LONG).show();
-                            } else {
-                                startMicCapture();
-                            }
-                        }
-                        @Override public void onError(String message) {
-                            if (!completeMicBridgeRequest(requests)) return;
-                            Toast.makeText(Game.this, message, Toast.LENGTH_LONG).show();
-                        }
-                    });
-            updateMicrophoneState();
+        if (sessionAttempt != null) {
+            prepareMicBridge(45);
             return;
         }
-        startMicCapture();
+        startMicCapture(null);
+    }
+
+    private void prepareMicBridge(int remaining) {
+        AccountManager.StreamRequests requests = sessionAttempt.streamRequests(new RequestScope());
+        micBridgeRequest = requests;
+        micBridgeFuture = AccountManager.ensureMicBridge(this, requests,
+                new AccountManager.ResultCallback<SpaceConnectApiClient.MicEnsureResponse>() {
+                    @Override public void onSuccess(SpaceConnectApiClient.MicEnsureResponse result) {
+                        if (micBridgeRequest != requests) return;
+                        if (result != null && Boolean.FALSE.equals(result.ok) && "installing".equals(result.state)
+                                && remaining > 1 && requests.isCurrentAccount()
+                                && !connectionClosed && connected && !isFinishing() && !isDestroyed()) {
+                            streamCallbacks.postDelayed(() -> {
+                                if (micBridgeRequest == requests && !connectionClosed && connected
+                                        && !isFinishing() && !isDestroyed()) prepareMicBridge(remaining - 1);
+                            }, 2000);
+                            return;
+                        }
+                        if (!completeMicBridgeRequest(requests)) return;
+                        if (!requests.isCurrentAccount()) {
+                            Toast.makeText(Game.this, R.string.stream_account_changed, Toast.LENGTH_LONG).show();
+                        } else if (result == null || !Boolean.TRUE.equals(result.ok) || !"ready".equals(result.state)
+                                || result.protocol != 2 || result.port < 1 || result.port > 65535
+                                || result.sessionId == null || result.sessionId.isEmpty()
+                                || result.key == null || result.key.isEmpty()) {
+                            Toast.makeText(Game.this, R.string.game_mic_bridge_failed, Toast.LENGTH_LONG).show();
+                        } else {
+                            startMicCapture(result);
+                        }
+                    }
+                    @Override public void onError(String message) {
+                        if (!completeMicBridgeRequest(requests)) return;
+                        Toast.makeText(Game.this, message, Toast.LENGTH_LONG).show();
+                    }
+                });
+        updateMicrophoneState();
     }
 
     private boolean completeMicBridgeRequest(AccountManager.StreamRequests requests) {
@@ -2479,24 +2496,26 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
     }
 
-    private void startMicCapture() {
+    private void startMicCapture(SpaceConnectApiClient.MicEnsureResponse grant) {
         if (connectionClosed || !connected || isFinishing() || isDestroyed()) return;
-        int micPort = (streamPort > 0 && streamPort != NvHTTP.DEFAULT_HTTP_PORT && streamPort != 47989)
+        if (micForwarder != null && micForwarder.getState() != MicForwarder.State.STOPPED) return;
+        int micPort = grant != null ? grant.port
+                : (streamPort > 0 && streamPort != NvHTTP.DEFAULT_HTTP_PORT && streamPort != 47989)
                 ? (streamPort + 25)
                 : MicForwarder.DEFAULT_PORT;
-        if (micForwarder == null) {
-            micForwarder = new MicForwarder(this, hostAddress, micPort, prefConfig.micForwardingDevice);
-            micForwarder.setListener((state, failed) -> {
-                if (connectionClosed || isFinishing() || isDestroyed()) return;
-                updateMicrophoneState();
-                if (failed) {
-                    Toast.makeText(this, R.string.stream_side_mic_failed, Toast.LENGTH_LONG).show();
-                } else if (state == MicForwarder.State.RUNNING || state == MicForwarder.State.STOPPED) {
-                    Toast.makeText(this, state == MicForwarder.State.RUNNING
-                            ? R.string.game_mic_forward_started : R.string.game_mic_forward_stopped, Toast.LENGTH_SHORT).show();
-                }
-            });
-        }
+        if (micForwarder != null) micForwarder.setListener(null);
+        micForwarder = new MicForwarder(this, hostAddress, micPort, prefConfig.micForwardingDevice,
+                grant == null ? null : grant.sessionId, grant == null ? null : grant.key);
+        micForwarder.setListener((state, failed) -> {
+            if (connectionClosed || isFinishing() || isDestroyed()) return;
+            updateMicrophoneState();
+            if (failed) {
+                Toast.makeText(this, R.string.stream_side_mic_failed, Toast.LENGTH_LONG).show();
+            } else if (state == MicForwarder.State.RUNNING || state == MicForwarder.State.STOPPED) {
+                Toast.makeText(this, state == MicForwarder.State.RUNNING
+                        ? R.string.game_mic_forward_started : R.string.game_mic_forward_stopped, Toast.LENGTH_SHORT).show();
+            }
+        });
         micForwarder.start();
         updateMicrophoneState();
     }

@@ -290,6 +290,8 @@ public class SessionAccountSafetyTest {
         static Runnable duringRefresh;
         public static SpaceConnectApiClient.ApiException micFailure;
         public static Boolean micAccepted = true;
+        public static String micState = "ready";
+        public static int micPort = 48100;
         public static Runnable duringMic = () -> {};
         static int refreshCount, disconnectCount;
         public static void failMicrophone() {
@@ -306,7 +308,12 @@ public class SessionAccountSafetyTest {
             if (micFailure != null) throw micFailure;
             SpaceConnectApiClient.MicEnsureResponse response = new SpaceConnectApiClient.MicEnsureResponse();
             response.ok = micAccepted;
-            response.state = "already_running";
+            response.state = micState;
+            response.protocol = 2;
+            response.port = micPort;
+            response.sessionId = com.limelight.binding.audio.TestMicHost.ID;
+            response.key = com.limelight.binding.audio.TestMicHost.KEY;
+            response.expiresAt = System.currentTimeMillis() / 1000 + 300;
             return response;
         }
         @Implementation protected SpaceConnectApiClient.StatusResponse getStatus(String token, String machineId) throws Exception {

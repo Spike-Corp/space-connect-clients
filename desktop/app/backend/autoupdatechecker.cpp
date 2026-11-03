@@ -1,5 +1,6 @@
 #include "autoupdatechecker.h"
 
+#include <QCoreApplication>
 #include <QNetworkReply>
 #include <QStandardPaths>
 #include <QFile>
@@ -22,7 +23,7 @@ AutoUpdateChecker::AutoUpdateChecker(QObject *parent) :
     connect(m_Nam, &QNetworkAccessManager::finished,
             this, &AutoUpdateChecker::handleUpdateCheckRequestFinished);
 
-    QString currentVersion(VERSION_STR);
+    QString currentVersion = QCoreApplication::applicationVersion();
     qDebug() << "Current Moonlight version:" << currentVersion;
     parseStringToVersionQuad(currentVersion, m_CurrentVersionQuad);
 

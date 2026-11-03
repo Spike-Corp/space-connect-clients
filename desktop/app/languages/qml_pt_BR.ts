@@ -2253,6 +2253,10 @@ Se só quer tirar o atalho deste app sem apagar a VM, use &quot;Delete PC&quot; 
 <context>
     <name>Session</name>
     <message>
+        <source>The microphone receiver is not ready. Reconnect after checking the host.</source>
+        <translation>O receptor do microfone não está pronto. Confira a máquina e tente conectar novamente.</translation>
+    </message>
+    <message>
         <location filename="../streaming/session.cpp" line="1822"/>
         <location filename="../streaming/session.cpp" line="1829"/>
         <source>Your device is not authorized to open Desktop. Try again or contact support.</source>
@@ -3952,6 +3956,13 @@ Se só quer tirar o atalho deste app sem apagar a VM, use &quot;Delete PC&quot; 
         <location filename="../gui/main.qml" line="770"/>
         <source>Adjust resolution, FPS and bitrate in Settings before connecting. The VM applies them on the next session.</source>
         <translation>Ajuste resolução, FPS e bitrate nas Configurações antes de conectar. A VM aplica na próxima sessão.</translation>
+    </message>
+</context>
+<context>
+    <name>MicForwarder</name>
+    <message>
+        <source>Could not forward microphone audio. Check the input device and the host connection.</source>
+        <translation>Não foi possível enviar o áudio do microfone. Confira o dispositivo de entrada e a conexão com a máquina.</translation>
     </message>
 </context>
 </TS>

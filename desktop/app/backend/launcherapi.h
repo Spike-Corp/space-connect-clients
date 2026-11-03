@@ -157,9 +157,8 @@ public:
     Q_INVOKABLE void uploadFileToVm(const QString& filePath);
     // Emuladores: catálogo oficial + instalar/lançar na VM (o backend usa o
     // guest agent do Proxmox — nao precisa de versao nova do agent Windows).
-    // Mic bridge: garante que o MicBridge está rodando na VM (chamado ao
-    // conectar quando o encaminhamento de mic está ligado). Fire-and-forget.
-    void ensureMicBridge(const QString& machineId = QString());
+    void ensureMicBridge(const QString& machineId, quint64 account, QObject& receiver,
+                         StreamResponseHandler handler, int remaining = 45);
     Q_INVOKABLE void refreshEmulators();
     Q_INVOKABLE void refreshDownloads();
     // Baixa um item da biblioteca NA VM (pasta Downloads dela) — NÃO pro PC

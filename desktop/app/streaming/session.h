@@ -2,6 +2,8 @@
 
 #include <QSemaphore>
 #include <QWindow>
+#include <QMutex>
+#include <QPointer>
 
 #include <Limelight.h>
 #include <opus_multistream.h>
@@ -316,6 +318,9 @@ private:
     // PC's own microphone and forwards it to the "Space Connect Mic Bridge" companion program
     // running on the host, when StreamingPreferences::enableMicForwarding is set.
     MicForwarder* m_MicForwarder;
+    QMutex m_MicLock;
+    QPointer<QObject> m_MicRequest;
+    bool m_MicManaged = false;
     int m_MouseEmulationRefCount;
     int m_FlushingWindowEventsRef;
 

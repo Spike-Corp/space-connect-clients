@@ -374,7 +374,7 @@ public final class AccountManager {
         }
 
         @Override public SpaceConnectApiClient.MicEnsureResponse ensureMicBridge() throws Exception {
-            if (friend) throw new IllegalStateException("Only the owner can prepare the microphone bridge");
+            if (friend) throw new IllegalStateException(context.getString(R.string.game_mic_owner_only));
             return execute(token -> api.ensureMicBridge(token, machineId));
         }
 

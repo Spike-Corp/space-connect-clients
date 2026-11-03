@@ -14,7 +14,7 @@
 
 SystemProperties::SystemProperties()
 {
-    versionString = QString(VERSION_STR);
+    versionString = QCoreApplication::applicationVersion();
 #ifdef XD_CONSOLE
     isXdConsole = true;
 #endif
