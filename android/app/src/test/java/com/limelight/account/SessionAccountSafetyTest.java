@@ -293,9 +293,17 @@ public class SessionAccountSafetyTest {
         public static String micState = "ready";
         public static int micPort = 48100;
         public static Runnable duringMic = () -> {};
+        public static SpaceConnectApiClient.BugReportRequest bugReport;
         static int refreshCount, disconnectCount;
         public static void failMicrophone() {
             micFailure = new SpaceConnectApiClient.ApiException(503, "AGENT_OFFLINE", "Agente indisponível.", null);
+        }
+        @Implementation protected SpaceConnectApiClient.SimpleResponse reportBug(
+                String token, SpaceConnectApiClient.BugReportRequest input) {
+            bugReport = input;
+            SpaceConnectApiClient.SimpleResponse result = new SpaceConnectApiClient.SimpleResponse();
+            result.success = true;
+            return result;
         }
         @Implementation protected SpaceConnectApiClient.AuthResponse verifyTwoFactor(String token, String code) {
             return auth("second");

@@ -4,6 +4,7 @@ package com.limelight;
 import com.limelight.binding.PlatformBinding;
 import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.audio.MicForwarder;
+import com.limelight.session.MicDiagnostics;
 import com.limelight.binding.input.ControllerHandler;
 import com.limelight.binding.input.KeyboardTranslator;
 import com.limelight.binding.input.capture.InputCaptureManager;
@@ -273,6 +274,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        MicDiagnostics.install(this);
+        MicDiagnostics.record(MicDiagnostics.Phase.ACTIVITY_CREATE);
 
         UiHelper.setLocale(this);
         String attemptId = getIntent().getStringExtra(EXTRA_SESSION_ATTEMPT);
@@ -1485,6 +1488,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     @Override
     protected void onDestroy() {
+        MicDiagnostics.record(MicDiagnostics.Phase.ACTIVITY_DESTROY);
         stopConnection();
         if (streamSideMenu != null) streamSideMenu.dispose();
         if (virtualController != null) virtualController.dispose();
@@ -1562,6 +1566,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     @Override
     protected void onStop() {
         super.onStop();
+        MicDiagnostics.record(MicDiagnostics.Phase.ACTIVITY_STOP);
         stopConnection();
 
         SpinnerDialog.closeDialogs(this);
@@ -2413,6 +2418,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private void toggleMicForwarding() {
         if (connectionClosed || !connected || isFinishing() || isDestroyed()
                 || micPermissionPending || micBridgeRequest != null) return;
+        MicDiagnostics.record(MicDiagnostics.Phase.MIC_BUTTON);
         MicForwarder.State state = micForwarder != null ? micForwarder.getState() : MicForwarder.State.STOPPED;
         if (state == MicForwarder.State.RUNNING) {
             micForwarder.stop();
@@ -2421,6 +2427,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 startMicForwarding();
             } else {
                 micPermissionPending = true;
+                MicDiagnostics.record(MicDiagnostics.Phase.PERMISSION_REQUESTED);
                 requestPermissions(new String[] { Manifest.permission.RECORD_AUDIO }, MIC_PERMISSION_REQUEST_CODE);
             }
         }
@@ -2442,6 +2449,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void prepareMicBridge(int remaining) {
+        if (remaining == 45) MicDiagnostics.record(MicDiagnostics.Phase.HOST_PREPARING);
         AccountManager.StreamRequests requests = sessionAttempt.streamRequests(new RequestScope());
         micBridgeRequest = requests;
         micBridgeFuture = AccountManager.ensureMicBridge(this, requests,
@@ -2466,6 +2474,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                                 || result.key == null || result.key.isEmpty()) {
                             Toast.makeText(Game.this, R.string.game_mic_bridge_failed, Toast.LENGTH_LONG).show();
                         } else {
+                            MicDiagnostics.record(MicDiagnostics.Phase.HOST_READY);
                             startMicCapture(result);
                         }
                     }
@@ -2524,6 +2533,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == MIC_PERMISSION_REQUEST_CODE) {
+            MicDiagnostics.record(MicDiagnostics.Phase.PERMISSION_RESULT);
             boolean requested = micPermissionPending;
             micPermissionPending = false;
             if (!requested || connectionClosed || !connected || isFinishing() || isDestroyed()) return;
@@ -3292,6 +3302,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private void stopConnection() {
         if (connectionClosed) return;
+        MicDiagnostics.record(MicDiagnostics.Phase.STREAM_STOP);
         connectionClosed = true;
         restoreCaptureAfterGuests = false;
         if (streamGuests != null) streamGuests.dispose();

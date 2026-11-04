@@ -221,6 +221,7 @@
     <string name="bug_report_title">Reportar bug</string>
     <string name="bug_report_hint">Conte o que aconteceu. O relato vai direto para a nossa equipa (painel admin → Bugs app).</string>
     <string name="bug_report_meta">Versão do app %1$s · dispositivo e SO incluídos automaticamente</string>
+    <string name="bug_report_mic_diagnostic">Diagnóstico do microfone: registros de falhas e etapas do microfone serão anexados quando enviar este relato. Sem gravação de voz, senhas ou tokens.</string>
     <string name="bug_report_email_hint">O seu e-mail</string>
     <string name="bug_report_description_hint">Descreva o problema: o que fez, o que aconteceu e quando começou…</string>
     <string name="bug_report_send">Enviar relato</string>

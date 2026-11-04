@@ -184,6 +184,7 @@
     <string name="bug_report_title">Report a bug</string>
     <string name="bug_report_hint">Tell us what happened. The report goes straight to our team (admin panel → Bugs app).</string>
     <string name="bug_report_meta">App version %1$s · device and OS info included automatically</string>
+    <string name="bug_report_mic_diagnostic">Microphone diagnostics: failure records and microphone steps will be included when you send this report. No voice recordings, passwords or tokens.</string>
     <string name="bug_report_email_hint">Your email</string>
     <string name="bug_report_description_hint">Describe the problem: what you did, what happened, and when it started…</string>
     <string name="bug_report_send">Send report</string>

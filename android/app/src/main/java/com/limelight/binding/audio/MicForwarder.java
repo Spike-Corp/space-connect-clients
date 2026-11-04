@@ -10,6 +10,7 @@ import android.os.Handler;
 import android.os.Looper;
 
 import com.limelight.LimeLog;
+import com.limelight.session.MicDiagnostics;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -82,6 +83,7 @@ public class MicForwarder {
 
     public synchronized void start() {
         if (capture != null) return;
+        MicDiagnostics.record(MicDiagnostics.Phase.CAPTURE_REQUESTED);
         CaptureAttempt attempt = new CaptureAttempt(++generation);
         capture = attempt;
         currentLevel = 0f;
@@ -96,6 +98,7 @@ public class MicForwarder {
         synchronized (this) {
             attempt = capture;
             if (attempt == null || attempt.cancelled) return;
+            MicDiagnostics.record(MicDiagnostics.Phase.STOP_REQUESTED);
             attempt.cancelled = true;
             state = State.STOPPING;
             currentLevel = 0f;
@@ -146,6 +149,7 @@ public class MicForwarder {
             if (attempt.cancelled) return;
             int minBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
             if (minBufferSize <= 0) throw new IllegalStateException("AudioRecord buffer size unavailable");
+            MicDiagnostics.record(MicDiagnostics.Phase.RECORDER_CREATING);
             audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE,
                     AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
                     Math.max(minBufferSize * 2, MicPacket.FRAME_BYTES * 4));
@@ -153,6 +157,7 @@ public class MicForwarder {
             if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
                 throw new IllegalStateException("AudioRecord failed to initialize");
             }
+            MicDiagnostics.record(MicDiagnostics.Phase.RECORDER_READY);
 
             // Picking the wrong input device (e.g. a webcam mic instead of a headset mic) is a
             // common cause of "mic forwarding does nothing" - honor the user's explicit choice
@@ -194,16 +199,19 @@ public class MicForwarder {
             packetBuffer[7] = 0;
             writeIntLE(packetBuffer, 8, SAMPLE_RATE);
 
+            MicDiagnostics.record(MicDiagnostics.Phase.RECORDER_STARTING);
             audioRecord.startRecording();
             if (audioRecord.getRecordingState() != AudioRecord.RECORDSTATE_RECORDING) {
                 throw new IllegalStateException("AudioRecord did not start recording");
             }
+            MicDiagnostics.record(MicDiagnostics.Phase.CAPTURING);
             synchronized (this) {
                 if (attempt.cancelled) return;
                 state = State.RUNNING;
                 notifyState(attempt, State.RUNNING, false);
             }
 
+            boolean firstAudioSent = false;
             while (!attempt.cancelled) {
                 if (secure != null) {
                     if (receiveAcknowledgement(attempt, secure)) lastAcknowledged = System.nanoTime();
@@ -230,6 +238,10 @@ public class MicForwarder {
                     DatagramPacket packet = new DatagramPacket(packetBuffer, HEADER_SIZE + bytesRead, address, port);
                     attempt.socket.send(packet);
                 }
+                if (!firstAudioSent) {
+                    firstAudioSent = true;
+                    MicDiagnostics.record(MicDiagnostics.Phase.FIRST_AUDIO_SENT);
+                }
             }
         }
         catch (IOException | IllegalStateException | IllegalArgumentException | SecurityException e) {
@@ -246,6 +258,7 @@ public class MicForwarder {
             if (failed) LimeLog.warning("MicForwarder: capture interrupted");
         }
         finally {
+            if (failed) MicDiagnostics.record(MicDiagnostics.Phase.CAPTURE_FAILED);
             if (audioRecord != null) {
                 try {
                     audioRecord.stop();
@@ -255,6 +268,7 @@ public class MicForwarder {
                 }
                 audioRecord.release();
             }
+            MicDiagnostics.record(MicDiagnostics.Phase.STOPPED);
             if (attempt.socket != null) attempt.socket.close();
             synchronized (this) {
                 if (capture == attempt) {

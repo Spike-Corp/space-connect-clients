@@ -674,6 +674,8 @@ public final class AccountManager {
                 input.osVersion = "Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")";
                 input.deviceModel = device.name;
                 input.deviceId = device.deviceId;
+                if (BuildConfig.MIC_DIAGNOSTICS)
+                    input.context = com.limelight.session.MicDiagnostics.reportContext(appContext);
 
                 SpaceConnectApiClient.SimpleResponse result = API.reportBug(token, input);
                 post(() -> callback.onSuccess(result));
