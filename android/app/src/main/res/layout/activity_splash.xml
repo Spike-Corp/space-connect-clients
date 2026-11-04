@@ -70,6 +70,7 @@
             android:layout_marginTop="16dp"
             android:text="@string/login_app_name"
             android:textColor="@color/moonlight_foreground"
+            android:fontFamily="@font/space_display"
             android:textStyle="bold"
             android:textSize="28sp"/>
 

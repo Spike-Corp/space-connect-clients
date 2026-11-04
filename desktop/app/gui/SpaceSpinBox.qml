@@ -9,9 +9,9 @@ import QtQuick.Controls 2.2
 SpinBox {
     id: control
 
-    property color spaceBackgroundColor: "#201A33"
-    property color spaceBorderColor: (control.activeFocus || control.hovered) ? "#9B6BFF" : "#4A4166"
-    property color spaceTextColor: control.enabled ? "#F1EDFB" : "#6B6480"
+    property color spaceBackgroundColor: "#17122A"
+    property color spaceBorderColor: (control.activeFocus || control.hovered) ? "#A482FA" : "#2E2545"
+    property color spaceTextColor: control.enabled ? "#F8F5FF" : "#9793AA"
 
     background: Rectangle {
         implicitWidth: 160
@@ -30,8 +30,8 @@ SpinBox {
         text: control.textFromValue(control.value, control.locale)
         font: control.font
         color: control.spaceTextColor
-        selectionColor: "#9B6BFF"
-        selectedTextColor: "#F1EDFB"
+        selectionColor: "#A482FA"
+        selectedTextColor: "#F8F5FF"
         horizontalAlignment: Qt.AlignHCenter
         verticalAlignment: Qt.AlignVCenter
         leftPadding: control.down.indicator.width
@@ -50,7 +50,7 @@ SpinBox {
         Text {
             text: "+"
             font.pixelSize: 18
-            color: control.up.pressed ? "#F1EDFB" : "#9B6BFF"
+            color: control.up.pressed ? "#F8F5FF" : "#A482FA"
             anchors.centerIn: parent
         }
     }
@@ -64,7 +64,7 @@ SpinBox {
         Text {
             text: "\u2212"
             font.pixelSize: 18
-            color: control.down.pressed ? "#F1EDFB" : "#9B6BFF"
+            color: control.down.pressed ? "#F8F5FF" : "#A482FA"
             anchors.centerIn: parent
         }
     }

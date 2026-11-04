@@ -14,9 +14,9 @@ CheckBox {
         x: control.leftPadding
         y: control.topPadding + (control.availableHeight - height) / 2
         radius: 6
-        color: control.checked ? "#9B6BFF" : "#201A33"
+        color: control.checked ? "#A482FA" : "#17122A"
         border.width: 1.5
-        border.color: control.checked ? "#9B6BFF" : (control.hovered ? "#9B6BFF" : "#4A4166")
+        border.color: control.checked ? "#A482FA" : (control.hovered ? "#A482FA" : "#2E2545")
         opacity: control.enabled ? 1.0 : 0.5
 
         Behavior on color { ColorAnimation { duration: 100 } }
@@ -28,14 +28,14 @@ CheckBox {
             text: "\u2713"
             font.pixelSize: 14
             font.bold: true
-            color: "#F1EDFB"
+            color: "#F8F5FF"
         }
     }
 
     contentItem: Text {
         text: control.text
         font: control.font
-        color: control.enabled ? "#F1EDFB" : "#6B6480"
+        color: control.enabled ? "#F8F5FF" : "#9793AA"
         wrapMode: Text.Wrap
         verticalAlignment: Text.AlignVCenter
         leftPadding: control.indicator.width + control.spacing

@@ -27,9 +27,9 @@ ApplicationWindow {
     // Not sampled from any copyrighted artwork.
     background: Rectangle {
         gradient: Gradient {
-            GradientStop { position: 0.0; color: "#1B1030" }
-            GradientStop { position: 0.55; color: "#8B3FD4" }
-            GradientStop { position: 1.0; color: "#FF6F5E" }
+            GradientStop { position: 0.0; color: "#15102A" }
+            GradientStop { position: 0.55; color: "#120C22" }
+            GradientStop { position: 1.0; color: "#0A0611" }
         }
     }
 
@@ -225,11 +225,11 @@ ApplicationWindow {
         anchors.topMargin: 5
         anchors.bottomMargin: 5
 
-        // "Space Connect" display font for the toolbar title - same Orbitron
-        // typeface used for headings/wordmarks on the Android client.
+        // "Space Connect" display font for the toolbar title - the Bai Jamjuree
+        // typeface used for headings/wordmarks on the Android client and the web.
         FontLoader {
             id: displayFontLoader
-            source: "qrc:/fonts/orbitron_bold.ttf"
+            source: "qrc:/fonts/bai_jamjuree_bold.ttf"
         }
 
         Label {

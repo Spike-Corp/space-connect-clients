@@ -18,6 +18,7 @@
             android:layout_marginTop="48dp"
             android:text="@string/login_app_name"
             android:textColor="@color/moonlight_purple"
+            android:fontFamily="@font/space_display"
             android:textStyle="bold"
             android:letterSpacing="0.04"
             android:textSize="30sp" />

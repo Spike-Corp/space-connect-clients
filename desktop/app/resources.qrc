@@ -31,9 +31,10 @@
         <file>res/icons/microphone-off.svg</file>
         <file>res/icons/wifi.svg</file>
         <file>res/icons/device-desktop.svg</file>
-        <file alias="fonts/orbitron_bold.ttf">res/fonts/orbitron_bold.ttf</file>
-        <file alias="fonts/rajdhani_medium.ttf">res/fonts/rajdhani_medium.ttf</file>
-        <file alias="fonts/rajdhani_semibold.ttf">res/fonts/rajdhani_semibold.ttf</file>
+        <file alias="fonts/bai_jamjuree_bold.ttf">res/fonts/bai_jamjuree_bold.ttf</file>
+        <file alias="fonts/inter_regular.ttf">res/fonts/inter_regular.ttf</file>
+        <file alias="fonts/inter_medium.ttf">res/fonts/inter_medium.ttf</file>
+        <file alias="fonts/inter_semibold.ttf">res/fonts/inter_semibold.ttf</file>
         <file>languages/qml_de.ts</file>
         <file>languages/qml_de.qm</file>
         <file>languages/qml_fr.ts</file>

@@ -26,6 +26,7 @@
         <item name="android:colorAccent">@color/moonlight_purple</item>
         <item name="android:textColorPrimary">?attr/appForegroundColor</item>
         <item name="android:textColorSecondary">?attr/appMutedForegroundColor</item>
+        <item name="android:fontFamily">@font/space_sans</item>
     </style>
 
 </resources>

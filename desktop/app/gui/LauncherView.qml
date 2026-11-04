@@ -9,15 +9,15 @@ Item {
     objectName: qsTr("SpaceCloud")
 
     // SpaceCloud beta tokens: one source of truth for the native experience.
-    readonly property color ink: "#F5F7FF"
-    readonly property color muted: "#8D96AA"
+    readonly property color ink: "#F8F5FF"
+    readonly property color muted: "#9793AA"
     readonly property color dim: "#5D667A"
     readonly property color canvas: "#080B12"
     readonly property color panel: "#101522"
     readonly property color panelRaised: "#171E2D"
     readonly property color line: "#263044"
     readonly property color accent: "#7C9CFF"
-    readonly property color accentStrong: "#A8BCFF"
+    readonly property color accentStrong: "#A993FF"
     readonly property color success: "#73E0B0"
     property bool addingComputer: false
     property string crimsonConnectionAddress: ""
@@ -141,7 +141,7 @@ Item {
                     Label {
                         anchors.centerIn: parent
                         text: "S"
-                        color: "#08101F"
+                        color: "#0D0816"
                         font.pixelSize: 20
                         font.bold: true
                     }
@@ -254,9 +254,9 @@ Item {
                         Rectangle {
                             anchors.fill: parent
                             gradient: Gradient {
-                                GradientStop { position: 0.0; color: "#C9080B12" }
-                                GradientStop { position: 0.55; color: "#B0080B12" }
-                                GradientStop { position: 1.0; color: "#F0080B12" }
+                                GradientStop { position: 0.0; color: "#C90D0816" }
+                                GradientStop { position: 0.55; color: "#B00D0816" }
+                                GradientStop { position: 1.0; color: "#F00D0816" }
                             }
                         }
                         Column {
@@ -280,7 +280,7 @@ Item {
                             }
                             Label {
                                 text: qsTr("Uma máquina dedicada prepara o jogo e conecta você direto na partida.")
-                                color: "#D8DEEC"
+                                color: "#E8E2FF"
                                 font.pixelSize: 13
                                 wrapMode: Text.WordWrap
                                 width: parent.width
@@ -294,7 +294,7 @@ Item {
                                 Text {
                                     anchors.centerIn: parent
                                     text: crimsonText()
-                                    color: "#08101F"
+                                    color: "#0D0816"
                                     font.pixelSize: 12
                                     font.bold: true
                                 }
@@ -371,7 +371,7 @@ Item {
                                 Label { text: qsTr("Máquina dedicada"); color: launcherView.ink; font.bold: true; font.pixelSize: 12 }
                                 Label { text: qsTr("GPU reservada para uma sessão por vez · encerra após 5 min sem atividade"); color: launcherView.muted; font.pixelSize: 11 }
                             }
-                            Label { text: LauncherApi.errorMessage.length > 0 ? LauncherApi.errorMessage : qsTr("Pronto para jogar"); color: LauncherApi.errorMessage.length > 0 ? "#FF8D98" : launcherView.success; font.pixelSize: 11 }
+                            Label { text: LauncherApi.errorMessage.length > 0 ? LauncherApi.errorMessage : qsTr("Pronto para jogar"); color: LauncherApi.errorMessage.length > 0 ? "#FF6B84" : launcherView.success; font.pixelSize: 11 }
                         }
                     }
                 }
@@ -395,14 +395,14 @@ Item {
         }
         Rectangle {
             anchors.fill: parent
-            color: "#D9080B12"
+            color: "#D90D0816"
         }
         Rectangle {
             anchors.centerIn: parent
             width: Math.min(570, parent.width - 48)
             height: 330
             radius: 18
-            color: "#F0101624"
+            color: "#F017122A"
             border.color: "#445170"
 
             ColumnLayout {
@@ -411,7 +411,7 @@ Item {
                 spacing: 16
                 Label { text: qsTr("CRIMSON DESERT"); color: launcherView.accentStrong; font.pixelSize: 11; font.bold: true }
                 Label { text: loadingTitle(); color: launcherView.ink; font.pixelSize: 27; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                Label { text: loadingDetails(); color: "#D0D7E7"; font.pixelSize: 13; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                Label { text: loadingDetails(); color: "#9793AA"; font.pixelSize: 13; Layout.fillWidth: true; wrapMode: Text.WordWrap }
                 Item { Layout.fillHeight: true }
                 RowLayout {
                     Layout.fillWidth: true
@@ -500,7 +500,7 @@ Item {
                         height: 30
                         radius: 15
                         color: launcherView.accent
-                        Label { anchors.centerIn: parent; text: "▶"; color: "#08101F"; font.pixelSize: 11 }
+                        Label { anchors.centerIn: parent; text: "▶"; color: "#0D0816"; font.pixelSize: 11 }
                         MouseArea { anchors.fill: parent; onClicked: parent.parent.parent.parent.play() }
                     }
                 }

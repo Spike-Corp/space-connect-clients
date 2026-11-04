@@ -9,7 +9,7 @@ Row {
 
     property alias iconSource: icon.source
     property alias text: label.text
-    property color accentColor: "#9B6BFF"
+    property color accentColor: "#A482FA"
 
     spacing: 8
     bottomPadding: 6

@@ -257,7 +257,7 @@
     <string name="launcher_machine">PC SpaceCloud</string>
     <string name="launcher_join_queue">Entrar na fila</string>
     <string name="launcher_leave_queue">Sair da fila</string>
-    <string name="launcher_connect">Conectar com Moonlight</string>
+    <string name="launcher_connect">Conectar</string>
     <string name="launcher_wait">Aguarde</string>
     <string name="launcher_end_session">Encerrar sessão</string>
     <string name="launcher_refresh">Atualizar status</string>

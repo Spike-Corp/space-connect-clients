@@ -10,7 +10,7 @@ Item {
 
     FontLoader {
         id: displayFontLoader
-        source: "qrc:/fonts/orbitron_bold.ttf"
+        source: "qrc:/fonts/bai_jamjuree_bold.ttf"
     }
 
     function attemptLogin() {
@@ -62,13 +62,13 @@ Item {
                 font.family: displayFontLoader.name
                 font.pixelSize: 30
                 font.letterSpacing: 2
-                color: "#9B6BFF"
+                color: "#A482FA"
                 Layout.alignment: Qt.AlignHCenter
             }
 
             Label {
                 text: qsTr("Sign in to start streaming")
-                color: "#A79BC9"
+                color: "#9793AA"
                 font.pointSize: 12
                 Layout.alignment: Qt.AlignHCenter
                 Layout.bottomMargin: 20
@@ -78,9 +78,9 @@ Item {
                 Layout.fillWidth: true
                 implicitHeight: fieldsColumn.implicitHeight + 48
                 radius: 14
-                color: "#201A33"
+                color: "#17122A"
                 border.width: 1
-                border.color: "#E4D9FF"
+                border.color: "#E8E2FF"
 
                 ColumnLayout {
                     id: fieldsColumn
@@ -107,7 +107,7 @@ Item {
                     Label {
                         id: errorLabel
                         visible: false
-                        color: "#FF5D5D"
+                        color: "#FF4C6D"
                         wrapMode: Label.WordWrap
                         Layout.fillWidth: true
                     }
@@ -131,7 +131,7 @@ Item {
 
             Label {
                 text: qsTr("Forgot your password?")
-                color: "#2EC4B6"
+                color: "#4CFFA9"
                 font.underline: true
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 20

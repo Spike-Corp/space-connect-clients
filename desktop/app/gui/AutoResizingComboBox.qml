@@ -52,7 +52,7 @@ ComboBox {
 
     // Belt-and-suspenders re-measurement, shortly after creation. The immediate
     // Component.onCompleted call below can still under-measure in some cases (e.g. this
-    // control's font not having finished resolving to the app's custom "Rajdhani" font yet, or
+    // control's font not having finished resolving to the app's custom "Inter" font yet, or
     // an ancestor layout not having settled its final width yet on the very first pass) - a
     // second pass a moment later, once everything has settled, corrects any such stale/undersized
     // measurement instead of leaving the combo box permanently truncated.

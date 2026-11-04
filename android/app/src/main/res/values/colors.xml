@@ -1,38 +1,56 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Space Cloud design tokens (single source of truth for the Android client palette).
+    Values are the real brand tokens from the Space Cloud Brandbook v1.1 (the web client's
+    globals.css @theme block): deep-space background, soft-white text, purple/blue gradient
+    highlights, neon-green success, orange warning, pink-red danger.
+
+    The resource NAMES are kept (moonlight_*) on purpose: every theme attr, drawable and layout
+    already references @color/moonlight_*, so aligning the VALUES here cascades the Space palette
+    across the whole app with zero layout/logic changes. These are brand colors, not sampled from
+    any copyrighted artwork.
+-->
 <resources>
-    <!-- "Space Connect" theme palette - dark terminal background with neon purple accents -->
-    <color name="moonlight_background">#140F1F</color>
-    <color name="moonlight_surface">#201A33</color>
-    <color name="moonlight_surface_2">#1A1528</color>
-    <color name="moonlight_foreground">#F1EDFB</color>
-    <color name="moonlight_muted_foreground">#A79BC9</color>
-    <color name="moonlight_gold">#FF8C32</color>
-    <color name="moonlight_gold_soft">#FFB25E</color>
+    <!-- Core surfaces (dark theme = default) -->
+    <color name="moonlight_background">#0D0816</color>      <!-- brand black-space -->
+    <color name="moonlight_surface">#17122A</color>         <!-- translucent-style card, lifted -->
+    <color name="moonlight_surface_2">#1F1836</color>       <!-- higher elevation -->
+    <color name="moonlight_foreground">#F8F5FF</color>      <!-- brand white-soft -->
+    <color name="moonlight_muted_foreground">#9793AA</color><!-- brand muted text -->
+    <color name="moonlight_border">#33A482FA</color>        <!-- thin translucent purple border -->
+
+    <!-- Primary brand accent: purple -> blue gradient -->
+    <color name="moonlight_purple">#A482FA</color>          <!-- brand purple -->
+    <color name="moonlight_purple_shadow">#6A4BD0</color>   <!-- darker purple (gradient depth) -->
+    <color name="moonlight_blue">#4572FA</color>            <!-- brand blue (CTA gradient end) -->
+    <color name="moonlight_kicker">#A993FF</color>          <!-- brand kicker/label -->
+
+    <!-- Success = neon green (Ligar / Conectar) -->
+    <color name="moonlight_teal">#4CFFA9</color>            <!-- brand green -->
+    <color name="moonlight_teal_shadow">#27C77E</color>     <!-- darker green (gradient depth) -->
+
+    <!-- Warning / warm accent = orange -->
+    <color name="moonlight_gold">#FF974C</color>           <!-- brand orange -->
+    <color name="moonlight_gold_soft">#FFB37A</color>
     <color name="moonlight_gold_foreground">#FFFFFF</color>
-    <color name="moonlight_gold_shadow">#D9601A</color>
-    <color name="moonlight_border">#E4D9FF</color>
-    <color name="moonlight_danger">#FF5D5D</color>
-    <color name="moonlight_teal">#2EC4B6</color>
-    <color name="moonlight_teal_shadow">#1F9187</color>
-    <color name="moonlight_purple">#9B6BFF</color>
-    <color name="moonlight_purple_shadow">#6B3FD4</color>
+    <color name="moonlight_gold_shadow">#CC6B2E</color>
 
-    <!-- Original "Vice-City sunset" mood gradient stops for the app's Dark-theme window
-         background (see bg_app_gradient.xml) - hand-picked original values, not sampled from any
-         copyrighted artwork. Night-sky indigo at the top, fading through neon purple to a warm
-         pink/orange horizon glow at the bottom. -->
-    <color name="moonlight_sunset_top">#1B1030</color>
-    <color name="moonlight_sunset_mid">#8B3FD4</color>
-    <color name="moonlight_sunset_horizon">#FF6F5E</color>
-    <color name="moonlight_skyline_silhouette">#140A24</color>
+    <!-- Danger = pink-red (Desligar / Formatar) -->
+    <color name="moonlight_danger">#FF4C6D</color>          <!-- brand red -->
 
-    <!-- Light theme variant (selectable via the "Appearance" setting) - same accent colors,
-         swapped background/surface/text luminance. -->
-    <color name="moonlight_background_light">#F5F0FF</color>
+    <!-- Deep-space window background gradient stops (top -> space -> vignette).
+         Replaces the old sunset mood with the brand dark-space look. Original values. -->
+    <color name="moonlight_sunset_top">#15102A</color>
+    <color name="moonlight_sunset_mid">#0D0816</color>
+    <color name="moonlight_sunset_horizon">#0A0611</color>
+    <color name="moonlight_skyline_silhouette">#0A0713</color>
+
+    <!-- Light theme variant (selectable via the "Appearance" setting) - brand light tones,
+         same accent colors, swapped background/surface/text luminance. -->
+    <color name="moonlight_background_light">#F8F5FF</color>
     <color name="moonlight_surface_light">#FFFFFF</color>
-    <color name="moonlight_surface_2_light">#ECE3FA</color>
-    <color name="moonlight_foreground_light">#241C35</color>
-    <color name="moonlight_muted_foreground_light">#8B7FA8</color>
-    <color name="moonlight_border_light">#241C35</color>
+    <color name="moonlight_surface_2_light">#ECE6FA</color>
+    <color name="moonlight_foreground_light">#0D0816</color>
+    <color name="moonlight_muted_foreground_light">#6B6480</color>
+    <color name="moonlight_border_light">#33A482FA</color>
 </resources>
-

@@ -232,7 +232,7 @@
     <string name="launcher_machine">SpaceCloud PC</string>
     <string name="launcher_join_queue">Join queue</string>
     <string name="launcher_leave_queue">Leave queue</string>
-    <string name="launcher_connect">Connect with Moonlight</string>
+    <string name="launcher_connect">Connect</string>
     <string name="launcher_wait">Please wait</string>
     <string name="launcher_end_session">End session</string>
     <string name="launcher_refresh">Refresh status</string>
