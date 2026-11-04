@@ -166,10 +166,8 @@ public final class MicDiagnostics {
             ActivityManager manager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
             if (manager == null) return "PROCESS_EXIT_UNAVAILABLE\n";
             try {
-                for (ApplicationExitInfo exit : manager.getHistoricalProcessExitReasons(context.getPackageName(), 0, 8)) {
+                for (ApplicationExitInfo exit : manager.getHistoricalProcessExitReasons(context.getPackageName(), 0, 1)) {
                     int reason = exit.getReason();
-                    if (reason != ApplicationExitInfo.REASON_CRASH && reason != ApplicationExitInfo.REASON_CRASH_NATIVE
-                            && reason != ApplicationExitInfo.REASON_ANR) continue;
                     String header = "PREVIOUS_EXIT at=" + exit.getTimestamp() + " reason=" + reason
                             + " status=" + exit.getStatus() + " (previous build not supplied by Android)\n";
                     if (reason != ApplicationExitInfo.REASON_CRASH_NATIVE) return header;

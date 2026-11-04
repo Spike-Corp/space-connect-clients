@@ -1,6 +1,8 @@
 package com.limelight.session;
 
 import android.content.Context;
+import android.app.ActivityManager;
+import android.app.ApplicationExitInfo;
 import android.os.Looper;
 import com.limelight.account.AccountManager;
 import com.limelight.account.SessionAccountSafetyTest;
@@ -77,6 +79,17 @@ public class MicDiagnosticsTest {
                 Thread.currentThread(), new IllegalStateException("fixture"));
         assertEquals(1, delegated.get());
         assertTrue(MicDiagnostics.report(context).contains("DIAGNOSTIC_STORAGE_ERROR"));
+    }
+
+    @Test @Config(sdk = 35)
+    public void aRecentSystemKillIsNotReplacedByAnOlderNativeCrash() {
+        org.robolectric.shadows.ShadowActivityManager manager =
+                shadowOf(context.getSystemService(ActivityManager.class));
+        manager.addApplicationExitInfo(context.getPackageName(), 10, ApplicationExitInfo.REASON_CRASH_NATIVE, 6);
+        manager.addApplicationExitInfo(context.getPackageName(), 11, ApplicationExitInfo.REASON_LOW_MEMORY, 9);
+        String report = MicDiagnostics.report(context);
+        assertTrue(report, report.contains("reason=3 status=9"));
+        assertFalse(report, report.contains("reason=5"));
     }
 
     @Test public void aUserSubmittedReportIncludesThePersistedCrashWithinTheExistingApiLimit() throws Exception {
