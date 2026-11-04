@@ -1,0 +1,36 @@
+name: Sign microphone diagnostic APK (no publish)
+on:
+  workflow_dispatch:
+    inputs:
+      sha256:
+        description: SHA256 of the approved unsigned diagnostic APK
+        required: true
+permissions:
+  contents: read
+jobs:
+  sign:
+    runs-on: [self-hosted, Linux, X64]
+    steps:
+      - name: Verify and sign only the approved local candidate
+        env:
+          EXPECTED_SHA256: ${{ inputs.sha256 }}
+          SC_KEYSTORE_PASSWORD: ${{ secrets.SC_KEYSTORE_PASSWORD }}
+          SC_KEY_ALIAS: ${{ secrets.SC_KEY_ALIAS }}
+          SC_KEY_PASSWORD: ${{ secrets.SC_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ "$EXPECTED_SHA256" =~ ^[a-f0-9]{64}$ ]]
+          input=/root/.copilot/session-state/fcbddaca-2454-468a-9e7b-b0e69a821388/files/sc-mic-echo-0350/unsigned/SpaceConnect-0.3.49-diag.1-android.apk
+          output=/root/.copilot/session-state/fcbddaca-2454-468a-9e7b-b0e69a821388/files/sc-mic-echo-0350/signed/SpaceConnect-0.3.49-diag.1-android.apk
+          temporary="$RUNNER_TEMP/mic-diagnostic-$GITHUB_RUN_ID.apk"
+          trap 'rm -f -- "$temporary"' EXIT
+          install -m 600 "$input" "$temporary"
+          test "$(sha256sum "$temporary" | cut -d' ' -f1)" = "$EXPECTED_SHA256"
+          test ! -e "$output"
+          /opt/android-sdk/build-tools/36.0.0/apksigner sign \
+            --ks /root/.config/spaceconnect/space-connect-upload.jks \
+            --ks-key-alias "$SC_KEY_ALIAS" --ks-pass env:SC_KEYSTORE_PASSWORD --key-pass env:SC_KEY_PASSWORD \
+            --out "$output" "$temporary"
+          /opt/android-sdk/build-tools/36.0.0/apksigner verify --verbose --print-certs "$output"
+          sha256sum "$output"
