@@ -395,6 +395,15 @@ void LauncherApi::fetchMachines()
                         entry.insert(QStringLiteral("name"), name);
                         entry.insert(QStringLiteral("provider"), provider);
                         entry.insert(QStringLiteral("state"), machine.value(QStringLiteral("state")).toString());
+                        // Modo de vídeo escolhido pelo cliente ANTES de ligar a VM:
+                        // "standard" = NVIDIA VGX normal (padrão, nada muda);
+                        // "performance" = display virtual Apollo (Sudo Maker/SudoVDA)
+                        // p/ +120 FPS e resoluções custom. Backend antigo não manda:
+                        // cai em "standard". Aplicado host-side no connect.
+                        entry.insert(QStringLiteral("displayMode"),
+                                     machine.value(QStringLiteral("displayMode")).toString() == QStringLiteral("performance")
+                                         ? QStringLiteral("performance")
+                                         : QStringLiteral("standard"));
                         // Teto de bitrate do tipo de host (plano/provider), definido pelo
                         // backend. Backend antigo não manda: fica ""/0 e o app cai no teto
                         // cacheado da última conexão ou na heurística de GPU.
@@ -1725,6 +1734,39 @@ void LauncherApi::connectFriendMachine(const QString& machineId)
                 catch (const std::exception&) {
                     emit friendActionResult(false, tr("Conexão ainda não disponível na máquina do seu amigo"));
                 }
+            });
+}
+
+void LauncherApi::setDisplayMode(const QString& machineId, const QString& mode)
+{
+    if (!m_LoggedIn || machineId.isEmpty()) return;
+    // Contrato do backend: só "standard" ou "performance".
+    const QString target = mode == QStringLiteral("performance")
+        ? QStringLiteral("performance")
+        : QStringLiteral("standard");
+    const quint64 authGeneration = m_AuthGeneration;
+    request("POST", QStringLiteral("machines/") + machineId + QStringLiteral("/display-mode"),
+            QJsonObject{{QStringLiteral("mode"), target}}, true,
+            [this, machineId, target, authGeneration](int status, const QJsonObject& root) {
+                if (!m_LoggedIn || authGeneration != m_AuthGeneration) return;
+                if (status < 200 || status >= 300) {
+                    emit displayModeFinished(false, machineId, QString(),
+                        errorObject(root).value(QStringLiteral("message")).toString(
+                            tr("Não foi possível mudar o modo de vídeo. Tente de novo.")));
+                    return;
+                }
+                const QString applied = root.value(QStringLiteral("displayMode")).toString(target);
+                // Atualiza a lista em memória pra o card refletir na hora.
+                for (int i = 0; i < m_Machines.size(); i++) {
+                    QVariantMap map = m_Machines[i].toMap();
+                    if (map.value(QStringLiteral("id")).toString() == machineId) {
+                        map.insert(QStringLiteral("displayMode"), applied);
+                        m_Machines[i] = map;
+                        emit machinesChanged();
+                        break;
+                    }
+                }
+                emit displayModeFinished(true, machineId, applied, QString());
             });
 }
 

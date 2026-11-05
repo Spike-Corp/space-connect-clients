@@ -221,6 +221,10 @@ public:
     // Troca a senha do Windows (scg) da PRÓPRIA VM, sem formatar. Aplica ao vivo
     // se a VM estiver ligada, senão no próximo boot. Emite machinePasswordFinished.
     Q_INVOKABLE void setMachinePassword(const QString& machineId, const QString& password);
+    // Modo de vídeo da VM (standard = NVIDIA VGX; performance = Sudo Maker/SudoVDA,
+    // display virtual Apollo p/ +120 FPS). Persistido no backend e aplicado no connect.
+    // Emite displayModeFinished.
+    Q_INVOKABLE void setDisplayMode(const QString& machineId, const QString& mode);
     // Exclui a VM de VERDADE (wipe total: disco + snapshots + libera slot).
     // Irreversível. O cliente confirma 2x no app. Emite machineDeleteFinished.
     Q_INVOKABLE void deleteMachine(const QString& machineId);
@@ -281,6 +285,7 @@ signals:
     void machineBootReady(QString machineId, QString message);
     void machineDeleteFinished(bool success, QString message);
     void machinePasswordFinished(bool success, QString message, QString applied, QString machineId);
+    void displayModeFinished(bool success, QString machineId, QString displayMode, QString message);
 
 private:
     using ResponseHandler = std::function<void(int, const QJsonObject&)>;
