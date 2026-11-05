@@ -588,7 +588,11 @@ Session::Session(std::shared_ptr<NvComputer> computer, NvApp& app, bool freshlyP
     m_OwnedComputer = std::move(computer);
     m_ManagedDesktop = true;
     m_FreshlyPaired = freshlyPaired;
-    m_IsFullScreen = true;
+    // Keep the m_IsFullScreen value computed by the delegated constructor from
+    // the user's windowMode preference. Forcing it true here made "Windowed" and
+    // "Borderless windowed" no-ops for the launcher flow (every session opened
+    // full-screen). The managed reveal (loader fade + dashboard hide +
+    // completeReveal on first frame) is window-mode agnostic, so windowed works.
     m_RevealComplete.store(false);
 }
 
