@@ -62,6 +62,7 @@ void SessionOrchestrator::initialize(LauncherApi* launcher, ComputerManager* com
             return;
         try {
             m_Status = LauncherJson::parseStatus(QJsonDocument(root).toJson(QJsonDocument::Compact));
+            m_StatusReadFailures = 0;
             const QJsonObject texts = root.value(QStringLiteral("bootTexts")).toObject();
             if (!texts.isEmpty())
                 m_BootTexts = texts.toVariantMap();
@@ -72,15 +73,28 @@ void SessionOrchestrator::initialize(LauncherApi* launcher, ComputerManager* com
         }
     });
     connect(launcher, &LauncherApi::busyChanged, this, [this]() {
+        emit changed();
         QTimer::singleShot(0, this, &SessionOrchestrator::drive);
     });
     connect(launcher, &LauncherApi::connectionReady, this, &SessionOrchestrator::prepareHost);
     connect(launcher, &LauncherApi::machineRequestFailed, this,
-            [this](const QString& machineId, const QString& message) {
-        if (m_Active && machineId == m_MachineId)
-            reportError(message);
+            [this](const QString& machineId, const QString& message, const QString& code, bool retryableStatus) {
+        if (!m_Active || machineId != m_MachineId || m_Account != m_Launcher->accountGeneration())
+            return;
+        if (retryableStatus && !m_ConnectionRequested && m_StatusReadFailures < 2) {
+            ++m_StatusReadFailures;
+            qWarning() << "Retrying machine status read:" << code << m_StatusReadFailures;
+            m_StatusText = tr("Connection interrupted. Retrying machine status...");
+            emit changed();
+            return;
+        }
+        reportError(message);
     });
-    connect(launcher, &LauncherApi::accountChanging, this, &SessionOrchestrator::cancel);
+    connect(launcher, &LauncherApi::accountChanging, this, [this]() {
+        cancel();
+        m_BackgroundMachineId.clear();
+        emit changed();
+    });
     connect(computers, &ComputerManager::sessionHostPrepared, this, &SessionOrchestrator::hostPrepared);
     connect(computers, &ComputerManager::sessionPairingCompleted, this,
             [this](quint64 attempt, NvComputer* computer, const QString& error) {
@@ -108,16 +122,25 @@ void SessionOrchestrator::startDesktopSession()
     if (!m_Launcher || !m_Launcher->loggedIn() || busy() || m_Launcher->busy())
         return;
 
-    m_MachineId = m_Launcher->selectedMachineId();
-    if (m_MachineId.isEmpty())
-        m_MachineId = m_Launcher->statusMachineId();
-    if (m_MachineId.isEmpty() && m_Launcher->machines().size() == 1)
-        m_MachineId = m_Launcher->machines().first().toMap().value(QStringLiteral("id")).toString();
-    if (m_MachineId.isEmpty()) {
+    QString machineId = m_Launcher->selectedMachineId();
+    if (machineId.isEmpty())
+        machineId = m_Launcher->statusMachineId();
+    if (machineId.isEmpty() && m_Launcher->machines().size() == 1)
+        machineId = m_Launcher->machines().first().toMap().value(QStringLiteral("id")).toString();
+    beginSession(machineId);
+}
+
+void SessionOrchestrator::beginSession(const QString& machineId)
+{
+    if (!m_Launcher || !m_Launcher->loggedIn() || busy() || m_Launcher->busy()) return;
+    if (machineId.isEmpty()) {
         emit errorOccurred(tr("Select a machine before connecting."));
         return;
     }
 
+    m_MachineId = machineId;
+    m_BackgroundMachineId.clear();
+    m_Launcher->stopObservingMachineStartup(machineId);
     m_Launcher->cancelConnectionRequests();
     m_Account = m_Launcher->accountGeneration();
     m_Cancellation = std::make_shared<std::atomic_bool>(false);
@@ -125,6 +148,7 @@ void SessionOrchestrator::startDesktopSession()
     m_Active = true;
     m_JoinRequested = false;
     m_Status = LauncherStatus();
+    m_StatusReadFailures = 0;
     m_BootTexts.clear();
     m_ConnectionRequested = false;
     m_WaitingForApps = false;
@@ -138,6 +162,39 @@ void SessionOrchestrator::startDesktopSession()
     setPhase(QStringLiteral("allocating"), tr("Finding your machine..."));
     m_Poll.start();
     m_Launcher->refreshStatus(m_MachineId);
+}
+
+bool SessionOrchestrator::canBackground() const
+{
+    return m_Active && !m_ConnectionRequested && m_Launcher && m_Launcher->loggedIn() &&
+            m_Account == m_Launcher->accountGeneration() && !m_Launcher->queueJoinPending(m_MachineId) &&
+            (m_Status.state == QStringLiteral("queued") || m_Status.state == QStringLiteral("starting"));
+}
+
+bool SessionOrchestrator::followInBackground()
+{
+    if (!canBackground()) return false;
+    if (!m_Launcher->observeMachineStartup(m_MachineId, m_Account)) {
+        const QString message = tr("Enable machine-ready notifications in Settings before following in the background.");
+        m_StatusText = message;
+        emit changed();
+        emit errorOccurred(message);
+        return false;
+    }
+    m_BackgroundMachineId = m_MachineId;
+    m_Active = false;
+    m_JoinRequested = false;
+    m_Cancellation->store(true);
+    ++m_Attempt;
+    stopPreparation();
+    setPhase(QStringLiteral("backgrounded"), tr("Following startup in the background. We will notify you when your machine is ready."));
+    return true;
+}
+
+void SessionOrchestrator::resumeConnection(const QString& machineId)
+{
+    const QString target = machineId.isEmpty() ? m_BackgroundMachineId : machineId;
+    if (!target.isEmpty()) beginSession(target);
 }
 
 void SessionOrchestrator::setPhase(const QString& phase, const QString& text)
@@ -190,7 +247,7 @@ void SessionOrchestrator::drive()
     if (!m_Launcher || m_Launcher->busy())
         return;
     if (m_CancelQueued) return;
-    if (!m_Active || m_ConnectionRequested)
+    if (!m_Active || m_ConnectionRequested || m_StatusReadFailures > 0)
         return;
     if (m_Status.state == QStringLiteral("ready") &&
         (m_Status.machineId.isEmpty() || m_Status.machineId == m_MachineId)) {
@@ -326,10 +383,10 @@ void SessionOrchestrator::cancel()
     drive();
 }
 
-void SessionOrchestrator::completeReveal()
+void SessionOrchestrator::completeReveal(bool activate)
 {
     if (m_Active && m_Session && m_Phase == QStringLiteral("streaming"))
-        m_Session->completeReveal();
+        m_Session->completeReveal(activate);
 }
 
 void SessionOrchestrator::reportError(const QString& message)

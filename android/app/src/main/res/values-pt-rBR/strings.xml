@@ -99,6 +99,8 @@
     <string name="stream_side_mic_off">Microfone desativado. Toque para ativar.</string>
     <string name="stream_side_mic_busy">Atualizando microfone…</string>
     <string name="stream_side_mic_failed">Não foi possível iniciar o microfone. Confira a permissão e o dispositivo de entrada.</string>
+    <string name="game_mic_bridge_failed">Não foi possível preparar o microfone no PC. Tente novamente.</string>
+    <string name="game_mic_owner_only">Só o dono da máquina pode ativar o microfone.</string>
     <string name="stream_side_reserved">Área reservada ao menu da transmissão</string>
     <string name="stream_side_layout_adjusted">Controles ajustados para dar espaço ao menu. Seu layout salvo só muda quando você salvar.</string>
     <string name="stream_side_layout_conflict">Ajuste os controles fora da faixa destacada antes de salvar.</string>
@@ -224,6 +226,7 @@
     <string name="bug_report_title">Reportar bug</string>
     <string name="bug_report_hint">Conte o que aconteceu. O relato vai direto pro nosso time (painel admin → Bugs app).</string>
     <string name="bug_report_meta">Versão do app %1$s · dispositivo e SO incluídos automaticamente</string>
+    <string name="bug_report_mic_diagnostic">Diagnóstico do microfone: registros de falhas e etapas do microfone serão anexados quando enviar este relato. Sem gravação de voz, senhas ou tokens.</string>
     <string name="bug_report_email_hint">Seu e-mail</string>
     <string name="bug_report_description_hint">Descreva o problema: o que você fez, o que aconteceu e quando começou…</string>
     <string name="bug_report_send">Enviar relato</string>

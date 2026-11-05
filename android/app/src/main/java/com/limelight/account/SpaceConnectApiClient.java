@@ -289,7 +289,8 @@ public final class SpaceConnectApiClient {
 
     // Garante que o MicBridge está rodando na VM antes de encaminhar o mic.
     public MicEnsureResponse ensureMicBridge(String accessToken, String machineId) throws IOException, ApiException {
-        return post("mic/ensure", new MachineTarget(machineId), accessToken, MicEnsureResponse.class);
+        return streamApi().post("mic/ensure", new MicEnsureRequest(safeMachineId(machineId)),
+                accessToken, MicEnsureResponse.class);
     }
 
     // Biblioteca de downloads gerenciada pelo admin (aba Downloads do app).
@@ -1125,9 +1126,20 @@ public final class SpaceConnectApiClient {
         public String username;
     }
 
+    private static final class MicEnsureRequest {
+        final String machineId;
+        final int protocol = 2;
+        MicEnsureRequest(String machineId) { this.machineId = machineId; }
+    }
+
     public static final class MicEnsureResponse {
         public Boolean ok;
-        public String state; // already_running | started | unknown
+        public String state;
+        public int protocol;
+        public int port;
+        public String sessionId;
+        public String key;
+        public long expiresAt;
     }
 
     public static final class DownloadItem {

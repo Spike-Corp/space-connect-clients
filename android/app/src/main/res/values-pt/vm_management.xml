@@ -41,6 +41,7 @@
     <string name="vm_monitor_stop">Parar acompanhamento</string>
     <string name="vm_monitor_unavailable">O Android não permitiu acompanhar em segundo plano. A operação continua no servidor; reabra Máquinas e armazenamento para acompanhar.</string>
     <string name="vm_monitor_timeout">O acompanhamento em segundo plano terminou. As operações continuam no servidor; reabra o app para conferir.</string>
+    <string name="vm_monitor_failed">Não foi possível continuar o acompanhamento. Confira Máquinas e armazenamento; a solicitação aceita continua no servidor.</string>
     <string name="vm_machine_on">%1$s está ligada. Abra o app para conectar.</string>
     <string name="vm_session_ending">Sua sessão em %1$s está perto do limite de tempo. Salve seu trabalho.</string>
     <string name="vm_off">Desligada</string>

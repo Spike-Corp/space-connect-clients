@@ -92,6 +92,23 @@ Item {
                 || (LauncherApi.planLocked && LauncherApi.hasUpcomingPlan)
     }
 
+    // Máquina selecionada no momento (independente de lock) — usada pelo controle
+    // de Modo de vídeo. Retorna null se a lista ainda não carregou.
+    function selectedMachineObj() {
+        var list = LauncherApi.machines
+        if (!list || list.length === 0) return null
+        var id = LauncherApi.selectedMachineId || LauncherApi.statusMachineId
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].id === id) return list[i]
+        }
+        return list.length === 1 ? list[0] : null
+    }
+
+    function selectedDisplayMode() {
+        var m = selectedMachineObj()
+        return (m && m.displayMode === "performance") ? "performance" : "standard"
+    }
+
     function pendingPlanName() {
         var m = pendingMachine()
         if (m)
@@ -537,6 +554,171 @@ Item {
                              && !LauncherApi.managementBusy
                     Layout.fillWidth: true
                     onClicked: createMachineDialog.open()
+                }
+
+                // Modo de vídeo (Padrão x Desempenho/Sudo Maker). Aparece ANTES de
+                // ligar a VM, de forma discreta. Padrão = NVIDIA VGX normal (nada
+                // muda). Desempenho = display virtual Apollo (Sudo Maker/SudoVDA) p/
+                // +120 FPS e resoluções custom. O backend aplica no host ao conectar;
+                // ao reiniciar a VM, ela volta ao Padrão. NÃO mexe na tela de stream.
+                Rectangle {
+                    id: displayModeCard
+                    visible: LauncherApi.hasMachine && !activationPending()
+                             && LauncherApi.state === "idle" && selectedMachineObj() !== null
+                    Layout.fillWidth: true
+                    implicitHeight: displayModeCol.implicitHeight + 24
+                    radius: 10
+                    color: "#141026"
+                    border.width: 1
+                    border.color: displayModeChoice === "performance" ? "#a482fa" : "#2a2142"
+
+                    property string displayModeChoice: selectedDisplayMode()
+                    property bool displayModeBusy: false
+
+                    Connections {
+                        target: LauncherApi
+                        function onMachinesChanged() {
+                            if (!displayModeCard.displayModeBusy)
+                                displayModeCard.displayModeChoice = selectedDisplayMode()
+                        }
+                        function onDisplayModeFinished(success, machineId, displayMode, message) {
+                            displayModeCard.displayModeBusy = false
+                            if (success) {
+                                displayModeCard.displayModeChoice = displayMode
+                                displayModeToast.visible = false
+                            } else {
+                                displayModeCard.displayModeChoice = selectedDisplayMode()
+                                displayModeToast.text = message && message.length > 0
+                                        ? message : qsTr("Não foi possível mudar o modo de vídeo.")
+                                displayModeToast.visible = true
+                            }
+                        }
+                    }
+
+                    ColumnLayout {
+                        id: displayModeCol
+                        anchors.fill: parent
+                        anchors.margins: 12
+                        spacing: 8
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+                            Label {
+                                text: "🎬 " + qsTr("Modo de vídeo")
+                                color: "#f8f5ff"
+                                font.pixelSize: 15
+                                font.bold: true
+                                Layout.fillWidth: true
+                            }
+                            BusyIndicator {
+                                running: displayModeCard.displayModeBusy
+                                visible: running
+                                implicitWidth: 18
+                                implicitHeight: 18
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+
+                            Button {
+                                Layout.fillWidth: true
+                                implicitHeight: 52
+                                enabled: !displayModeCard.displayModeBusy
+                                onClicked: {
+                                    if (displayModeCard.displayModeChoice === "standard") return
+                                    var id = LauncherApi.selectedMachineId || LauncherApi.statusMachineId
+                                    if (!id) return
+                                    displayModeCard.displayModeBusy = true
+                                    displayModeCard.displayModeChoice = "standard"
+                                    LauncherApi.setDisplayMode(id, "standard")
+                                }
+                                background: Rectangle {
+                                    radius: 8
+                                    color: displayModeCard.displayModeChoice === "standard" ? "#4572fa" : "#1a1430"
+                                    border.width: 1
+                                    border.color: displayModeCard.displayModeChoice === "standard" ? "#4572fa" : "#2a2142"
+                                }
+                                contentItem: ColumnLayout {
+                                    spacing: 2
+                                    Label {
+                                        text: qsTr("Padrão")
+                                        color: "#f8f5ff"
+                                        font.pixelSize: 14
+                                        font.bold: displayModeCard.displayModeChoice === "standard"
+                                        horizontalAlignment: Text.AlignHCenter
+                                        Layout.fillWidth: true
+                                    }
+                                    Label {
+                                        text: qsTr("NVIDIA • até 120 FPS")
+                                        color: "#c9c3dd"
+                                        font.pixelSize: 11
+                                        horizontalAlignment: Text.AlignHCenter
+                                        Layout.fillWidth: true
+                                    }
+                                }
+                            }
+
+                            Button {
+                                Layout.fillWidth: true
+                                implicitHeight: 52
+                                enabled: !displayModeCard.displayModeBusy
+                                onClicked: {
+                                    if (displayModeCard.displayModeChoice === "performance") return
+                                    var id = LauncherApi.selectedMachineId || LauncherApi.statusMachineId
+                                    if (!id) return
+                                    displayModeCard.displayModeBusy = true
+                                    displayModeCard.displayModeChoice = "performance"
+                                    LauncherApi.setDisplayMode(id, "performance")
+                                }
+                                background: Rectangle {
+                                    radius: 8
+                                    color: displayModeCard.displayModeChoice === "performance" ? "#a482fa" : "#1a1430"
+                                    border.width: 1
+                                    border.color: displayModeCard.displayModeChoice === "performance" ? "#a482fa" : "#2a2142"
+                                }
+                                contentItem: ColumnLayout {
+                                    spacing: 2
+                                    Label {
+                                        text: qsTr("Desempenho")
+                                        color: "#f8f5ff"
+                                        font.pixelSize: 14
+                                        font.bold: displayModeCard.displayModeChoice === "performance"
+                                        horizontalAlignment: Text.AlignHCenter
+                                        Layout.fillWidth: true
+                                    }
+                                    Label {
+                                        text: qsTr("Sudo Maker • +120 FPS / 4K")
+                                        color: "#c9c3dd"
+                                        font.pixelSize: 11
+                                        horizontalAlignment: Text.AlignHCenter
+                                        Layout.fillWidth: true
+                                    }
+                                }
+                            }
+                        }
+
+                        Label {
+                            Layout.fillWidth: true
+                            text: displayModeCard.displayModeChoice === "performance"
+                                  ? qsTr("Sudo Maker liga um monitor virtual pra taxas acima de 120 FPS e resoluções altas. Escolha antes de ligar a VM; ao reiniciar, ela volta ao Padrão.")
+                                  : qsTr("Recomendado pra maioria. Use o Desempenho só se quer passar de 120 FPS ou resoluções fora do comum.")
+                            color: "#9793aa"
+                            font.pixelSize: 12
+                            wrapMode: Text.WordWrap
+                        }
+
+                        Label {
+                            id: displayModeToast
+                            visible: false
+                            Layout.fillWidth: true
+                            color: "#ff6b6b"
+                            font.pixelSize: 12
+                            wrapMode: Text.WordWrap
+                        }
+                    }
                 }
 
                 Button {

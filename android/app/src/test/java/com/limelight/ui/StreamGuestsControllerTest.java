@@ -298,6 +298,9 @@ public class StreamGuestsControllerTest {
         @Override public AccountManager.StreamRequests withScope(RequestScope scope) { return new Requests(state, scope); }
         @Override public boolean isCurrentAccount() { return state.current; }
         @Override public boolean isOwnerSession() { return state.owner; }
+        @Override public SpaceConnectApiClient.MicEnsureResponse ensureMicBridge() throws Exception {
+            throw new java.io.IOException("No remote microphone in this guest test");
+        }
         @Override public SpaceConnectApiClient.StreamIdentityResponse registerStream(StreamClientIdentity identity) throws Exception {
             scope.checkCancelled();
             state.registrations++;

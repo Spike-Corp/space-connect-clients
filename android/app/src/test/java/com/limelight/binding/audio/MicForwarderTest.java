@@ -50,6 +50,54 @@ public class MicForwarderTest {
         assertEquals(expected, forwarder.getState());
     }
 
+    @Test public void managedCaptureWaitsForAuthenticatedHostThenDeliversTheRecordingSamples() throws Exception {
+        AtomicInteger reads = new AtomicInteger();
+        ShadowAudioRecord.setSource(new ShadowAudioRecord.AudioRecordSource() {
+            @Override public int readInByteArray(byte[] target, int offset, int size, boolean blocking) {
+                if (reads.getAndIncrement() > 0) return 0;
+                target[offset] = 0x34;
+                target[offset + 1] = 0x12;
+                return 2;
+            }
+        });
+        try (DatagramSocket host = new DatagramSocket(0, InetAddress.getLoopbackAddress())) {
+            host.setSoTimeout(3000);
+            forwarder = new MicForwarder(RuntimeEnvironment.getApplication(), "127.0.0.1",
+                    host.getLocalPort(), null, MicPacketTest.ID, MicPacketTest.KEY);
+            forwarder.start();
+            DatagramPacket probe = new DatagramPacket(new byte[1024], 1024);
+            host.receive(probe);
+            assertEquals(MicForwarder.State.STARTING, forwarder.getState());
+            assertEquals(0, reads.get());
+            byte[] handshake = java.util.Arrays.copyOf(probe.getData(), probe.getLength());
+            assertEquals(0, MicPacketTest.decrypt(handshake).length);
+            byte[] ack = MicPacketTest.acknowledge(handshake);
+            host.send(new DatagramPacket(ack, ack.length, probe.getSocketAddress()));
+            awaitState(MicForwarder.State.RUNNING);
+            DatagramPacket audio = new DatagramPacket(new byte[1024], 1024);
+            host.receive(audio);
+            assertArrayEquals(new byte[] {0x34, 0x12},
+                    MicPacketTest.decrypt(java.util.Arrays.copyOf(audio.getData(), audio.getLength())));
+            assertTrue(forwarder.getCurrentLevel() > 0);
+        }
+    }
+
+    @Test public void unreachableManagedHostStopsWithErrorInsteadOfClaimingMicrophoneIsOn() throws Exception {
+        AtomicBoolean failed = new AtomicBoolean();
+        ShadowAudioRecord.setSource(new ShadowAudioRecord.AudioRecordSource() {
+            @Override public int readInByteArray(byte[] data, int offset, int size, boolean blocking) { return 0; }
+        });
+        try (DatagramSocket host = new DatagramSocket(0, InetAddress.getLoopbackAddress())) {
+            forwarder = new MicForwarder(RuntimeEnvironment.getApplication(), "127.0.0.1",
+                    host.getLocalPort(), null, MicPacketTest.ID, MicPacketTest.KEY);
+            forwarder.setListener((state, error) -> failed.set(error));
+            forwarder.start();
+            awaitState(MicForwarder.State.STOPPED);
+            shadowOf(Looper.getMainLooper()).idle();
+            assertTrue(failed.get());
+        }
+    }
+
     @Test public void captureSendsExistingProtocolAndReportsRealRecordingState() throws Exception {
         AtomicInteger reads = new AtomicInteger();
         AtomicReference<AudioRecord> recorder = new AtomicReference<>();

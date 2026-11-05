@@ -1,6 +1,7 @@
 package com.limelight.account;
 
 import com.limelight.BuildConfig;
+import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.utils.RequestScope;
 
@@ -94,6 +95,7 @@ public final class AccountManager {
     public interface ResultCallback<T> {
         void onSuccess(T result);
         void onError(String message);
+        default void onFailure(Exception error) { onError(userMessage(error)); }
     }
 
     private interface AuthenticatedOperation<T> {
@@ -208,30 +210,53 @@ public final class AccountManager {
         return executeScoped(context, scope, (api, token) -> api.getStatus(token, machineId), callback);
     }
 
+    static Future<?> getStatus(Context context, String machineId, RequestScope scope, long generation,
+            ResultCallback<SpaceConnectApiClient.StatusResponse> callback) {
+        return executeScoped(context, scope, generation, (api, token) -> api.getStatus(token, machineId), callback);
+    }
+
     private interface ScopedOperation<T> {
         T run(SpaceConnectApiClient api, String token) throws Exception;
     }
 
     private static <T> Future<?> executeScoped(Context context, RequestScope scope,
             ScopedOperation<T> operation, ResultCallback<T> callback) {
+        return executeScoped(context, scope, currentAccountGeneration(), operation, callback);
+    }
+
+    private static <T> Future<?> executeScoped(Context context, RequestScope scope, long generation,
+            ScopedOperation<T> operation, ResultCallback<T> callback) {
         Context appContext = context.getApplicationContext();
         SpaceConnectApiClient api = API.withScope(scope);
         return EXECUTOR.submit(() -> {
             try {
                 scope.checkCancelled();
+                checkAccountGeneration(generation, appContext);
                 SecureSessionStore.Session session = validSession(appContext, api, scope);
+                checkAccountGeneration(generation, appContext);
                 T result;
                 try {
                     result = operation.run(api, session.accessToken);
                 } catch (SpaceConnectApiClient.ApiException e) {
                     if (e.status != 401) throw e;
+                    scope.checkCancelled();
+                    checkAccountGeneration(generation, appContext);
                     session = refresh(appContext, session, api, scope);
+                    checkAccountGeneration(generation, appContext);
                     result = operation.run(api, session.accessToken);
                 }
                 T response = result;
-                post(() -> { if (!scope.isCancelled()) callback.onSuccess(response); });
+                post(() -> {
+                    if (scope.isCancelled()) return;
+                    if (currentAccountGeneration() == generation) callback.onSuccess(response);
+                    else callback.onError(appContext.getString(R.string.stream_account_changed));
+                });
             } catch (Exception e) {
-                post(() -> { if (!scope.isCancelled()) callback.onError(userMessage(e)); });
+                post(() -> {
+                    if (scope.isCancelled()) return;
+                    if (currentAccountGeneration() == generation) callback.onFailure(e);
+                    else callback.onError(appContext.getString(R.string.stream_account_changed));
+                });
             }
         });
     }
@@ -268,6 +293,7 @@ public final class AccountManager {
         StreamRequests withScope(RequestScope scope);
         boolean isCurrentAccount();
         boolean isOwnerSession();
+        SpaceConnectApiClient.MicEnsureResponse ensureMicBridge() throws Exception;
         SpaceConnectApiClient.StreamIdentityResponse registerStream(StreamClientIdentity identity) throws Exception;
         SpaceConnectApiClient.StreamGuestsResponse streamGuests(String bindingId) throws Exception;
         SpaceConnectApiClient.StreamDisconnectResponse disconnectStreamGuest(String bindingId, String guestUserId) throws Exception;
@@ -347,6 +373,11 @@ public final class AccountManager {
             return new SessionRequests(context, machineId, friend, scope, api, accountGeneration);
         }
 
+        @Override public SpaceConnectApiClient.MicEnsureResponse ensureMicBridge() throws Exception {
+            if (friend) throw new IllegalStateException(context.getString(R.string.game_mic_owner_only));
+            return execute(token -> api.ensureMicBridge(token, machineId));
+        }
+
         @Override public SpaceConnectApiClient.StreamIdentityResponse registerStream(StreamClientIdentity identity) throws Exception {
             String pem = identity.certificatePem();
             SpaceConnectApiClient.StreamChallengeResponse challenge =
@@ -412,6 +443,11 @@ public final class AccountManager {
         return new SessionRequests(context, machineId, friend, scope);
     }
 
+    public static SessionRequests sessionRequests(Context context, String machineId,
+            boolean friend, RequestScope scope, long generation) {
+        return new SessionRequests(context, machineId, friend, scope, API, generation);
+    }
+
     public static void getMachines(
             Context context,
             ResultCallback<SpaceConnectApiClient.MachinesResponse> callback) {
@@ -421,6 +457,11 @@ public final class AccountManager {
     public static Future<?> getManagement(Context context, RequestScope scope,
             ResultCallback<SpaceConnectApiClient.ManagementResponse> callback) {
         return executeScoped(context, scope, (api, token) -> api.getManagement(token), callback);
+    }
+
+    static Future<?> getManagement(Context context, RequestScope scope, long generation,
+            ResultCallback<SpaceConnectApiClient.ManagementResponse> callback) {
+        return executeScoped(context, scope, generation, (api, token) -> api.getManagement(token), callback);
     }
 
     public static void machineAction(Context context, String machineId, SpaceConnectApiClient.MachineAction input,
@@ -493,7 +534,25 @@ public final class AccountManager {
             Context context,
             String machineId,
             ResultCallback<SpaceConnectApiClient.MicEnsureResponse> callback) {
-        executeAuthenticated(context, token -> API.ensureMicBridge(token, machineId), callback);
+        ensureMicBridge(context, sessionRequests(context, machineId, false, new RequestScope()), callback);
+    }
+
+    public static Future<?> ensureMicBridge(Context context, StreamRequests requests,
+            ResultCallback<SpaceConnectApiClient.MicEnsureResponse> callback) {
+        Context appContext = context.getApplicationContext();
+        return EXECUTOR.submit(() -> {
+            try (StreamRequests ownedRequests = requests) {
+                SpaceConnectApiClient.MicEnsureResponse result = ownedRequests.ensureMicBridge();
+                if (callback != null) post(() -> {
+                    if (ownedRequests.isCurrentAccount()) callback.onSuccess(result);
+                    else callback.onError(appContext.getString(R.string.stream_account_changed));
+                });
+            } catch (Exception error) {
+                LimeLog.warning("MicBridge preparation failed: " + error.getClass().getSimpleName());
+                if (callback != null) post(() -> callback.onError(requests.isCurrentAccount()
+                        ? userMessage(error) : appContext.getString(R.string.stream_account_changed)));
+            }
+        });
     }
 
     // Biblioteca de downloads (aba Downloads do app).
@@ -615,6 +674,8 @@ public final class AccountManager {
                 input.osVersion = "Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")";
                 input.deviceModel = device.name;
                 input.deviceId = device.deviceId;
+                if (BuildConfig.MIC_DIAGNOSTICS)
+                    input.context = com.limelight.session.MicDiagnostics.reportContext(appContext);
 
                 SpaceConnectApiClient.SimpleResponse result = API.reportBug(token, input);
                 post(() -> callback.onSuccess(result));
@@ -752,7 +813,7 @@ public final class AccountManager {
         }
     }
 
-    private static long currentAccountGeneration() {
+    public static long currentAccountGeneration() {
         synchronized (AUTH_STATE_LOCK) { return accountGeneration; }
     }
 

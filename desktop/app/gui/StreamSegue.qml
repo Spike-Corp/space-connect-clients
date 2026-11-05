@@ -134,13 +134,6 @@ Item {
         gc()
     }
 
-    function streamWindowCreated() {
-        if (managedDesktop) {
-            sessionLoadingWindow.raise()
-            sessionLoadingWindow.requestActivate()
-        }
-    }
-
     StackView.onDeactivating: {
         // Show the toolbar again when popped off the stack
         toolBar.visible = true
@@ -157,7 +150,6 @@ Item {
         session.stageStarting.connect(stageStarting)
         session.stageFailed.connect(stageFailed)
         session.connectionStarted.connect(connectionStarted)
-        session.streamWindowCreated.connect(streamWindowCreated)
         session.displayLaunchError.connect(displayLaunchError)
         session.displayLaunchWarning.connect(displayLaunchWarning)
         session.quitStarting.connect(quitStarting)
@@ -203,7 +195,7 @@ Item {
             gc()
 
             // Run the streaming session to completion
-            session.exec(Window.window)
+            session.exec(managedDesktop ? sessionLoadingWindow : Window.window)
         }
 
         sourceComponent: Item {}

@@ -564,7 +564,7 @@ Session::Session(NvComputer* computer, NvApp& app, StreamingPreferences *prefere
       m_QtWindow(nullptr),
       m_UnexpectedTermination(true), // Failure prior to streaming is unexpected
       m_InputHandler(nullptr),
-      m_MicForwarder(nullptr),
+      m_MicForwarder(new MicForwarder(this)),
       m_MouseEmulationRefCount(0),
       m_FlushingWindowEventsRef(0),
       m_AsyncConnectionSuccess(false),
@@ -577,6 +577,9 @@ Session::Session(NvComputer* computer, NvApp& app, StreamingPreferences *prefere
     static std::atomic<Uint32> nextMenuSerial{0};
     do { m_StreamMenuSerial = ++nextMenuSerial; } while (!m_StreamMenuSerial);
     connect(this, &Session::streamMenuPresentation, this, &Session::applyStreamMenuPresentation);
+    QReadLocker lock(&m_Computer->lock);
+    m_MicManaged = m_Computer->scOrigin == QStringLiteral("launcher")
+            || m_Computer->scOrigin == QStringLiteral("friend");
 }
 
 Session::Session(std::shared_ptr<NvComputer> computer, NvApp& app, bool freshlyPaired)
@@ -585,7 +588,11 @@ Session::Session(std::shared_ptr<NvComputer> computer, NvApp& app, bool freshlyP
     m_OwnedComputer = std::move(computer);
     m_ManagedDesktop = true;
     m_FreshlyPaired = freshlyPaired;
-    m_IsFullScreen = true;
+    // Keep the m_IsFullScreen value computed by the delegated constructor from
+    // the user's windowMode preference. Forcing it true here made "Windowed" and
+    // "Borderless windowed" no-ops for the launcher flow (every session opened
+    // full-screen). The managed reveal (loader fade + dashboard hide +
+    // completeReveal on first frame) is window-mode agnostic, so windowed works.
     m_RevealComplete.store(false);
 }
 
@@ -615,6 +622,45 @@ void Session::initializeStreamControls(LauncherApi* launcher, quint64 account)
         if (!m_StreamControlsEnded.load() && !connectionCancelled(m_ConnectionCancellation))
             m_StreamGuests->start();
     });
+    const QString micMachine = m_Computer->scMachineId;
+    const QPointer<LauncherApi> api(launcher);
+    connect(m_MicForwarder, &MicForwarder::failed, launcher, &LauncherApi::backgroundNotice);
+    connect(launcher, &LauncherApi::accountChanging, this, [this]() {
+        delete m_MicRequest.data();
+        QMutexLocker lock(&m_MicLock);
+        m_MicForwarder->stopForwarding();
+    });
+    connect(this, &Session::firstFramePresented, this, [this, api, account, micMachine]() {
+        if (!api || !m_Preferences->enableMicForwarding || m_StreamControlsEnded.load()
+                || connectionCancelled(m_ConnectionCancellation)) return;
+        m_MicRequest = new QObject(this);
+        api->ensureMicBridge(micMachine, account, *m_MicRequest,
+            [this, api](int status, const QJsonObject& root) {
+                if (!api || m_StreamControlsEnded.load() || connectionCancelled(m_ConnectionCancellation)) return;
+                const int port = root.value(QStringLiteral("port")).toInt();
+                const QByteArray id = QByteArray::fromBase64(root.value(QStringLiteral("sessionId")).toString().toLatin1(),
+                                                            QByteArray::AbortOnBase64DecodingErrors);
+                const QByteArray key = QByteArray::fromBase64(root.value(QStringLiteral("key")).toString().toLatin1(),
+                                                             QByteArray::AbortOnBase64DecodingErrors);
+                if (status < 200 || status >= 300 || !root.value(QStringLiteral("ok")).toBool()
+                        || root.value(QStringLiteral("state")).toString() != QStringLiteral("ready")
+                        || root.value(QStringLiteral("protocol")).toInt() != 2
+                        || port < 1 || port > 65535 || id.size() != 16 || key.size() != 32) {
+                    emit api->backgroundNotice(root.value(QStringLiteral("error")).toObject()
+                        .value(QStringLiteral("message")).toString(
+                            tr("The microphone receiver is not ready. Reconnect after checking the host.")));
+                } else {
+                    QMutexLocker micLock(&m_MicLock);
+                    if (!m_StreamControlsEnded.load()) {
+                        QReadLocker computerLock(&m_Computer->lock);
+                        m_MicForwarder->startForwarding(m_Computer->activeAddress.address(), quint16(port),
+                                                        m_Preferences->micCaptureDeviceName, id, key);
+                    }
+                }
+                if (m_MicRequest) m_MicRequest->deleteLater();
+                m_MicRequest = nullptr;
+            });
+    });
     connect(this, &Session::sessionFinished, this, &Session::finishStreamControls);
     connect(m_StreamGuests, &StreamGuestController::noticeRaised, launcher, &LauncherApi::backgroundNotice);
     if (m_StreamGuests->ownerSession() && !positionedWindows) {
@@ -630,6 +676,11 @@ QObject* Session::streamGuests() const { return m_StreamGuests; }
 void Session::finishStreamControls()
 {
     m_StreamControlsEnded.store(true);
+    delete m_MicRequest.data();
+    {
+        QMutexLocker lock(&m_MicLock);
+        m_MicForwarder->stopForwarding();
+    }
     m_StreamMenuAllowed.store(false);
     m_StreamMenuVisible = m_StreamMenuOpen = false;
     m_StreamMenuBounds = {};
@@ -700,6 +751,10 @@ void Session::updateStreamMenu(bool force)
     m_MenuSampleAt = now;
     const Uint32 flags = SDL_GetWindowFlags(m_Window);
     const bool streamFocused = (flags & SDL_WINDOW_INPUT_FOCUS) != 0;
+    if (m_CaptureOnFocus && streamFocused) {
+        m_CaptureOnFocus = false;
+        m_InputHandler->setCaptureActive(true);
+    }
     if (!streamFocused && m_StreamMenuState.isOpen() && !m_MenuWindowFocused) {
         if (!m_MenuFocusLostAt) m_MenuFocusLostAt = now;
         if (now - m_MenuFocusLostAt >= 150) {
@@ -766,10 +821,60 @@ void Session::cancel()
         LiInterruptConnection();
 }
 
-void Session::completeReveal()
+void Session::completeReveal(bool activate)
 {
-    if (m_FirstFramePresented.load() && !connectionCancelled(m_ConnectionCancellation))
+    if (m_FirstFramePresented.load() && !connectionCancelled(m_ConnectionCancellation)) {
+        m_ActivateOnReveal.store(activate);
         m_RevealComplete.store(true);
+    }
+}
+
+void Session::showStreamWindow()
+{
+    // Keep the new video window below its loader, even if the user has left the app.
+#ifdef Q_OS_WIN32
+    SDL_SysWMinfo info{};
+    SDL_VERSION(&info.version);
+    if (m_QtWindow && SDL_GetWindowWMInfo(m_Window, &info) && info.subsystem == SDL_SYSWM_WINDOWS &&
+            !SetWindowPos(info.info.win.window, reinterpret_cast<HWND>(m_QtWindow->winId()),
+                          0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE)) {
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Could not stack the stream behind its loader: %lu", GetLastError());
+    }
+#endif
+    const char* hint = "SDL_WINDOW_NO_ACTIVATION_WHEN_SHOWN";
+    const QByteArray previous = SDL_GetHint(hint);
+    SDL_SetHint(hint, "1");
+    SDL_ShowWindow(m_Window);
+    if (m_Preferences->muteOnFocusLoss)
+        m_AudioMuted = !(SDL_GetWindowFlags(m_Window) & SDL_WINDOW_INPUT_FOCUS) && !m_MenuWindowFocused;
+    if (previous.isNull()) {
+#if SDL_VERSION_ATLEAST(2, 24, 0)
+        SDL_ResetHint(hint);
+#else
+        // Older SDL has no per-hint reset; restore this hint's default.
+        SDL_SetHint(hint, "0");
+#endif
+    } else {
+        SDL_SetHint(hint, previous.constData());
+    }
+}
+
+void Session::revealStreamWindow()
+{
+    bool appFocused = QGuiApplication::applicationState() == Qt::ApplicationActive
+            || (SDL_GetWindowFlags(m_Window) & SDL_WINDOW_INPUT_FOCUS);
+#ifdef Q_OS_WIN32
+    DWORD process = 0;
+    GetWindowThreadProcessId(GetForegroundWindow(), &process);
+    appFocused = process == GetCurrentProcessId();
+#endif
+    if (m_ActivateOnReveal.load() && appFocused)
+        SDL_RaiseWindow(m_Window);
+    const bool focused = (SDL_GetWindowFlags(m_Window) & SDL_WINDOW_INPUT_FOCUS) != 0;
+    if (m_Preferences->muteOnFocusLoss)
+        m_AudioMuted = !focused && !m_MenuWindowFocused;
+    m_InputHandler->setCaptureActive(focused);
+    m_CaptureOnFocus = !focused;
 }
 
 void Session::notifyFirstVideoFrame()
@@ -1924,12 +2029,11 @@ bool Session::startConnectionAsync()
 
     emit connectionStarted();
 
-    if (m_Preferences->enableMicForwarding) {
+    if (m_Preferences->enableMicForwarding && !m_MicManaged) {
         quint16 basePort = m_Computer->activeAddress.port();
         quint16 micPort = (basePort > 0 && basePort != 47989)
                 ? static_cast<quint16>(basePort + 25)
                 : MicForwarder::DEFAULT_PORT;
-        m_MicForwarder = new MicForwarder();
         m_MicForwarder->startForwarding(m_Computer->activeAddress.address(),
                                          micPort,
                                          m_Preferences->micCaptureDeviceName);
@@ -2089,6 +2193,8 @@ void Session::execInternal()
 
     // We always want a resizable window with High DPI enabled
     Uint32 defaultWindowFlags = SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_RESIZABLE;
+    if (m_ManagedDesktop)
+        defaultWindowFlags |= SDL_WINDOW_HIDDEN;
 
     // If we're starting in windowed mode and the Moonlight GUI is maximized or
     // minimized, match that with the streaming window.
@@ -2216,8 +2322,10 @@ void Session::execInternal()
     if (m_IsFullScreen) {
         SDL_SetWindowFullscreen(m_Window, m_FullScreenFlag);
     }
-    if (m_ManagedDesktop)
+    if (m_ManagedDesktop) {
+        showStreamWindow();
         emit streamWindowCreated();
+    }
 
     bool needsFirstEnterCapture = false;
     bool needsPostDecoderCreationCapture = false;
@@ -2299,8 +2407,7 @@ void Session::execInternal()
         }
         if (!revealApplied && m_RevealComplete.load()) {
             revealApplied = true;
-            SDL_RaiseWindow(m_Window);
-            m_InputHandler->setCaptureActive(true);
+            revealStreamWindow();
             needsFirstEnterCapture = false;
             needsPostDecoderCreationCapture = false;
         }
@@ -2313,7 +2420,7 @@ void Session::execInternal()
             lastBackgroundPump = nowTicks;
             QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
         }
-        if (m_StreamMenuAllowed.load() || m_StreamMenuState.isOpen())
+        if (m_StreamMenuAllowed.load() || m_StreamMenuState.isOpen() || m_CaptureOnFocus)
             updateStreamMenu();
         if (m_RevealComplete.load() && nowTicks - lastClipboardCheckTicks >= 500) {
             lastClipboardCheckTicks = nowTicks;
@@ -2703,10 +2810,9 @@ DispatchDeferredCleanup:
     QMetaObject::invokeMethod(this, [this]() { finishStreamControls(); }, Qt::AutoConnection);
     // Stop forwarding the local microphone before anything else - no ordering
     // dependency with the input handler/decoder cleanup below.
-    if (m_MicForwarder != nullptr) {
+    {
+        QMutexLocker lock(&m_MicLock);
         m_MicForwarder->stopForwarding();
-        delete m_MicForwarder;
-        m_MicForwarder = nullptr;
     }
 
     // Uncapture the mouse and hide the window immediately,

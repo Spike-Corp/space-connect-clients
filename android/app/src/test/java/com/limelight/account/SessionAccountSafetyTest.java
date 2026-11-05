@@ -1,6 +1,7 @@
 package com.limelight.account;
 
 import android.content.Context;
+import android.os.Looper;
 import com.limelight.utils.RequestScope;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,7 +19,9 @@ import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
+import org.robolectric.util.ReflectionHelpers;
 import static org.junit.Assert.*;
+import static org.robolectric.Shadows.shadowOf;
 
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 28, instrumentedPackages = "com.limelight.account",
@@ -32,8 +35,73 @@ public class SessionAccountSafetyTest {
         Api.tokens.clear();
         Api.refreshCount = Api.disconnectCount = 0;
         Api.duringRefresh = () -> {};
+        Api.micFailure = null;
+        Api.micAccepted = true;
+        Api.duringMic = () -> {};
         Store.afterSave = () -> {};
         new SecureSessionStore().save(context, auth("first"), "device-fixture");
+    }
+
+    @Test public void microphoneSuccessWithoutCallbackDoesNotCrashTheMainThread() throws Exception {
+        AccountManager.ensureMicBridge(context, MACHINE, null);
+        awaitAccountWorker();
+        shadowOf(Looper.getMainLooper()).idle();
+        assertEquals(java.util.Collections.singletonList("first-access"), Api.tokens);
+    }
+
+    @Test public void microphoneFailureWithoutCallbackDoesNotCrashTheMainThread() throws Exception {
+        Api.micFailure = new SpaceConnectApiClient.ApiException(503, "AGENT_OFFLINE", "Agente indisponível.", null);
+        AccountManager.ensureMicBridge(context, MACHINE, null);
+        awaitAccountWorker();
+        shadowOf(Looper.getMainLooper()).idle();
+        assertEquals("first@example.invalid", AccountManager.getLoggedInEmail(context));
+    }
+
+    @Test public void queuedMicrophonePreparationNeverBorrowsTheNextAccountsToken() throws Exception {
+        ExecutorService executor = ReflectionHelpers.getStaticField(AccountManager.class, "EXECUTOR");
+        CountDownLatch entered = new CountDownLatch(1), release = new CountDownLatch(1);
+        executor.submit(() -> {
+            entered.countDown();
+            try { assertTrue(release.await(4, TimeUnit.SECONDS)); }
+            catch (InterruptedException error) { throw new AssertionError(error); }
+        });
+        MicResult result = new MicResult();
+        try {
+            assertTrue(entered.await(2, TimeUnit.SECONDS));
+            AccountManager.ensureMicBridge(context, MACHINE, result);
+            AccountManager.logout(context);
+            new SecureSessionStore().save(context, auth("second"), "device-fixture");
+        } finally {
+            release.countDown();
+        }
+        awaitAccountWorker();
+        shadowOf(Looper.getMainLooper()).idle();
+        assertEquals(0, result.successes);
+        assertEquals(1, result.errors.size());
+        assertTrue(Api.tokens.isEmpty());
+    }
+
+    @Test public void microphoneResponseCannotReportSuccessAfterAccountChangesBeforeDelivery() throws Exception {
+        MicResult result = new MicResult();
+        AccountManager.ensureMicBridge(context, MACHINE, result);
+        awaitAccountWorker();
+        AccountManager.logout(context);
+        new SecureSessionStore().save(context, auth("second"), "device-fixture");
+        shadowOf(Looper.getMainLooper()).idle();
+        assertEquals(0, result.successes);
+        assertEquals(1, result.errors.size());
+    }
+
+    private static final class MicResult implements AccountManager.ResultCallback<SpaceConnectApiClient.MicEnsureResponse> {
+        int successes;
+        final List<String> errors = new ArrayList<>();
+        @Override public void onSuccess(SpaceConnectApiClient.MicEnsureResponse result) { successes++; }
+        @Override public void onError(String message) { errors.add(message); }
+    }
+
+    public static void awaitAccountWorker() throws Exception {
+        ExecutorService executor = ReflectionHelpers.getStaticField(AccountManager.class, "EXECUTOR");
+        executor.submit(() -> {}).get(4, TimeUnit.SECONDS);
     }
 
     @Test public void oldMachineRequestsNeverBorrowTheAccountLoggedInAfterLogout() throws Exception {
@@ -180,6 +248,10 @@ public class SessionAccountSafetyTest {
                 org.robolectric.util.ReflectionHelpers.ClassParameter.from(RequestScope.class, new RequestScope()));
     }
 
+    public static void saveAccountFixture(Context context, String name) throws Exception {
+        new SecureSessionStore().save(context, auth(name), "device-fixture");
+    }
+
     private static SpaceConnectApiClient.AuthResponse auth(String name) {
         SpaceConnectApiClient.AuthResponse auth = new SpaceConnectApiClient.AuthResponse();
         auth.accessToken = name + "-access";
@@ -216,17 +288,49 @@ public class SessionAccountSafetyTest {
     public static class Api {
         static final List<String> tokens = new ArrayList<>();
         static Runnable duringRefresh;
+        public static SpaceConnectApiClient.ApiException micFailure;
+        public static Boolean micAccepted = true;
+        public static String micState = "ready";
+        public static int micPort = 48100;
+        public static Runnable duringMic = () -> {};
+        public static SpaceConnectApiClient.BugReportRequest bugReport;
         static int refreshCount, disconnectCount;
+        public static void failMicrophone() {
+            micFailure = new SpaceConnectApiClient.ApiException(503, "AGENT_OFFLINE", "Agente indisponível.", null);
+        }
+        @Implementation protected SpaceConnectApiClient.SimpleResponse reportBug(
+                String token, SpaceConnectApiClient.BugReportRequest input) {
+            bugReport = input;
+            SpaceConnectApiClient.SimpleResponse result = new SpaceConnectApiClient.SimpleResponse();
+            result.success = true;
+            return result;
+        }
         @Implementation protected SpaceConnectApiClient.AuthResponse verifyTwoFactor(String token, String code) {
             return auth("second");
         }
-        @Implementation protected SpaceConnectApiClient.StatusResponse getStatus(String token, String machineId) {
+        @Implementation protected SpaceConnectApiClient.MicEnsureResponse ensureMicBridge(
+                String token, String machineId) throws SpaceConnectApiClient.ApiException {
+            assertEquals(MACHINE, machineId);
+            tokens.add(token);
+            duringMic.run();
+            if (micFailure != null) throw micFailure;
+            SpaceConnectApiClient.MicEnsureResponse response = new SpaceConnectApiClient.MicEnsureResponse();
+            response.ok = micAccepted;
+            response.state = micState;
+            response.protocol = 2;
+            response.port = micPort;
+            response.sessionId = com.limelight.binding.audio.TestMicHost.ID;
+            response.key = com.limelight.binding.audio.TestMicHost.KEY;
+            response.expiresAt = System.currentTimeMillis() / 1000 + 300;
+            return response;
+        }
+        @Implementation protected SpaceConnectApiClient.StatusResponse getStatus(String token, String machineId) throws Exception {
             tokens.add(token);
             SpaceConnectApiClient.StatusResponse status = new SpaceConnectApiClient.StatusResponse();
             status.state = "ready";
             return status;
         }
-        @Implementation protected SpaceConnectApiClient.StatusResponse leaveQueue(String token, String machineId) {
+        @Implementation protected SpaceConnectApiClient.StatusResponse leaveQueue(String token, String machineId) throws Exception {
             assertEquals(MACHINE, machineId);
             return getStatus(token, machineId);
         }

@@ -64,6 +64,12 @@ final class SessionMessages {
 
     static int error(SessionOrchestrator.Failure failure) {
         switch (failure) {
+            case PLAN_EXPIRED: return R.string.session_plan_expired;
+            case INSUFFICIENT_BALANCE: return R.string.session_insufficient_balance;
+            case OPERATION_BUSY: return R.string.session_operation_busy;
+            case COOLDOWN: return R.string.session_cooldown;
+            case ACCOUNT_CHANGED: return R.string.stream_account_changed;
+            case ACCESS_DENIED: return R.string.session_access_denied;
             case DESKTOP_MISSING: return R.string.session_desktop_missing;
             case PAIRING: return R.string.session_pair_failed;
             case HOST_BUSY: return R.string.session_host_busy;

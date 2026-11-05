@@ -10,11 +10,15 @@ import android.os.Handler;
 import android.os.Looper;
 
 import com.limelight.LimeLog;
+import com.limelight.session.MicDiagnostics;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.SocketTimeoutException;
+import java.security.GeneralSecurityException;
+import java.util.concurrent.TimeUnit;
 
 // Captures the device microphone and forwards it as raw PCM over UDP to the "Space Connect Mic
 // Bridge" companion program running on the host PC (see /SpaceConnectMicBridge in the repo root).
@@ -53,6 +57,8 @@ public class MicForwarder {
     // Empty/null means "automatic" - let AudioRecord use the system default recording device.
     // Only actually used on API 23+ (see MicDeviceCompat); ignored entirely on older devices.
     private final String deviceId;
+    private final String sessionId;
+    private final String sessionKey;
 
     private final Handler callbacks = new Handler(Looper.getMainLooper());
     private CaptureAttempt capture;
@@ -62,14 +68,22 @@ public class MicForwarder {
     private volatile float currentLevel;
 
     public MicForwarder(Context context, String hostAddress, int port, String deviceId) {
+        this(context, hostAddress, port, deviceId, null, null);
+    }
+
+    public MicForwarder(Context context, String hostAddress, int port, String deviceId,
+                        String sessionId, String sessionKey) {
         this.context = context.getApplicationContext();
         this.hostAddress = hostAddress;
         this.port = port;
         this.deviceId = deviceId;
+        this.sessionId = sessionId;
+        this.sessionKey = sessionKey;
     }
 
     public synchronized void start() {
         if (capture != null) return;
+        MicDiagnostics.record(MicDiagnostics.Phase.CAPTURE_REQUESTED);
         CaptureAttempt attempt = new CaptureAttempt(++generation);
         capture = attempt;
         currentLevel = 0f;
@@ -84,6 +98,7 @@ public class MicForwarder {
         synchronized (this) {
             attempt = capture;
             if (attempt == null || attempt.cancelled) return;
+            MicDiagnostics.record(MicDiagnostics.Phase.STOP_REQUESTED);
             attempt.cancelled = true;
             state = State.STOPPING;
             currentLevel = 0f;
@@ -134,12 +149,15 @@ public class MicForwarder {
             if (attempt.cancelled) return;
             int minBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
             if (minBufferSize <= 0) throw new IllegalStateException("AudioRecord buffer size unavailable");
+            MicDiagnostics.record(MicDiagnostics.Phase.RECORDER_CREATING);
             audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE,
-                    AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, minBufferSize * 2);
+                    AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
+                    Math.max(minBufferSize * 2, MicPacket.FRAME_BYTES * 4));
 
             if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
                 throw new IllegalStateException("AudioRecord failed to initialize");
             }
+            MicDiagnostics.record(MicDiagnostics.Phase.RECORDER_READY);
 
             // Picking the wrong input device (e.g. a webcam mic instead of a headset mic) is a
             // common cause of "mic forwarding does nothing" - honor the user's explicit choice
@@ -153,9 +171,26 @@ public class MicForwarder {
 
             attempt.socket = new DatagramSocket();
             if (attempt.cancelled) return;
+            MicPacket secure = sessionId != null || sessionKey != null ? new MicPacket(sessionId, sessionKey) : null;
+            long lastAcknowledged = System.nanoTime();
+            long lastProbe = lastAcknowledged;
+            if (secure != null) {
+                attempt.socket.connect(address, port);
+                attempt.socket.setSoTimeout(100);
+                boolean ready = false;
+                long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+                while (!attempt.cancelled && System.nanoTime() < deadline) {
+                    sendSecure(attempt, secure, new byte[0], 0);
+                    if (receiveAcknowledgement(attempt, secure)) { ready = true; break; }
+                }
+                if (attempt.cancelled) return;
+                if (!ready) throw new IOException("Host did not acknowledge the microphone");
+                lastAcknowledged = lastProbe = System.nanoTime();
+                attempt.socket.setSoTimeout(1);
+            }
 
-            byte[] audioBuffer = new byte[minBufferSize];
-            byte[] packetBuffer = new byte[HEADER_SIZE + minBufferSize];
+            byte[] audioBuffer = new byte[MicPacket.FRAME_BYTES];
+            byte[] packetBuffer = new byte[HEADER_SIZE + audioBuffer.length];
 
             System.arraycopy(MAGIC_HEADER, 0, packetBuffer, 0, 4);
             packetBuffer[4] = PROTOCOL_VERSION;
@@ -164,17 +199,29 @@ public class MicForwarder {
             packetBuffer[7] = 0;
             writeIntLE(packetBuffer, 8, SAMPLE_RATE);
 
+            MicDiagnostics.record(MicDiagnostics.Phase.RECORDER_STARTING);
             audioRecord.startRecording();
             if (audioRecord.getRecordingState() != AudioRecord.RECORDSTATE_RECORDING) {
                 throw new IllegalStateException("AudioRecord did not start recording");
             }
+            MicDiagnostics.record(MicDiagnostics.Phase.CAPTURING);
             synchronized (this) {
                 if (attempt.cancelled) return;
                 state = State.RUNNING;
                 notifyState(attempt, State.RUNNING, false);
             }
 
+            boolean firstAudioSent = false;
             while (!attempt.cancelled) {
+                if (secure != null) {
+                    if (receiveAcknowledgement(attempt, secure)) lastAcknowledged = System.nanoTime();
+                    if (System.nanoTime() - lastAcknowledged > TimeUnit.SECONDS.toNanos(4))
+                        throw new IOException("Host stopped acknowledging the microphone");
+                    if (System.nanoTime() - lastProbe > TimeUnit.MILLISECONDS.toNanos(500)) {
+                        sendSecure(attempt, secure, audioBuffer, 0);
+                        lastProbe = System.nanoTime();
+                    }
+                }
                 int bytesRead = audioRecord.read(audioBuffer, 0, audioBuffer.length, AudioRecord.READ_NON_BLOCKING);
                 if (bytesRead < 0) throw new IOException("AudioRecord read failed: " + bytesRead);
                 if (bytesRead == 0) {
@@ -184,14 +231,26 @@ public class MicForwarder {
 
                 currentLevel = computeLevel(audioBuffer, bytesRead);
 
-                System.arraycopy(audioBuffer, 0, packetBuffer, HEADER_SIZE, bytesRead);
-                DatagramPacket packet = new DatagramPacket(packetBuffer, HEADER_SIZE + bytesRead, address, port);
-                attempt.socket.send(packet);
+                if (secure != null) {
+                    sendSecure(attempt, secure, audioBuffer, bytesRead);
+                } else {
+                    System.arraycopy(audioBuffer, 0, packetBuffer, HEADER_SIZE, bytesRead);
+                    DatagramPacket packet = new DatagramPacket(packetBuffer, HEADER_SIZE + bytesRead, address, port);
+                    attempt.socket.send(packet);
+                }
+                if (!firstAudioSent) {
+                    firstAudioSent = true;
+                    MicDiagnostics.record(MicDiagnostics.Phase.FIRST_AUDIO_SENT);
+                }
             }
         }
         catch (IOException | IllegalStateException | IllegalArgumentException | SecurityException e) {
             failed = !attempt.cancelled;
             if (failed) LimeLog.warning("MicForwarder: " + e.getMessage());
+        }
+        catch (GeneralSecurityException e) {
+            failed = !attempt.cancelled;
+            if (failed) LimeLog.warning("MicForwarder: microphone encryption failed");
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -199,6 +258,7 @@ public class MicForwarder {
             if (failed) LimeLog.warning("MicForwarder: capture interrupted");
         }
         finally {
+            if (failed) MicDiagnostics.record(MicDiagnostics.Phase.CAPTURE_FAILED);
             if (audioRecord != null) {
                 try {
                     audioRecord.stop();
@@ -208,6 +268,7 @@ public class MicForwarder {
                 }
                 audioRecord.release();
             }
+            MicDiagnostics.record(MicDiagnostics.Phase.STOPPED);
             if (attempt.socket != null) attempt.socket.close();
             synchronized (this) {
                 if (capture == attempt) {
@@ -217,6 +278,24 @@ public class MicForwarder {
                     notifyState(attempt, State.STOPPED, failed && !attempt.cancelled);
                 }
             }
+        }
+    }
+
+    private static void sendSecure(CaptureAttempt attempt, MicPacket codec, byte[] pcm, int length)
+            throws IOException, GeneralSecurityException {
+        byte[] packet = codec.encode(pcm, length);
+        attempt.socket.send(new DatagramPacket(packet, packet.length));
+    }
+
+    private static boolean receiveAcknowledgement(CaptureAttempt attempt, MicPacket codec)
+            throws IOException, GeneralSecurityException {
+        byte[] buffer = new byte[66];
+        DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+        try {
+            attempt.socket.receive(packet);
+            return codec.acceptAcknowledgement(buffer, packet.getLength());
+        } catch (SocketTimeoutException expected) {
+            return false;
         }
     }
 

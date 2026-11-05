@@ -186,6 +186,7 @@ SOURCES += \
     backend/computerseeker.cpp \
     backend/identitymanager.cpp \
     backend/micforwarder.cpp \
+    backend/micpacket.cpp \
     backend/micleveltester.cpp \
     backend/launcherapi.cpp \
     backend/sessionorchestrator.cpp \
@@ -239,6 +240,7 @@ HEADERS += \
     backend/computerseeker.h \
     backend/identitymanager.h \
     backend/micforwarder.h \
+    backend/micpacket.h \
     backend/micleveltester.h \
     backend/launcherapi.h \
     backend/sessionorchestrator.h \

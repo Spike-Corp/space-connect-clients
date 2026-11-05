@@ -38,6 +38,8 @@ public class BugReportActivity extends Activity {
 
         TextView metaText = findViewById(R.id.bugReportMeta);
         metaText.setText(getString(R.string.bug_report_meta, BuildConfig.VERSION_NAME));
+        if (BuildConfig.MIC_DIAGNOSTICS)
+            metaText.append("\n" + getString(R.string.bug_report_mic_diagnostic));
 
         String loggedEmail = AccountManager.getLoggedInEmail(this);
         if (!TextUtils.isEmpty(loggedEmail)) {
