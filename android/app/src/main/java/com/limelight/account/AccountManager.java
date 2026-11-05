@@ -495,6 +495,17 @@ public final class AccountManager {
         executeAuthenticated(context, token -> API.setMachinePassword(token, machineId, password), callback);
     }
 
+    // Modo de vídeo da PRÓPRIA VM (escolhido antes de ligar): "standard" (NVIDIA
+    // VGX normal, padrão) ou "performance" (display virtual Sudo Maker p/ +120 FPS
+    // e resoluções altas). Só persiste a escolha; o host aplica ao conectar.
+    public static void setDisplayMode(
+            Context context,
+            String machineId,
+            String mode,
+            ResultCallback<SpaceConnectApiClient.SetDisplayModeResponse> callback) {
+        executeAuthenticated(context, token -> API.setDisplayMode(token, machineId, mode), callback);
+    }
+
     // Provisiona a VM dedicada do usuário (self-service), igual ao botão "Criar
     // VM" do site — necessário pra usuários sem VM ainda conseguirem jogar
     // pelo app, em vez de ficarem presos num loop de fila sem VM nenhuma.

@@ -52,4 +52,11 @@
     <string name="vm_tip_switch">You can leave two machines powered on and switch between them. Selecting a machine does not start or stop it.</string>
     <string name="vm_tip_input">Use the in-stream menu for keyboard and controller options. Upload sends files to your VM, not to this device.</string>
     <string name="vm_diagnostic">Connection details: %1$s</string>
+    <string name="vm_display_mode">Video mode</string>
+    <string name="vm_display_standard">Standard — NVIDIA, up to 120 FPS</string>
+    <string name="vm_display_performance">Performance — Sudo Maker, 120+ FPS / 4K</string>
+    <string name="vm_display_current">✓ current</string>
+    <string name="vm_display_mode_hint">Choose before powering on. Performance uses the Sudo Maker virtual display for higher refresh rates and custom resolutions; the VM returns to Standard when restarted.</string>
+    <string name="vm_display_mode_locked_hint">Power off the VM to change the video mode.</string>
+    <string name="vm_display_mode_saved">Video mode saved. It applies the next time you power on this machine.</string>
 </resources>

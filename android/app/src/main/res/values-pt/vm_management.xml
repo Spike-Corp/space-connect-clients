@@ -52,4 +52,11 @@
     <string name="vm_tip_switch">Você pode deixar duas máquinas ligadas e alternar entre elas. Selecionar uma máquina não liga nem desliga nenhuma delas.</string>
     <string name="vm_tip_input">Use o menu da transmissão para teclado e controle. O upload envia arquivos para sua VM, não para este aparelho.</string>
     <string name="vm_diagnostic">Detalhes da conexão: %1$s</string>
+    <string name="vm_display_mode">Modo de vídeo</string>
+    <string name="vm_display_standard">Padrão — NVIDIA, até 120 FPS</string>
+    <string name="vm_display_performance">Desempenho — Sudo Maker, +120 FPS / 4K</string>
+    <string name="vm_display_current">✓ atual</string>
+    <string name="vm_display_mode_hint">Escolha antes de ligar. O modo Desempenho usa o monitor virtual Sudo Maker para mais taxa de atualização e resoluções personalizadas; a VM volta ao Padrão ao reiniciar.</string>
+    <string name="vm_display_mode_locked_hint">Desligue a VM para trocar o modo de vídeo.</string>
+    <string name="vm_display_mode_saved">Modo de vídeo salvo. Vale na próxima vez que você ligar esta máquina.</string>
 </resources>
