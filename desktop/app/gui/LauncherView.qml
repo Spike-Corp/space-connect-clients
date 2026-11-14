@@ -122,6 +122,14 @@ Item {
             submitPower("power_on")
             return
         }
+        // WS3: tentativas SPOT esgotadas — re-entra na fila direto (mesmo caminho
+        // do "idle" acima), sem abrir a janela de loading. O backend reseta o
+        // contador (queue.service.ts::addToQueue) e a próxima tentativa recomeça
+        // do zero; o dashboard reflete isso no próximo poll de status.
+        if (LauncherApi.state === "queued" && LauncherApi.bootAttemptsExhausted) {
+            LauncherApi.joinQueue()
+            return
+        }
         if (LauncherApi.state === "queued" || LauncherApi.state === "ready" || LauncherApi.state === "starting")
             sessionOrchestrator.startDesktopSession()
     }
@@ -167,6 +175,12 @@ Item {
         if (LauncherApi.state === "queued" || LauncherApi.state === "starting") {
             var reasons = remoteBootTexts ? remoteBootTexts.reasons : null
             var reason = reasons && reasons[LauncherApi.queueBlockedReason]
+            // WS3: reason de retry/exhausted traz {attempt}/{max} pra preencher
+            // ("A VM sofreu spot, tentando de novo (X/15)").
+            if (reason) {
+                reason = reason.split("{attempt}").join(LauncherApi.bootAttempt)
+                        .split("{max}").join(LauncherApi.bootAttemptMax)
+            }
             var detail = LauncherApi.state === "starting" ? creationPhaseLabel(LauncherApi.creationPhase)
                     : reason || bootText("queueSearching", qsTr("Join the shared queue. Your plan determines your priority."))
             return LauncherApi.bootElapsedSeconds >= 60
@@ -182,6 +196,10 @@ Item {
         if (activationPending()) return qsTr("Ativação em %1").arg(pendingActivationDate())
         if (needsMachine()) return qsTr("Create your VM")
         if (LauncherApi.state === "idle") return qsTranslate("MachineManagementView", "Power on")
+        // WS3: tentativas SPOT esgotadas — rótulo convida a tentar de novo
+        // (primaryAction chama LauncherApi.joinQueue() direto nesse caso).
+        if (LauncherApi.state === "queued" && LauncherApi.bootAttemptsExhausted)
+            return qsTr("Try again")
         if (LauncherApi.state === "queued" || LauncherApi.state === "starting"
                 || LauncherApi.state === "ready" || LauncherApi.state === "idle")
             return qsTr("Open machine")

@@ -33,6 +33,10 @@ LauncherStatus LauncherJson::parseStatus(const QByteArray& json)
     status.queueTotal = queue.value(QStringLiteral("total")).toInt();
     status.priority = queue.value(QStringLiteral("priority")).toInt();
     status.planSlug = queue.value(QStringLiteral("planSlug")).toString();
+    status.bootAttempt = queue.value(QStringLiteral("bootAttempt")).toInt();
+    status.bootAttemptMax = queue.value(QStringLiteral("bootAttemptMax")).toInt();
+    status.bootAttemptsExhausted = queue.value(QStringLiteral("bootAttemptsExhausted")).toBool();
+    status.blockedReason = queue.value(QStringLiteral("blockedReason")).toString();
 
     const QJsonObject session = root.value(QStringLiteral("session")).toObject();
     status.remainingMs = static_cast<qint64>(

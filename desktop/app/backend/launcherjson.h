@@ -17,6 +17,11 @@ struct LauncherStatus
     QString machineId;
     QString creationPhase;
     qint64 remainingMs = 0;
+    // WS3: retentativas de boot SPOT visíveis ("tentativa X/15" / "esgotou tentativas").
+    int bootAttempt = 0;
+    int bootAttemptMax = 0;
+    bool bootAttemptsExhausted = false;
+    QString blockedReason;
 };
 
 struct LauncherConnection

@@ -33,6 +33,10 @@ class LauncherApi : public QObject
     Q_PROPERTY(QString creationPhase READ creationPhase NOTIFY statusChanged)
     Q_PROPERTY(QVariantMap bootTexts READ bootTexts NOTIFY statusChanged)
     Q_PROPERTY(QString queueBlockedReason READ queueBlockedReason NOTIFY statusChanged)
+    // WS3: retentativas de boot SPOT visíveis ("tentativa X/15" / "esgotou tentativas").
+    Q_PROPERTY(int bootAttempt READ bootAttempt NOTIFY statusChanged)
+    Q_PROPERTY(int bootAttemptMax READ bootAttemptMax NOTIFY statusChanged)
+    Q_PROPERTY(bool bootAttemptsExhausted READ bootAttemptsExhausted NOTIFY statusChanged)
     Q_PROPERTY(int bootElapsedSeconds READ bootElapsedSeconds NOTIFY statusChanged)
     Q_PROPERTY(qint64 remainingMinutes READ remainingMinutes NOTIFY statusChanged)
     // Falso enquanto ainda não sabemos (undecided) ou o usuário realmente não
@@ -98,6 +102,9 @@ public:
     QString creationPhase() const { return m_CreationPhase; }
     QVariantMap bootTexts() const { return m_BootTexts; }
     QString queueBlockedReason() const { return m_QueueBlockedReason; }
+    int bootAttempt() const { return m_BootAttempt; }
+    int bootAttemptMax() const { return m_BootAttemptMax; }
+    bool bootAttemptsExhausted() const { return m_BootAttemptsExhausted; }
     int bootElapsedSeconds() const { return m_BootElapsedSeconds; }
     qint64 remainingMinutes() const { return m_RemainingMs / 60000; }
     bool hasMachine() const { return m_HasMachine; }
@@ -341,6 +348,9 @@ private:
     QString m_CreationPhase;
     QVariantMap m_BootTexts;
     QString m_QueueBlockedReason;
+    int m_BootAttempt = 0;
+    int m_BootAttemptMax = 0;
+    bool m_BootAttemptsExhausted = false;
     int m_BootElapsedSeconds = 0;
     int m_QueuePosition = 0;
     int m_QueueTotal = 0;
