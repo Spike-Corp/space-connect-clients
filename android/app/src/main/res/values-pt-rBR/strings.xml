@@ -348,6 +348,7 @@
     <string name="launcher_session_details">%1$s · %2$d minutos restantes</string>
     <string name="launcher_machine">PC SpaceCloud</string>
     <string name="launcher_join_queue">Abrir máquina</string>
+    <string name="launcher_retry_queue">Tentar novamente</string>
     <string name="launcher_plan_unlimited">%1$s · horas ilimitadas</string>
     <string name="launcher_plan_unlimited_short">ilimitado</string>
     <string name="category_session_notify">Notificações da sessão</string>

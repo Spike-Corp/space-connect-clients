@@ -29,4 +29,28 @@ public class SessionMessagesTest {
         message = SessionMessages.message(RuntimeEnvironment.getApplication(), SessionOrchestrator.Stage.STARTING, boot);
         assertEquals("Título do admin\nAguarde: Fase editada", message);
     }
+
+    // WS3: retentativas de boot em SPOT - {attempt}/{max} devem ser substituídos
+    // pelos valores reais vindos de status.queue.bootAttempt/bootAttemptMax.
+    @Test public void spotRetryReasonSubstitutesAttemptAndMax() {
+        StatusResponse retrying = new Gson().fromJson(
+                "{\"state\":\"queued\",\"queue\":{\"position\":1,\"total\":1,\"blockedReason\":\"retry\","
+                + "\"bootAttempt\":3,\"bootAttemptMax\":15},"
+                + "\"bootTexts\":{\"reasons\":{\"retry\":\"Tentando de novo (tentativa {attempt} de {max}).\"}}}",
+                StatusResponse.class);
+        String message = SessionMessages.message(RuntimeEnvironment.getApplication(), SessionOrchestrator.Stage.QUEUED, retrying);
+        assertTrue(message.contains("tentativa 3 de 15"));
+        assertFalse(message.contains("{attempt}"));
+        assertFalse(message.contains("{max}"));
+    }
+
+    @Test public void exhaustedReasonSubstitutesMax() {
+        StatusResponse exhausted = new Gson().fromJson(
+                "{\"state\":\"queued\",\"queue\":{\"position\":1,\"total\":1,\"blockedReason\":\"exhausted\","
+                + "\"bootAttempt\":15,\"bootAttemptMax\":15,\"bootAttemptsExhausted\":true},"
+                + "\"bootTexts\":{\"reasons\":{\"exhausted\":\"Falhou depois de {max} tentativas.\"}}}",
+                StatusResponse.class);
+        String message = SessionMessages.message(RuntimeEnvironment.getApplication(), SessionOrchestrator.Stage.QUEUED, exhausted);
+        assertTrue(message.contains("Falhou depois de 15 tentativas."));
+    }
 }
