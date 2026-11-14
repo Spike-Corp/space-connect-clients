@@ -326,19 +326,36 @@ ApplicationWindow {
 
     Labs.SystemTrayIcon {
         id: operationsTray
+        property string readyMachineId: ""
         visible: available && LauncherApi.loggedIn
         icon.source: "qrc:/res/spaceconnect_icon_256.png"
         tooltip: "Space Connect"
         onActivated: { window.showNormal(); window.raise(); window.requestActivate() }
-        onMessageClicked: { window.showNormal(); window.raise(); window.requestActivate() }
+        onMessageClicked: {
+            if (readyMachineId && LauncherApi.loggedIn) {
+                LauncherApi.selectedMachineId = readyMachineId
+                if (!window.qmltypeof(stackView.currentItem, "StreamSegue"))
+                    window.showLauncherView()
+            }
+            window.showNormal()
+            window.raise()
+            window.requestActivate()
+        }
     }
 
     Connections {
         target: LauncherApi
         function onBackgroundNotice(message) {
+            operationsTray.readyMachineId = ""
             window.showSessionToast(message)
             if (operationsTray.available) operationsTray.showMessage("SpaceCloud", message)
             else window.alert(5000)
+        }
+        function onMachineBootReady(machineId, message) {
+            operationsTray.readyMachineId = machineId
+        }
+        function onAccountChanging() {
+            operationsTray.readyMachineId = ""
         }
     }
 

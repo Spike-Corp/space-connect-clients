@@ -33,6 +33,7 @@ public final class SessionOverlayView extends FrameLayout {
     private final View logo;
     private final View spinner;
     private final Button cancel;
+    private final Button backgroundButton;
     private final TextView tip;
     private String[] tips;
     private int tipIndex;
@@ -77,6 +78,7 @@ public final class SessionOverlayView extends FrameLayout {
         logo = findViewById(R.id.sessionLogo);
         spinner = findViewById(R.id.sessionSpinner);
         cancel = findViewById(R.id.sessionCancel);
+        backgroundButton = findViewById(R.id.sessionBackground);
         tip = findViewById(R.id.sessionTip);
         tip.setTypeface(UiHelper.getBodyTypeface(context));
         setTips(null);
@@ -86,6 +88,7 @@ public final class SessionOverlayView extends FrameLayout {
         labels[1].setTypeface(UiHelper.getBodyTypeface(context));
         ((TextView) findViewById(R.id.sessionWordmark)).setTypeface(UiHelper.getDisplayTypeface(context));
         cancel.setTypeface(UiHelper.getBodyTypeface(context));
+        backgroundButton.setTypeface(UiHelper.getBodyTypeface(context));
         setOnApplyWindowInsetsListener((view, insets) -> {
             int safe = (int) (24 * getResources().getDisplayMetrics().density);
             view.setPadding(Math.max(safe, insets.getSystemWindowInsetLeft()),
@@ -110,6 +113,15 @@ public final class SessionOverlayView extends FrameLayout {
     public void setOnCancel(Runnable action) {
         cancel.setOnClickListener(v -> action.run());
         cancel.requestFocus();
+    }
+
+    public void setOnBackground(Runnable action) {
+        backgroundButton.setVisibility(VISIBLE);
+        backgroundButton.setOnClickListener(v -> action.run());
+    }
+
+    public void setBackgroundEnabled(boolean enabled) {
+        backgroundButton.setEnabled(enabled);
     }
 
     public void showMessage(CharSequence message) {

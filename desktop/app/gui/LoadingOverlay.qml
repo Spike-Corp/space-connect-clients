@@ -6,6 +6,8 @@ Rectangle {
     id: overlay
     property string statusText: ""
     property bool reducedMotion: false
+    property bool backgroundAvailable: false
+    property bool canBackground: false
     property var tips: []
     property int tipIndex: 0
     property var fallbackTips: [
@@ -15,6 +17,7 @@ Rectangle {
     property var activeTips: tips && tips.length ? tips : fallbackTips
     BrandTheme { id: brand }
     signal cancelRequested()
+    signal backgroundRequested()
     color: brand.background
     Material.theme: Material.Dark
     Material.accent: "#ffffff"
@@ -54,7 +57,7 @@ Rectangle {
     Column {
         width: Math.min(640, parent.width - 64)
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: cancelButton.top
+        anchors.bottom: actions.top
         anchors.bottomMargin: 32
         spacing: 24
         Canvas {
@@ -103,15 +106,32 @@ Rectangle {
         repeat: true
         onTriggered: overlay.tipIndex++
     }
-    Button {
-        id: cancelButton
+    Column {
+        id: actions
+        width: Math.min(420, parent.width - 48)
+        spacing: 8
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: Math.max(24, parent.height * 0.06)
-        text: qsTr("Cancel connection")
-        flat: true
-        focus: true
-        onClicked: overlay.cancelRequested()
-        Accessible.description: qsTr("Return without turning off your machine")
+        Button {
+            objectName: "sessionBackground"
+            width: parent.width
+            height: Math.max(48, implicitHeight)
+            visible: overlay.backgroundAvailable
+            enabled: overlay.canBackground
+            text: qsTr("Follow in the background")
+            onClicked: overlay.backgroundRequested()
+            Accessible.description: qsTr("Keep Space Connect open to receive the ready notification. Connect only when you choose.")
+        }
+        Button {
+            id: cancelButton
+            width: parent.width
+            height: Math.max(48, implicitHeight)
+            text: qsTr("Cancel connection")
+            flat: true
+            focus: true
+            onClicked: overlay.cancelRequested()
+            Accessible.description: qsTr("Return without turning off your machine")
+        }
     }
 }

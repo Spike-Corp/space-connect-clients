@@ -225,6 +225,17 @@ public final class SpaceConnectApiClient {
         return post("machines/" + safeMachineId(machineId) + "/set-password", input, accessToken, SetMachinePasswordResponse.class);
     }
 
+    // Modo de vídeo da PRÓPRIA VM (escolhido antes de ligar): "standard" = NVIDIA
+    // VGX normal; "performance" = display virtual Apollo (Sudo Maker) p/ +120 FPS
+    // e resoluções altas. Só persiste a escolha; o host aplica ao conectar e volta
+    // ao padrão quando a VM reinicia. Mesma lógica do site/desktop.
+    public SetDisplayModeResponse setDisplayMode(String accessToken, String machineId, String mode)
+            throws IOException, ApiException {
+        SetDisplayModeRequest input = new SetDisplayModeRequest();
+        input.mode = "performance".equals(mode) ? "performance" : "standard";
+        return post("machines/" + safeMachineId(machineId) + "/display-mode", input, accessToken, SetDisplayModeResponse.class);
+    }
+
     // Provisiona a VM dedicada do usuário (self-service), igual ao botão "Criar
     // VM" do site. Necessário antes de entrar na fila — a fila nunca cria VM
     // sozinha, ela só serve quem já tem uma máquina dedicada.
@@ -289,7 +300,8 @@ public final class SpaceConnectApiClient {
 
     // Garante que o MicBridge está rodando na VM antes de encaminhar o mic.
     public MicEnsureResponse ensureMicBridge(String accessToken, String machineId) throws IOException, ApiException {
-        return post("mic/ensure", new MachineTarget(machineId), accessToken, MicEnsureResponse.class);
+        return streamApi().post("mic/ensure", new MicEnsureRequest(safeMachineId(machineId)),
+                accessToken, MicEnsureResponse.class);
     }
 
     // Biblioteca de downloads gerenciada pelo admin (aba Downloads do app).
@@ -685,6 +697,10 @@ public final class SpaceConnectApiClient {
         String password;
     }
 
+    private static final class SetDisplayModeRequest {
+        String mode;
+    }
+
     private static final class EmptyRequest {
     }
 
@@ -1014,6 +1030,11 @@ public final class SpaceConnectApiClient {
         public String accountName;
         public String provider;
         public String state;
+        // Modo de vídeo escolhido ANTES de ligar a VM: "standard" = NVIDIA VGX
+        // normal (padrão, nada muda); "performance" = display virtual Apollo
+        // (Sudo Maker/SudoVDA) p/ +120 FPS e resoluções custom. Backend antigo
+        // não manda: fica null e a UI trata como "standard".
+        public String displayMode;
         // Tamanho do disco (GB) — usado na transferência de disco entre VMs.
         public MachineSpecs specs;
         // Plano/saldo ligado à máquina (null quando não há entitlement ativo).
@@ -1135,9 +1156,25 @@ public final class SpaceConnectApiClient {
         public String username;
     }
 
+    public static final class SetDisplayModeResponse {
+        public Boolean ok;
+        public String displayMode; // standard | performance
+    }
+
+    private static final class MicEnsureRequest {
+        final String machineId;
+        final int protocol = 2;
+        MicEnsureRequest(String machineId) { this.machineId = machineId; }
+    }
+
     public static final class MicEnsureResponse {
         public Boolean ok;
-        public String state; // already_running | started | unknown
+        public String state;
+        public int protocol;
+        public int port;
+        public String sessionId;
+        public String key;
+        public long expiresAt;
     }
 
     public static final class DownloadItem {

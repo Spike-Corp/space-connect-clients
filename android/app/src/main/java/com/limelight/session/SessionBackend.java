@@ -15,7 +15,11 @@ final class SessionBackend implements SessionOrchestrator.Backend {
     final AccountManager.SessionRequests requests;
 
     SessionBackend(Context context, String machineId, boolean friend, RequestScope scope) {
-        requests = AccountManager.sessionRequests(context, machineId, friend, scope);
+        this(context, machineId, friend, scope, AccountManager.currentAccountGeneration());
+    }
+
+    SessionBackend(Context context, String machineId, boolean friend, RequestScope scope, long generation) {
+        requests = AccountManager.sessionRequests(context, machineId, friend, scope, generation);
     }
 
     @Override public StatusResponse status() throws Exception { return requests.status(); }

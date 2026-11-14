@@ -135,6 +135,22 @@ public class MachineManagementActivity extends Activity {
             text(box, getString(working ? R.string.vm_working : machine.queue != null ? R.string.vm_queued : powered ? R.string.vm_on : R.string.vm_off), false);
             text(box, getString(R.string.vm_windows_disk, machine.specs != null && machine.specs.diskGb != null ? machine.specs.diskGb.toString() : "—"), false);
             boolean available = !working;
+            // Modo de vídeo (Padrão x Desempenho/Sudo Maker) — escolhido ANTES de
+            // ligar a VM. "standard" = NVIDIA VGX normal (nada muda). "performance" =
+            // display virtual Apollo (Sudo Maker) p/ +120 FPS e resoluções altas. O
+            // host aplica ao conectar e volta ao padrão quando a VM reinicia.
+            String displayMode = "performance".equals(machine.displayMode) ? "performance" : "standard";
+            boolean canPickMode = available && !powered && machine.queue == null && !machine.locked;
+            text(box, getString(R.string.vm_display_mode), true);
+            button(box, getString(R.string.vm_display_standard)
+                            + ("standard".equals(displayMode) ? "   " + getString(R.string.vm_display_current) : ""),
+                    "dmstd:" + machine.id, canPickMode && !"standard".equals(displayMode),
+                    () -> setDisplayMode(machine.id, "standard"));
+            button(box, getString(R.string.vm_display_performance)
+                            + ("performance".equals(displayMode) ? "   " + getString(R.string.vm_display_current) : ""),
+                    "dmperf:" + machine.id, canPickMode && !"performance".equals(displayMode),
+                    () -> setDisplayMode(machine.id, "performance"));
+            text(box, getString(powered ? R.string.vm_display_mode_locked_hint : R.string.vm_display_mode_hint), false);
             button(box, getString(R.string.vm_power_on), "on:" + machine.id, available && !machine.locked && !powered && machine.queue == null,
                     () -> submit(machine.id, new MachineAction("power_on")));
             button(box, getString(R.string.vm_restart), "restart:" + machine.id, available && machine.session != null,
@@ -201,6 +217,28 @@ public class MachineManagementActivity extends Activity {
         submitting = true;
         render();
         AccountManager.machineAction(this, machineId, action, callback(() -> submit(machineId, action)));
+    }
+    // Só persiste a escolha do modo de vídeo (não liga a VM). O host aplica ao
+    // conectar; ao reiniciar a VM, ela volta ao Padrão.
+    private void setDisplayMode(String machineId, String mode) {
+        if (submitting) return;
+        submitting = true;
+        render();
+        AccountManager.setDisplayMode(this, machineId, mode, new AccountManager.ResultCallback<SetDisplayModeResponse>() {
+            public void onSuccess(SetDisplayModeResponse result) {
+                submitting = false;
+                if (!resumed) return;
+                Toast.makeText(MachineManagementActivity.this, R.string.vm_display_mode_saved, Toast.LENGTH_LONG).show();
+                reload();
+            }
+            public void onError(String message) {
+                submitting = false;
+                if (!resumed) return;
+                render();
+                new AlertDialog.Builder(MachineManagementActivity.this)
+                        .setMessage(message).setNegativeButton(R.string.vm_back, null).show();
+            }
+        });
     }
     private AccountManager.ResultCallback<OperationResponse> callback(Runnable retry) {
         return new AccountManager.ResultCallback<OperationResponse>() {

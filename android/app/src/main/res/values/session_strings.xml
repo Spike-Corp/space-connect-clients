@@ -5,6 +5,13 @@
     <string name="session_pairing">Securely connecting your device</string>
     <string name="session_waiting_frame">Starting your stream</string>
     <string name="session_cancel">Cancel</string>
+    <string name="session_background">Follow in the background</string>
+    <string name="session_background_notifications">Enable Space Connect notifications and the ready alert to follow startup in the background.</string>
+    <string name="session_plan_expired">This machine’s plan has expired. Renew it to start the machine, even if it still has hours.</string>
+    <string name="session_insufficient_balance">This machine’s plan has no available hours. Add hours or renew it from your dashboard.</string>
+    <string name="session_operation_busy">This machine already has a session or an operation in progress. Check its status from your dashboard.</string>
+    <string name="session_cooldown">Please wait for the cooldown before starting another session.</string>
+    <string name="session_access_denied">This machine is not available to your account. Refresh your dashboard or contact support.</string>
     <string name="session_connection_failed">We couldn’t connect. Please try again from your dashboard.</string>
     <string name="session_pair_failed">We couldn’t securely connect this device. Please try again.</string>
     <string name="session_desktop_missing">Desktop isn’t available on this computer. Contact support to enable it.</string>

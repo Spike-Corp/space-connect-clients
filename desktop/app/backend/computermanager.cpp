@@ -32,7 +32,16 @@ public:
 private:
     bool tryPollComputer(NvAddress address, bool& changed)
     {
-        NvHTTP http(address, 0, m_Computer->serverCert);
+        // serverCert is normally written only by this polling thread, but SpaceCloud's
+        // stale-pairing reset (PendingAddTask) can rewrite it from another thread during a
+        // connect. QSslCertificate is implicitly shared, so copy it under the per-computer
+        // read lock to avoid a d-pointer data race (crash right after "Clearing stale pairing").
+        QSslCertificate serverCert;
+        {
+            QReadLocker lock(&m_Computer->lock);
+            serverCert = m_Computer->serverCert;
+        }
+        NvHTTP http(address, 0, serverCert);
 
         QString serverInfo;
         try {
@@ -978,6 +987,9 @@ private:
             QReadLocker lock(&m_ComputerManager->m_Lock);
             existingComputer = m_ComputerManager->m_KnownHosts.value(newComputer->uuid);
             if (existingComputer != nullptr) {
+                // Take the per-computer read lock: serverCert may be rewritten concurrently
+                // by the polling thread or the stale-pairing reset (implicitly-shared type).
+                QReadLocker computerLock(&existingComputer->lock);
                 http.setServerCert(existingComputer->serverCert);
             }
         }
