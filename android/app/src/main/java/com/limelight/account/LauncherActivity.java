@@ -257,10 +257,17 @@ public class LauncherActivity extends Activity {
             statusText.setText(texts == null ? getString(R.string.launcher_status_queued)
                     : texts.queueTitle(status.queue.position, status.queue.total, position));
             String reason = texts != null && texts.reasons != null ? texts.reasons.get(status.queue.blockedReason) : null;
-            detailsText.setText(bootDetails(status, texts == null ? position
-                    : SpaceConnectApiClient.BootTexts.text(reason,
-                        SpaceConnectApiClient.BootTexts.text(texts.queueSearching, position))));
-            primaryButton.setText(R.string.launcher_join_queue);
+            reason = SpaceConnectApiClient.BootTexts.text(reason,
+                    texts == null ? position : SpaceConnectApiClient.BootTexts.text(texts.queueSearching, position));
+            // WS3: "tentativa X de 15" / "depois de 15 tentativas" (blockedReason retry/exhausted).
+            reason = reason.replace("{attempt}", String.valueOf(status.queue.bootAttempt))
+                    .replace("{max}", String.valueOf(status.queue.bootAttemptMax));
+            detailsText.setText(bootDetails(status, reason));
+            // Esgotou as tentativas: o texto já pede "toque em Tentar novamente" — o botão
+            // segue acionando o mesmo fluxo (connect() -> SessionOrchestrator.joinQueue(),
+            // que reseta o contador no backend), só muda o rótulo pra bater com a mensagem.
+            primaryButton.setText(status.queue.bootAttemptsExhausted
+                    ? R.string.launcher_retry_queue : R.string.launcher_join_queue);
             primaryButton.setOnClickListener(v -> connect());
             return;
         }

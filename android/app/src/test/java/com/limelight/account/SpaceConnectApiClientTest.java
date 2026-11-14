@@ -288,6 +288,38 @@ public class SpaceConnectApiClientTest {
         assertEquals("Bearer access-1", request.getHeader("Authorization"));
     }
 
+    // WS3: retentativas de boot em SPOT - os campos novos (queue.bootAttempt/bootAttemptMax/
+    // bootAttemptsExhausted e session.machine.bootAttempt/bootAttemptReason/bootAttemptsExhausted)
+    // precisam chegar no StatusResponse pro app mostrar "tentativa X/15".
+    @Test
+    public void getStatusParsesBootAttemptFieldsOnQueueAndSessionMachine() throws Exception {
+        server.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("{"
+                        + "\"state\":\"queued\","
+                        + "\"queue\":{\"position\":1,\"total\":1,\"blockedReason\":\"retry\","
+                        + "\"bootAttempt\":4,\"bootAttemptMax\":15,\"bootAttemptsExhausted\":false}"
+                        + "}"));
+        SpaceConnectApiClient.StatusResponse queued = client.getStatus("access-1");
+        assertEquals(4, queued.queue.bootAttempt);
+        assertEquals(15, queued.queue.bootAttemptMax);
+        assertFalse(queued.queue.bootAttemptsExhausted);
+
+        server.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("{"
+                        + "\"state\":\"starting\","
+                        + "\"session\":{\"machine\":{\"id\":\"m1\",\"bootAttempt\":15,"
+                        + "\"bootAttemptReason\":\"spot_stockout\",\"bootAttemptsExhausted\":true}}"
+                        + "}"));
+        SpaceConnectApiClient.StatusResponse starting = client.getStatus("access-1");
+        assertEquals(15, starting.session.machine.bootAttempt);
+        assertEquals("spot_stockout", starting.session.machine.bootAttemptReason);
+        assertTrue(starting.session.machine.bootAttemptsExhausted);
+    }
+
     @Test
     public void statusUsesAdminBootTextsAndPreservesEmptyTips() throws Exception {
         server.enqueue(new MockResponse().setHeader("Content-Type", "application/json").setBody(

@@ -18,7 +18,10 @@ final class SessionMessages {
                     : texts.queueTitle(position, total, context.getString(R.string.launcher_status_queued));
             String reason = texts == null || texts.reasons == null ? null : texts.reasons.get(status.queue.blockedReason);
             reason = BootTexts.text(reason, texts == null ? "" : BootTexts.text(texts.queueSearching, ""));
-            reason = reason.replace("{position}", String.valueOf(position)).replace("{total}", String.valueOf(total));
+            reason = reason.replace("{position}", String.valueOf(position)).replace("{total}", String.valueOf(total))
+                    // WS3: "tentativa X de 15" / "depois de 15 tentativas" (blockedReason retry/exhausted).
+                    .replace("{attempt}", String.valueOf(status.queue.bootAttempt))
+                    .replace("{max}", String.valueOf(status.queue.bootAttemptMax));
             return title + "\n" + positionText + (reason.isEmpty() || reason.equals(positionText) ? "" : "\n" + reason);
         }
         if (stage == SessionOrchestrator.Stage.STARTING) {

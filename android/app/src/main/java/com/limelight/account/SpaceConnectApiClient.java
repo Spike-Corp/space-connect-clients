@@ -925,6 +925,10 @@ public final class SpaceConnectApiClient {
         public double requestedHours;
         public String joinedAt;
         public String blockedReason;
+        // WS3: retentativas de boot em SPOT ("tentativa X/15" / "esgotou tentativas").
+        public int bootAttempt;
+        public int bootAttemptMax;
+        public boolean bootAttemptsExhausted;
     }
 
     public static final class SessionStatus {
@@ -941,6 +945,12 @@ public final class SpaceConnectApiClient {
         public String state;
         public String creationPhase;
         public String shutdownPhase;
+        // WS3: mesmos campos também chegam aqui quando a sessão já existe
+        // (ex.: retry pós-criação acontecendo numa sessão já ativa).
+        public int bootAttempt;
+        public int bootAttemptMax;
+        public String bootAttemptReason;
+        public boolean bootAttemptsExhausted;
     }
 
     public static final class ConnectionResponse {
