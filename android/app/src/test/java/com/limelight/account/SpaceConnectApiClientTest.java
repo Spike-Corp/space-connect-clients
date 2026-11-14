@@ -24,6 +24,37 @@ public class SpaceConnectApiClientTest {
     private SpaceConnectApiClient client;
 
     @Test
+    public void microphoneRequestsUseExplicitMachineAndAuthenticatedProtocol() throws Exception {
+        String machine = "507f1f77bcf86cd799439011";
+        server.enqueue(new MockResponse().setBody("{\"ok\":false,\"state\":\"installing\"}"));
+        SpaceConnectApiClient.MicEnsureResponse result = client.ensureMicBridge("fixture", machine);
+        assertEquals("installing", result.state);
+        RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
+        assertEquals("/api/launcher/v1/mic/ensure", request.getPath());
+        assertEquals(new com.google.gson.JsonParser().parse("{\"machineId\":\"" + machine + "\",\"protocol\":2}"),
+                new com.google.gson.JsonParser().parse(request.getBody().readUtf8()));
+    }
+
+    @Test
+    public void setDisplayModeTargetsOwnMachineAndCoercesUnknownModeToStandard() throws Exception {
+        String machine = "507f1f77bcf86cd799439011";
+        server.enqueue(new MockResponse().setBody("{\"ok\":true,\"displayMode\":\"performance\"}"));
+        SpaceConnectApiClient.SetDisplayModeResponse result = client.setDisplayMode("fixture", machine, "performance");
+        assertEquals(Boolean.TRUE, result.ok);
+        assertEquals("performance", result.displayMode);
+        RecordedRequest request = server.takeRequest(2, TimeUnit.SECONDS);
+        assertEquals("/api/launcher/v1/machines/" + machine + "/display-mode", request.getPath());
+        assertEquals(new com.google.gson.JsonParser().parse("{\"mode\":\"performance\"}"),
+                new com.google.gson.JsonParser().parse(request.getBody().readUtf8()));
+
+        server.enqueue(new MockResponse().setBody("{\"ok\":true,\"displayMode\":\"standard\"}"));
+        client.setDisplayMode("fixture", machine, "bogus");
+        RecordedRequest coerced = server.takeRequest(2, TimeUnit.SECONDS);
+        assertEquals(new com.google.gson.JsonParser().parse("{\"mode\":\"standard\"}"),
+                new com.google.gson.JsonParser().parse(coerced.getBody().readUtf8()));
+    }
+
+    @Test
     public void streamProofAndGuestActionsKeepExplicitMachineAndBindingWithoutSupplyingActorIds() throws Exception {
         String machine = "507f1f77bcf86cd799439011";
         String binding = "507f1f77bcf86cd799439055";

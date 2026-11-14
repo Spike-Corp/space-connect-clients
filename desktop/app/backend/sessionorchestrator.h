@@ -17,6 +17,8 @@ class SessionOrchestrator : public QObject
     Q_OBJECT
     Q_PROPERTY(bool active READ active NOTIFY changed)
     Q_PROPERTY(bool busy READ busy NOTIFY changed)
+    Q_PROPERTY(bool backgrounded READ backgrounded NOTIFY changed)
+    Q_PROPERTY(bool canBackground READ canBackground NOTIFY changed)
     Q_PROPERTY(QString phase READ phase NOTIFY changed)
     Q_PROPERTY(QString statusText READ statusText NOTIFY changed)
     Q_PROPERTY(bool reducedMotion READ reducedMotion NOTIFY changed)
@@ -28,12 +30,16 @@ public:
 
     Q_INVOKABLE void initialize(LauncherApi* launcher, ComputerManager* computers);
     Q_INVOKABLE void startDesktopSession();
+    Q_INVOKABLE bool followInBackground();
+    Q_INVOKABLE void resumeConnection(const QString& machineId = QString());
     Q_INVOKABLE void cancel();
-    Q_INVOKABLE void completeReveal();
+    Q_INVOKABLE void completeReveal(bool activate = true);
     Q_INVOKABLE void reportError(const QString& message);
 
     bool active() const { return m_Active; }
     bool busy() const { return m_Active || m_Session != nullptr || m_CancelQueued; }
+    bool backgrounded() const { return !m_BackgroundMachineId.isEmpty(); }
+    bool canBackground() const;
     QString phase() const { return m_Phase; }
     QString statusText() const { return m_StatusText; }
     bool reducedMotion() const;
@@ -49,6 +55,7 @@ signals:
     void sessionReady(Session* session);
 
 private:
+    void beginSession(const QString& machineId);
     void syncStatus();
     void drive();
     void prepareHost(const QString& address, const QString& machineId, const QString& name);
@@ -74,9 +81,11 @@ private:
     bool m_WaitingForApps = false;
     bool m_FreshlyPaired = false;
     bool m_OwnsPolling = false;
+    int m_StatusReadFailures = 0;
     LauncherStatus m_Status;
     QVariantMap m_BootTexts;
     QString m_MachineId;
+    QString m_BackgroundMachineId;
     QString m_Address;
     QString m_Name;
     QString m_Phase = QStringLiteral("idle");

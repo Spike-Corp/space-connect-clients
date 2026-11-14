@@ -1,174 +1,229 @@
-﻿using System.Net;
+using System.IO.Pipes;
+using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
+using System.Security.AccessControl;
+using System.Security.Principal;
+using System.Text;
+using System.Text.Json;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
 
 namespace SpaceConnectMicBridge;
 
-// Space Connect Mic Bridge
-//
-// Small companion program for the "Space Connect" Moonlight client. The Android app captures the
-// phone's microphone and sends raw PCM audio over UDP to this program, which plays it into a
-// virtual audio "cable" (e.g. VB-Audio Virtual Cable's "CABLE Input" playback device). Windows
-// then exposes the cable's matching recording endpoint ("CABLE Output") as if it were a real
-// microphone, which any app (Discord, a game, Windows itself) can select as its input device.
-//
-// This does NOT touch the Moonlight/GameStream protocol at all - it's a fully separate, parallel
-// UDP side-channel on the same local network, because the streaming protocol itself has no
-// client-to-host audio channel (confirmed - see repo notes).
 internal static class Program
 {
-    // Must match the header written by the Android client's mic-forwarding feature.
-    private static readonly byte[] MagicHeader = { (byte)'S', (byte)'C', (byte)'M', (byte)'B' };
-    private const int HeaderSize = 12; // magic(4) + version(1) + channels(1) + reserved(2) + sampleRate(4)
-    private const int ProtocolVersion = 1;
-
-    private const int DefaultPort = 48100;
-    private const string DefaultDeviceNameFilter = "CABLE Input";
+    private const string ControlPipe = "SpaceConnectMicBridge.Control.v2";
+    private static readonly object Gate = new();
+    private static MicSession? session;
+    private static DateTimeOffset lastPacket;
+    private static long packets;
+    private static long recordedSamples;
+    private static float recordedPeak;
 
     private static async Task<int> Main(string[] args)
     {
-        int port = DefaultPort;
-        string deviceNameFilter = DefaultDeviceNameFilter;
-
+        if (args.Contains("--version"))
+        {
+            Console.WriteLine("SpaceConnectMicBridge 0.3.49 protocol=2");
+            return 0;
+        }
+        int port = 48100;
         for (int i = 0; i < args.Length; i++)
-        {
-            if (args[i] == "--port" && i + 1 < args.Length && int.TryParse(args[i + 1], out int parsedPort))
-            {
-                port = parsedPort;
-            }
-            else if (args[i] == "--device" && i + 1 < args.Length)
-            {
-                deviceNameFilter = args[i + 1];
-            }
-        }
-
-        Console.WriteLine("Space Connect Mic Bridge");
-        Console.WriteLine("=========================");
-
-        MMDevice? outputDevice = FindOutputDevice(deviceNameFilter);
-        if (outputDevice == null)
-        {
-            Console.WriteLine($"ERROR: Could not find a playback device matching \"{deviceNameFilter}\".");
-            Console.WriteLine();
-            Console.WriteLine("This program needs a virtual audio cable installed first, e.g. VB-Audio");
-            Console.WriteLine("Virtual Cable (free): https://vb-audio.com/Cable/");
-            Console.WriteLine("After installing it, re-run this program. In Discord/your game, select");
-            Console.WriteLine("\"CABLE Output\" as your microphone.");
-            return 1;
-        }
-
-        Console.WriteLine($"Output device: {outputDevice.FriendlyName}");
-        Console.WriteLine($"Listening for mic audio on UDP port {port}...");
-        Console.WriteLine("Press Ctrl+C to stop.");
-        Console.WriteLine();
-
-        using var udpClient = new UdpClient(port);
-        WasapiOut? wasapiOut = null;
-        BufferedWaveProvider? bufferedWaveProvider = null;
-        IPEndPoint? lastRemoteEndPoint = null;
-        long packetCount = 0;
-
-        var cts = new CancellationTokenSource();
-        Console.CancelKeyPress += (_, e) =>
-        {
-            e.Cancel = true;
-            cts.Cancel();
-        };
-
+            if (args[i] == "--port" && i + 1 < args.Length) port = int.Parse(args[++i]);
+        using var shutdown = new CancellationTokenSource();
+        Console.CancelKeyPress += (_, e) => { e.Cancel = true; shutdown.Cancel(); };
         try
         {
-            while (!cts.IsCancellationRequested)
+            using MMDevice output = FindDevice(DataFlow.Render, "CABLE Input");
+            using MMDevice input = FindDevice(DataFlow.Capture, "CABLE Output");
+            output.AudioEndpointVolume.Mute = false;
+            input.AudioEndpointVolume.Mute = false;
+            if (output.AudioEndpointVolume.MasterVolumeLevelScalar == 0) output.AudioEndpointVolume.MasterVolumeLevelScalar = 1;
+            if (input.AudioEndpointVolume.MasterVolumeLevelScalar == 0) input.AudioEndpointVolume.MasterVolumeLevelScalar = 1;
+            var buffer = new BufferedWaveProvider(new WaveFormat(16000, 16, 1))
             {
-                UdpReceiveResult result;
-                try
+                BufferDuration = TimeSpan.FromMilliseconds(160),
+                ReadFully = true,
+            };
+            using var render = new WasapiOut(output, AudioClientShareMode.Shared, true, 30);
+            render.Init(buffer);
+            using var capture = new WasapiCapture(input);
+            capture.DataAvailable += (_, e) => Measure(capture.WaveFormat, e.Buffer, e.BytesRecorded);
+            capture.RecordingStopped += (_, e) =>
+            {
+                if (e.Exception != null)
                 {
-                    result = await udpClient.ReceiveAsync(cts.Token);
+                    Console.Error.WriteLine("Virtual microphone capture failed: " + e.Exception.Message);
+                    shutdown.Cancel();
                 }
-                catch (OperationCanceledException)
+            };
+            render.PlaybackStopped += (_, e) =>
+            {
+                if (e.Exception != null)
                 {
-                    break;
+                    Console.Error.WriteLine("Virtual microphone playback failed: " + e.Exception.Message);
+                    shutdown.Cancel();
                 }
-
-                byte[] packet = result.Buffer;
-                if (packet.Length <= HeaderSize || !HasValidMagic(packet))
-                {
-                    continue;
-                }
-
-                byte version = packet[4];
-                byte channels = packet[5];
-                int sampleRate = BitConverter.ToInt32(packet, 8);
-
-                if (version != ProtocolVersion || channels < 1 || channels > 2 || sampleRate <= 0)
-                {
-                    continue;
-                }
-
-                if (!result.RemoteEndPoint.Equals(lastRemoteEndPoint))
-                {
-                    Console.WriteLine($"Receiving mic audio from {result.RemoteEndPoint} ({sampleRate} Hz, {channels}ch)");
-                    lastRemoteEndPoint = result.RemoteEndPoint;
-                }
-
-                if (wasapiOut == null)
-                {
-                    var waveFormat = new WaveFormat(sampleRate, 16, channels);
-                    bufferedWaveProvider = new BufferedWaveProvider(waveFormat)
-                    {
-                        DiscardOnBufferOverflow = true,
-                        BufferDuration = TimeSpan.FromSeconds(1),
-                    };
-
-                    wasapiOut = new WasapiOut(outputDevice, AudioClientShareMode.Shared, true, 50);
-                    wasapiOut.Init(bufferedWaveProvider);
-                    wasapiOut.Play();
-                }
-
-                bufferedWaveProvider!.AddSamples(packet, HeaderSize, packet.Length - HeaderSize);
-
-                packetCount++;
-                if (packetCount % 500 == 0)
-                {
-                    Console.WriteLine($"...{packetCount} packets relayed");
-                }
+            };
+            render.Play();
+            capture.StartRecording();
+            bool ipv6 = Socket.OSSupportsIPv6;
+            using var udp = new UdpClient(ipv6 ? AddressFamily.InterNetworkV6 : AddressFamily.InterNetwork);
+            if (ipv6) udp.Client.DualMode = true;
+            udp.ExclusiveAddressUse = true;
+            udp.Client.Bind(new IPEndPoint(ipv6 ? IPAddress.IPv6Any : IPAddress.Any, port));
+            Console.WriteLine($"SpaceConnectMicBridge 0.3.49 ready; authenticated UDP {port}; {output.FriendlyName} -> {input.FriendlyName}");
+            Task control = ControlLoop(shutdown.Token);
+            Task audio = ReceiveLoop(udp, buffer, shutdown.Token);
+            try
+            {
+                await await Task.WhenAny(control, audio);
             }
+            finally
+            {
+                shutdown.Cancel();
+                try { await Task.WhenAll(control, audio); }
+                catch (OperationCanceledException) when (shutdown.IsCancellationRequested) { }
+                capture.StopRecording();
+                render.Stop();
+                lock (Gate) { session?.Dispose(); session = null; }
+            }
+            return 0;
         }
-        finally
+        catch (OperationCanceledException) when (shutdown.IsCancellationRequested) { return 0; }
+        catch (Exception error) when (error is IOException or SocketException or COMException
+                or InvalidOperationException or UnauthorizedAccessException or ArgumentException)
         {
-            wasapiOut?.Stop();
-            wasapiOut?.Dispose();
+            Console.Error.WriteLine($"MicBridge failed ({error.GetType().Name}): {error.Message}");
+            return 1;
         }
-
-        Console.WriteLine("Stopped.");
-        return 0;
     }
 
-    private static bool HasValidMagic(byte[] packet)
+    private static async Task ReceiveLoop(UdpClient udp, BufferedWaveProvider buffer, CancellationToken cancellation)
     {
-        for (int i = 0; i < MagicHeader.Length; i++)
+        while (!cancellation.IsCancellationRequested)
         {
-            if (packet[i] != MagicHeader[i])
+            UdpReceiveResult received = await udp.ReceiveAsync(cancellation);
+            byte[]? acknowledgement = null;
+            lock (Gate)
             {
-                return false;
+                DateTimeOffset now = DateTimeOffset.UtcNow;
+                if (session != null && now - lastPacket > TimeSpan.FromMinutes(2))
+                {
+                    session.Dispose();
+                    session = null;
+                }
+                if (session == null || !session.TryRead(received.Buffer, now, out byte[] pcm)) continue;
+                lastPacket = now;
+                if (pcm.Length > 0)
+                {
+                    if (buffer.BufferedDuration > TimeSpan.FromMilliseconds(100)) buffer.ClearBuffer();
+                    buffer.AddSamples(pcm, 0, pcm.Length);
+                }
+                packets++;
+                if (pcm.Length == 0 || packets % 10 == 1)
+                    acknowledgement = session.Acknowledge(received.Buffer);
             }
+            if (acknowledgement != null)
+                await udp.SendAsync(acknowledgement, received.RemoteEndPoint, cancellation);
         }
-        return true;
     }
 
-    private static MMDevice? FindOutputDevice(string nameFilter)
+    private static async Task ControlLoop(CancellationToken cancellation)
+    {
+        var security = new PipeSecurity();
+        security.SetAccessRuleProtection(true, false);
+        security.AddAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.NetworkSid, null),
+            PipeAccessRights.FullControl, AccessControlType.Deny));
+        foreach (var sid in new[] {
+            WindowsIdentity.GetCurrent().User!,
+            new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
+            new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null),
+        })
+            security.AddAccessRule(new PipeAccessRule(sid, PipeAccessRights.FullControl, AccessControlType.Allow));
+        while (!cancellation.IsCancellationRequested)
+        {
+            using var pipe = NamedPipeServerStreamAcl.Create(ControlPipe, PipeDirection.InOut, 1,
+                PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 4096, 4096, security);
+            await pipe.WaitForConnectionAsync(cancellation);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
+            timeout.CancelAfter(TimeSpan.FromSeconds(5));
+            try
+            {
+                byte[] command = new byte[1024];
+                int length = 0;
+                while (length < command.Length)
+                {
+                    int count = await pipe.ReadAsync(command.AsMemory(length, 1), timeout.Token);
+                    if (count == 0) throw new IOException("Incomplete control command");
+                    if (command[length++] == '\n') break;
+                }
+                if (command[length - 1] != '\n') throw new IOException("Control command too large");
+                using JsonDocument document = JsonDocument.Parse(command.AsMemory(0, length));
+                object response;
+                lock (Gate)
+                {
+                    if (document.RootElement.TryGetProperty("status", out var status) && status.ValueKind == JsonValueKind.True)
+                    {
+                        response = new { ready = true, protocol = 2, packets, recordedSamples, recordedPeak };
+                    }
+                    else
+                    {
+                        string id = document.RootElement.GetProperty("sessionId").GetString()!;
+                        string key = document.RootElement.GetProperty("key").GetString()!;
+                        long expires = document.RootElement.GetProperty("expiresAt").GetInt64();
+                        var expiry = DateTimeOffset.FromUnixTimeSeconds(expires);
+                        if (expiry <= DateTimeOffset.UtcNow || expiry > DateTimeOffset.UtcNow.AddHours(24))
+                            throw new ArgumentException("Invalid session expiration");
+                        var replacement = new MicSession(id, key, expiry);
+                        session?.Dispose();
+                        session = replacement;
+                        lastPacket = DateTimeOffset.UtcNow;
+                        packets = 0;
+                        recordedSamples = 0;
+                        recordedPeak = 0;
+                        response = new { ready = true, protocol = 2, sessionId = id };
+                    }
+                }
+                byte[] encoded = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(response) + "\n");
+                await pipe.WriteAsync(encoded, timeout.Token);
+                await pipe.FlushAsync(timeout.Token);
+            }
+            catch (Exception error) when (error is IOException or JsonException or ArgumentException or FormatException
+                    or InvalidOperationException or KeyNotFoundException or OperationCanceledException)
+            {
+                if (cancellation.IsCancellationRequested) return;
+                Console.Error.WriteLine("Mic control rejected: " + error.GetType().Name);
+            }
+        }
+    }
+
+    private static MMDevice FindDevice(DataFlow flow, string name)
     {
         using var enumerator = new MMDeviceEnumerator();
-        MMDeviceCollection devices = enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active);
-
-        foreach (MMDevice device in devices)
+        foreach (MMDevice device in enumerator.EnumerateAudioEndPoints(flow, DeviceState.Active))
         {
-            if (device.FriendlyName.Contains(nameFilter, StringComparison.OrdinalIgnoreCase))
-            {
-                return device;
-            }
+            if (device.FriendlyName.Contains(name, StringComparison.OrdinalIgnoreCase)) return device;
+            device.Dispose();
         }
+        throw new InvalidOperationException("Virtual audio endpoint not available: " + name);
+    }
 
-        return null;
+    private static void Measure(WaveFormat format, byte[] data, int length)
+    {
+        int bytesPerSample = format.BitsPerSample / 8;
+        if (bytesPerSample != 4 && bytesPerSample != 2) return;
+        float peak = 0;
+        for (int i = 0; i + bytesPerSample <= length; i += bytesPerSample)
+        {
+            float value = bytesPerSample == 4 ? BitConverter.ToSingle(data, i) : BitConverter.ToInt16(data, i) / 32768f;
+            if (float.IsFinite(value)) peak = Math.Max(peak, Math.Abs(value));
+        }
+        lock (Gate)
+        {
+            recordedSamples += length / bytesPerSample;
+            recordedPeak = Math.Max(recordedPeak, peak);
+        }
     }
 }

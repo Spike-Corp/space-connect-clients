@@ -30,6 +30,8 @@ android/**/*.iml
 mic-bridge/bin/
 mic-bridge/obj/
 mic-bridge/publish/
+mic-bridge/tests/bin/
+mic-bridge/tests/obj/
 
 # Secrets / signing (never commit)
 *.jks

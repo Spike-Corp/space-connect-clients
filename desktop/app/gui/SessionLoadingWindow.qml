@@ -12,7 +12,7 @@ Window {
     visible: false
     color: "transparent"
     title: "Space Connect"
-    flags: Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+    flags: Qt.Window | Qt.FramelessWindowHint
 
     function sync() {
         if (orchestrator.active && orchestrator.phase !== "streaming") {
@@ -42,8 +42,12 @@ Window {
         anchors.fill: parent
         statusText: loadingWindow.orchestrator ? loadingWindow.orchestrator.statusText : ""
         reducedMotion: loadingWindow.orchestrator ? loadingWindow.orchestrator.reducedMotion : false
+        backgroundAvailable: !!loadingWindow.orchestrator
+                             && ["allocating", "queued", "booting"].indexOf(loadingWindow.orchestrator.phase) >= 0
+        canBackground: !!loadingWindow.orchestrator && !!loadingWindow.orchestrator.canBackground
         tips: loadingWindow.tips
         onCancelRequested: loadingWindow.orchestrator.cancel()
+        onBackgroundRequested: loadingWindow.orchestrator.followInBackground()
     }
     NumberAnimation {
         id: reveal
@@ -53,11 +57,12 @@ Window {
         duration: loadingWindow.orchestrator && loadingWindow.orchestrator.reducedMotion ? 0 : 500
         easing.type: Easing.OutQuad
         onFinished: {
+            var activateStream = loadingWindow.active
             loadingWindow.hide()
             if (loadingWindow.orchestrator.active && loadingWindow.orchestrator.phase === "streaming") {
                 if (loadingWindow.dashboardWindow)
                     loadingWindow.dashboardWindow.visible = false
-                loadingWindow.orchestrator.completeReveal()
+                loadingWindow.orchestrator.completeReveal(activateStream)
             }
         }
     }

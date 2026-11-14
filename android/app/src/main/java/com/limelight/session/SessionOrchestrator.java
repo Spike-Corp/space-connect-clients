@@ -1,6 +1,7 @@
 package com.limelight.session;
 
 import com.limelight.account.SpaceConnectApiClient.ConnectionResponse;
+import com.limelight.account.SpaceConnectApiClient.ApiException;
 import com.limelight.account.SpaceConnectApiClient.StatusResponse;
 import com.limelight.account.AccountManager;
 import com.limelight.utils.RequestScope;
@@ -8,17 +9,22 @@ import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
 
 import java.util.UUID;
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BooleanSupplier;
 
 /** One cancellable journey from the dashboard through the first rendered frame. */
 public final class SessionOrchestrator {
-    public enum Stage { CHECKING, QUEUED, STARTING, CONNECTING, PAIRING, WAITING_FOR_FRAME, STREAMING, FAILED, CANCELLED }
-    public enum Failure { CONNECTION, PAIRING, DESKTOP_MISSING, HOST_BUSY }
+    public enum Stage { CHECKING, QUEUED, STARTING, CONNECTING, PAIRING, WAITING_FOR_FRAME, STREAMING, BACKGROUNDED, FAILED, CANCELLED }
+    public enum Failure {
+        CONNECTION, PAIRING, DESKTOP_MISSING, HOST_BUSY,
+        PLAN_EXPIRED, INSUFFICIENT_BALANCE, OPERATION_BUSY, COOLDOWN, ACCOUNT_CHANGED, ACCESS_DENIED
+    }
 
     public interface Backend {
         StatusResponse status() throws Exception;
@@ -93,6 +99,7 @@ public final class SessionOrchestrator {
     private boolean joinUncertain;
     private boolean joined;
     private int idlePollsAfterJoin;
+    private int failedStatusReads;
     private Runnable streamCancellation;
 
     public SessionOrchestrator(String machineId, boolean friend, Backend backend, Host host,
@@ -157,7 +164,14 @@ public final class SessionOrchestrator {
     private void poll() {
         try {
             if (!isActive()) return;
-            StatusResponse next = backend.status();
+            StatusResponse next;
+            try {
+                next = backend.status();
+                failedStatusReads = 0;
+            } catch (Exception error) {
+                if (retryStatusRead(error)) return;
+                throw error;
+            }
             if (!isActive()) return;
             if (next != null && "idle".equals(next.state) && !joined) {
                 synchronized (REGISTRY_LOCK) {
@@ -176,6 +190,41 @@ public final class SessionOrchestrator {
         } catch (Exception e) {
             fail(e);
         }
+    }
+
+    public static boolean isRetryableStatusRead(Exception error) {
+        boolean temporary = error instanceof IOException && !(error instanceof javax.net.ssl.SSLException);
+        if (error instanceof ApiException) {
+            ApiException api = (ApiException) error;
+            temporary = businessFailure(api) == null
+                    && (api.status == 500 || api.status == 502 || api.status == 503 || api.status == 504);
+        }
+        return temporary;
+    }
+
+    private boolean retryStatusRead(Exception error) {
+        synchronized (REGISTRY_LOCK) {
+            if (!isActive() || !isRetryableStatusRead(error) || failedStatusReads >= 2) return false;
+            failedStatusReads++;
+            SessionLog.failure("status retry", error);
+            worker.schedule(this::poll, pollMillis, TimeUnit.MILLISECONDS);
+            return true;
+        }
+    }
+
+    private static Failure businessFailure(ApiException error) {
+        if (error.code != null) switch (error.code) {
+            case "PLAN_EXPIRED": return Failure.PLAN_EXPIRED;
+            case "INSUFFICIENT_BALANCE": return Failure.INSUFFICIENT_BALANCE;
+            case "MACHINE_OPERATION_IN_PROGRESS": return Failure.OPERATION_BUSY;
+            case "ACTIVE_SESSION_EXISTS": return Failure.OPERATION_BUSY;
+            case "COOLDOWN_ACTIVE": return Failure.COOLDOWN;
+            case "ACCOUNT_CHANGED": return Failure.ACCOUNT_CHANGED;
+            case "MACHINE_NOT_FOUND": return Failure.ACCESS_DENIED;
+        }
+        if (error.status == 401) return Failure.ACCOUNT_CHANGED;
+        if (error.status == 403) return Failure.ACCESS_DENIED;
+        return null;
     }
 
     private void acceptStatus(StatusResponse next) throws Exception {
@@ -269,12 +318,17 @@ public final class SessionOrchestrator {
             Failure failure = error instanceof SessionException
                     ? ((SessionException) error).failure
                     : stage == Stage.PAIRING ? Failure.PAIRING : Failure.CONNECTION;
+            if (error instanceof ApiException) {
+                Failure business = businessFailure((ApiException) error);
+                if (business != null) failure = business;
+            }
+            final Failure reportedFailure = failure;
             SessionLog.failure(stage.name(), error);
             stage = Stage.FAILED;
             closeResources();
             scheduleQueueCleanup();
             callbacks.post(() -> {
-                if (active == this && !cancelled.get() && listener != null) listener.onFailure(failure);
+                if (active == this && !cancelled.get() && listener != null) listener.onFailure(reportedFailure);
             });
         }
     }
@@ -291,6 +345,26 @@ public final class SessionOrchestrator {
             }
             scheduleQueueCleanup();
             if (active == this) active = null;
+        }
+    }
+
+    public boolean canBackground() {
+        synchronized (REGISTRY_LOCK) {
+            return isActive() && !friend && !joinUncertain
+                    && (stage == Stage.QUEUED || stage == Stage.STARTING);
+        }
+    }
+
+    public boolean followInBackground(BooleanSupplier startMonitor) {
+        synchronized (REGISTRY_LOCK) {
+            if (!canBackground() || !startMonitor.getAsBoolean()) return false;
+            queueMayExist = false;
+            cancelled.set(true);
+            stage = Stage.BACKGROUNDED;
+            detachListener();
+            closeResources();
+            if (active == this) active = null;
+            return true;
         }
     }
 

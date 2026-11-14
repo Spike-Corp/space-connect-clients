@@ -4,6 +4,7 @@
 #include "recaptchafetcher.h"
 
 #include <QHash>
+#include <QElapsedTimer>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QObject>
@@ -136,6 +137,9 @@ public:
     using StreamResponseHandler = std::function<void(int, const QJsonObject&)>;
     QNetworkReply* streamRequest(quint64 account, const QByteArray& method, const QString& path,
                                 const QJsonObject& body, QObject& receiver, StreamResponseHandler handler);
+    bool queueJoinPending(const QString& machineId) const;
+    bool observeMachineStartup(const QString& machineId, quint64 account);
+    void stopObservingMachineStartup(const QString& machineId);
 
     Q_INVOKABLE void refreshManagement();
     Q_INVOKABLE QString newOperationRequestId() const;
@@ -160,9 +164,8 @@ public:
     Q_INVOKABLE void uploadFileToVm(const QString& filePath);
     // Emuladores: catálogo oficial + instalar/lançar na VM (o backend usa o
     // guest agent do Proxmox — nao precisa de versao nova do agent Windows).
-    // Mic bridge: garante que o MicBridge está rodando na VM (chamado ao
-    // conectar quando o encaminhamento de mic está ligado). Fire-and-forget.
-    void ensureMicBridge(const QString& machineId = QString());
+    void ensureMicBridge(const QString& machineId, quint64 account, QObject& receiver,
+                         StreamResponseHandler handler, int remaining = 45);
     Q_INVOKABLE void refreshEmulators();
     Q_INVOKABLE void refreshDownloads();
     // Baixa um item da biblioteca NA VM (pasta Downloads dela) — NÃO pro PC
@@ -256,7 +259,7 @@ signals:
     void errorMessageChanged();
     void statusChanged();
     void machineStatusReceived(QString machineId, QJsonObject status);
-    void machineRequestFailed(QString machineId, QString message);
+    void machineRequestFailed(QString machineId, QString message, QString code = QString(), bool retryableStatus = false);
     void machinesChanged();
     void loginSucceeded();
     void twoFactorRequired();
@@ -282,6 +285,7 @@ signals:
     void managementChanged();
     void managementActionFinished(bool success, QString message);
     void backgroundNotice(QString message);
+    void machineBootReady(QString machineId, QString message);
     void machineDeleteFinished(bool success, QString message);
     void machinePasswordFinished(bool success, QString message, QString applied, QString machineId);
 
@@ -300,6 +304,7 @@ private:
     void attemptLogin(const QString& email, const QString& password, const QString& recaptchaToken);
     void handleAuthResponse(int status, const QJsonObject& root);
     void resetAccountData();
+    void refreshBoots();
     void scheduleRefresh(int expiresInSeconds);
     void refreshTokens();
     void applyStatus(const QJsonObject& root);
@@ -329,7 +334,18 @@ private:
     bool m_ManagementLoading = false;
     bool m_NoticesInitialized = false;
     QSet<QString> m_SeenNotices;
-    QSet<QString> m_WaitingBoot;
+    struct BootWatch {
+        quint64 serial = 0;
+        QElapsedTimer elapsed;
+        QPointer<QNetworkReply> reply;
+        QString sessionId;
+        int failedReads = 0;
+        bool finished = false;
+        bool errorReported = false;
+    };
+    QHash<QString, BootWatch> m_WaitingBoot;
+    QHash<QString, QString> m_ReadySessionByMachine;
+    quint64 m_BootWatchSerial = 0;
     QSet<QString> m_OwnOperations;
     quint64 m_AuthGeneration = 0;
     quint64 m_StatusGeneration = 0;

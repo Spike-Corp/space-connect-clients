@@ -5,6 +5,13 @@
     <string name="session_pairing">Conectando seu dispositivo com segurança</string>
     <string name="session_waiting_frame">Iniciando sua transmissão</string>
     <string name="session_cancel">Cancelar</string>
+    <string name="session_background">Acompanhar em segundo plano</string>
+    <string name="session_background_notifications">Ative as notificações do Space Connect e o aviso de máquina pronta para acompanhar em segundo plano.</string>
+    <string name="session_plan_expired">A validade do plano desta máquina terminou. Renove o plano para ligar, mesmo que ainda tenha horas.</string>
+    <string name="session_insufficient_balance">O plano desta máquina está sem horas disponíveis. Adicione horas ou renove pelo painel.</string>
+    <string name="session_operation_busy">Esta máquina já tem uma sessão ou operação em andamento. Confira o status pelo painel.</string>
+    <string name="session_cooldown">Aguarde o intervalo entre sessões antes de ligar novamente.</string>
+    <string name="session_access_denied">Esta máquina não está disponível para sua conta. Atualize o painel ou fale com o suporte.</string>
     <string name="session_connection_failed">Não foi possível conectar. Tente novamente pelo painel.</string>
     <string name="session_pair_failed">Não foi possível conectar este dispositivo com segurança. Tente novamente.</string>
     <string name="session_desktop_missing">O Desktop não está disponível neste computador. Fale com o suporte para habilitá-lo.</string>

@@ -79,19 +79,45 @@
             android:textColor="?attr/appMutedForegroundColor" />
     </LinearLayout>
 
-    <Button
-        android:id="@+id/sessionCancel"
-        android:layout_width="wrap_content"
-        android:layout_height="48dp"
-        android:minWidth="144dp"
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:layout_gravity="bottom|center_horizontal"
-        android:paddingStart="24dp"
-        android:paddingEnd="24dp"
-        android:background="@drawable/bg_session_cancel"
-        android:text="@string/session_cancel"
-        android:textColor="?attr/appForegroundColor"
-        android:textAllCaps="false"
-        android:focusable="true"
-        android:nextFocusUp="@id/sessionCancel"
-        android:nextFocusDown="@id/sessionCancel" />
+        android:orientation="horizontal"
+        android:gravity="center">
+        <Button
+            android:id="@+id/sessionBackground"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:minWidth="0dp"
+            android:layout_marginEnd="12dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:background="@drawable/bg_session_cancel"
+            android:text="@string/session_background"
+            android:textColor="?attr/appForegroundColor"
+            android:textAllCaps="false"
+            android:textSize="14sp"
+            android:visibility="gone"
+            android:enabled="false"
+            android:focusable="true"
+            android:nextFocusRight="@id/sessionCancel"
+            android:nextFocusDown="@id/sessionCancel" />
+        <Button
+            android:id="@+id/sessionCancel"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:minWidth="144dp"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:background="@drawable/bg_session_cancel"
+            android:text="@string/session_cancel"
+            android:textColor="?attr/appForegroundColor"
+            android:textAllCaps="false"
+            android:focusable="true"
+            android:nextFocusLeft="@id/sessionBackground"
+            android:nextFocusUp="@id/sessionBackground" />
+    </LinearLayout>
 </merge>

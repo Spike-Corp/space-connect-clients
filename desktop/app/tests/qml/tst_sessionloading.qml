@@ -15,10 +15,21 @@ TestCase {
         property string phase: "idle"
         property string statusText: ""
         property bool reducedMotion: false
+        property bool canBackground: false
+        property bool backgrounded: false
         property int reveals: 0
+        property int cancellations: 0
         signal changed()
         function completeReveal() { reveals++ }
-        function cancel() { active = false; phase = "cancelled"; changed() }
+        function cancel() { cancellations++; active = false; phase = "cancelled"; changed() }
+        function followInBackground() {
+            if (!canBackground) return false
+            backgrounded = true
+            active = false
+            phase = "backgrounded"
+            changed()
+            return true
+        }
     }
 
     Component {
@@ -35,7 +46,35 @@ TestCase {
         progress.phase = "idle"
         progress.statusText = ""
         progress.reducedMotion = false
+        progress.canBackground = false
+        progress.backgrounded = false
         progress.reveals = 0
+        progress.cancellations = 0
+    }
+
+    function test_background_handoff_is_explicit_and_never_reveals_a_late_stream() {
+        var loading = createTemporaryObject(loadingFactory, testCase)
+        progress.active = true
+        progress.phase = "queued"
+        progress.changed()
+        tryCompare(loading, "visible", true)
+        var background = findChild(loading, "sessionBackground")
+        verify(background && background.visible)
+        compare(background.enabled, false)
+        verify(background.height >= 48)
+        progress.canBackground = true
+        progress.changed()
+        tryCompare(background, "enabled", true)
+        verify(waitForRendering(loading.contentItem))
+        mouseClick(background)
+        compare(progress.backgrounded, true)
+        compare(progress.cancellations, 0)
+        tryCompare(loading, "visible", false, 1500)
+        progress.phase = "streaming"
+        progress.changed()
+        wait(100)
+        compare(progress.reveals, 0)
+        compare(loading.visible, false)
     }
 
     function test_overlay_waits_for_video_not_handshake() {

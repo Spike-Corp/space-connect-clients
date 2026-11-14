@@ -1,6 +1,7 @@
 package com.limelight.session;
 
 import com.limelight.account.SpaceConnectApiClient.ConnectionResponse;
+import com.limelight.account.SpaceConnectApiClient.ApiException;
 import com.limelight.account.SpaceConnectApiClient.QueueStatus;
 import com.limelight.account.SpaceConnectApiClient.StatusResponse;
 import com.limelight.nvstream.http.ComputerDetails;
@@ -8,9 +9,15 @@ import com.limelight.nvstream.http.NvApp;
 
 import org.junit.After;
 import org.junit.Test;
+import org.robolectric.util.ReflectionHelpers;
+import org.robolectric.util.ReflectionHelpers.ClassParameter;
 
+import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
@@ -197,6 +204,83 @@ public class SessionOrchestratorTest {
         assertEquals(1, backend.joins.get());
     }
 
+    @Test public void businessFailuresKeepTheirMeaningWithoutRetrying() throws Exception {
+        String[] codes = {"PLAN_EXPIRED", "INSUFFICIENT_BALANCE", "MACHINE_OPERATION_IN_PROGRESS",
+                "COOLDOWN_ACTIVE", "ACCOUNT_CHANGED", "ACTIVE_SESSION_EXISTS"};
+        int[] statuses = {402, 402, 409, 429, 401, 409};
+        String[] failures = {"PLAN_EXPIRED", "INSUFFICIENT_BALANCE", "OPERATION_BUSY", "COOLDOWN", "ACCOUNT_CHANGED", "OPERATION_BUSY"};
+        for (int i = 0; i < codes.length; i++) {
+            Backend backend = new Backend();
+            backend.readErrors.put(1, apiError(statuses[i], codes[i]));
+            Callbacks callbacks = new Callbacks();
+            Listener listener = new Listener();
+            SessionOrchestrator attempt = attempt(backend, new Host(), callbacks, listener);
+            attempt.start();
+            awaitStage(attempt, SessionOrchestrator.Stage.FAILED);
+            callbacks.drain();
+            assertNotNull(listener.failure);
+            assertEquals(failures[i], listener.failure.name());
+            assertEquals(1, backend.reads.get());
+            assertEquals(0, backend.joins.get());
+        }
+    }
+
+    @Test public void temporaryStatusReadFailureRecoversWithoutRepeatingTheJoin() throws Exception {
+        Backend backend = new Backend();
+        backend.statuses.add(status("idle"));
+        backend.readErrors.put(2, new SocketTimeoutException("read timeout"));
+        backend.statuses.add(status("starting"));
+        backend.statuses.add(status("ready"));
+        Host host = new Host();
+        SessionOrchestrator attempt = attempt(backend, host, new Callbacks(), new Listener());
+        attempt.start();
+        await(host.prepared);
+        assertEquals(1, backend.joins.get());
+        assertEquals(4, backend.reads.get());
+    }
+
+    @Test public void repeatedStatusFailuresStopAfterTwoReadRetries() throws Exception {
+        Backend backend = new Backend();
+        for (int i = 1; i <= 3; i++) backend.readErrors.put(i, new IOException("transport failed"));
+        Callbacks callbacks = new Callbacks();
+        Listener listener = new Listener();
+        SessionOrchestrator attempt = attempt(backend, new Host(), callbacks, listener);
+        attempt.start();
+        awaitStage(attempt, SessionOrchestrator.Stage.FAILED);
+        callbacks.drain();
+        assertEquals(3, backend.reads.get());
+        assertEquals(SessionOrchestrator.Failure.CONNECTION, listener.failure);
+        assertEquals(0, backend.joins.get());
+    }
+
+    @Test public void ambiguousJoinIsNotRetriedAsAStatusRead() throws Exception {
+        Backend backend = new Backend();
+        backend.statuses.add(status("idle"));
+        backend.joinError = new SocketTimeoutException("response lost after POST");
+        SessionOrchestrator attempt = attempt(backend, new Host(), new Callbacks(), new Listener());
+        attempt.start();
+        awaitStage(attempt, SessionOrchestrator.Stage.FAILED);
+        await(backend.cleanupDone);
+        assertEquals(1, backend.reads.get());
+        assertEquals(1, backend.joins.get());
+        assertTrue(backend.uncertainCleanup);
+    }
+
+    @Test public void certificateFailureIsNotRetriedAsATransportFailure() throws Exception {
+        Backend backend = new Backend();
+        backend.readErrors.put(1, new javax.net.ssl.SSLHandshakeException("certificate rejected"));
+        SessionOrchestrator attempt = attempt(backend, new Host(), new Callbacks(), new Listener());
+        attempt.start();
+        awaitStage(attempt, SessionOrchestrator.Stage.FAILED);
+        assertEquals(1, backend.reads.get());
+    }
+
+    private static ApiException apiError(int status, String code) {
+        return ReflectionHelpers.callConstructor(ApiException.class, ClassParameter.from(int.class, status),
+                ClassParameter.from(String.class, code), ClassParameter.from(String.class, "Business failure"),
+                ClassParameter.from(String.class, null));
+    }
+
     private CountDownLatch gate() {
         CountDownLatch gate = new CountDownLatch(1);
         gates.add(gate);
@@ -245,6 +329,9 @@ public class SessionOrchestratorTest {
             throw new AssertionError("Startup-only backend");
         }
         final Queue<StatusResponse> statuses = new ConcurrentLinkedQueue<>();
+        final Map<Integer, Exception> readErrors = new HashMap<>();
+        final AtomicInteger reads = new AtomicInteger();
+        Exception joinError;
         final AtomicInteger joins = new AtomicInteger(), connections = new AtomicInteger(),
                 cancels = new AtomicInteger(), cleanups = new AtomicInteger();
         final CountDownLatch statusEntered = new CountDownLatch(1), joinEntered = new CountDownLatch(1),
@@ -253,13 +340,16 @@ public class SessionOrchestratorTest {
         StatusResponse joinResult = SessionOrchestratorTest.status("queued");
         volatile boolean uncertainCleanup;
 
-        @Override public StatusResponse status() {
+        @Override public StatusResponse status() throws Exception {
             statusEntered.countDown();
+            Exception error = readErrors.get(reads.incrementAndGet());
+            if (error != null) throw error;
             StatusResponse status = statuses.poll();
             return status == null ? SessionOrchestratorTest.status("queued") : status;
         }
-        @Override public StatusResponse joinQueue() {
+        @Override public StatusResponse joinQueue() throws Exception {
             joins.incrementAndGet();
+            if (joinError != null) throw joinError;
             joinEntered.countDown();
             awaitIgnoringInterrupts(joinGate);
             joinReturned.countDown();
@@ -308,6 +398,7 @@ public class SessionOrchestratorTest {
         final AtomicInteger opened = new AtomicInteger();
         final List<SessionOrchestrator.Stage> stages = new ArrayList<>();
         int position, total;
+        SessionOrchestrator.Failure failure;
         @Override public void onProgress(SessionOrchestrator.Stage stage, StatusResponse status) {
             stages.add(stage);
             if (status != null && status.queue != null) {
@@ -316,6 +407,6 @@ public class SessionOrchestratorTest {
             }
         }
         @Override public void onPrepared(SessionOrchestrator.PreparedSession session) { opened.incrementAndGet(); }
-        @Override public void onFailure(SessionOrchestrator.Failure failure) {}
+        @Override public void onFailure(SessionOrchestrator.Failure failure) { this.failure = failure; }
     }
 }

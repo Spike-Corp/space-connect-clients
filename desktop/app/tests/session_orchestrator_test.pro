@@ -18,4 +18,5 @@ win32: APP_OBJECTS = $$files($$OUT_PWD/../app/release/*.obj)
 isEmpty(APP_OBJECTS): error(Build the release application in the parent directory first)
 APP_OBJECTS -= $$OUT_PWD/../app/release/main.o
 APP_OBJECTS -= $$OUT_PWD/../app/release/main.obj
+PRE_TARGETDEPS += $$APP_OBJECTS
 LIBS = $$APP_OBJECTS $$LIBS
