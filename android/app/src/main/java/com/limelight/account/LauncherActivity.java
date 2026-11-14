@@ -263,12 +263,21 @@ public class LauncherActivity extends Activity {
             reason = reason.replace("{attempt}", String.valueOf(status.queue.bootAttempt))
                     .replace("{max}", String.valueOf(status.queue.bootAttemptMax));
             detailsText.setText(bootDetails(status, reason));
-            // Esgotou as tentativas: o texto já pede "toque em Tentar novamente" — o botão
-            // segue acionando o mesmo fluxo (connect() -> SessionOrchestrator.joinQueue(),
-            // que reseta o contador no backend), só muda o rótulo pra bater com a mensagem.
             primaryButton.setText(status.queue.bootAttemptsExhausted
                     ? R.string.launcher_retry_queue : R.string.launcher_join_queue);
-            primaryButton.setOnClickListener(v -> connect());
+            if (status.queue.bootAttemptsExhausted) {
+                // Esgotou as tentativas: connect() só reabriria a SessionLoadingActivity
+                // mostrando a mesma mensagem (SessionOrchestrator.poll() não rechama
+                // joinQueue enquanto o state já é "queued"). Pra "Tentar novamente"
+                // funcionar de verdade, aciona a mesma ação do dashboard em idle
+                // (joinQueueForMachine -> machineAction "power_on"), que o backend
+                // resolve em QueueService.addToQueue e reseta o contador de tentativas.
+                String machineId = status.queue.machineId != null && !status.queue.machineId.trim().isEmpty()
+                        ? status.queue.machineId : selectedMachineId;
+                primaryButton.setOnClickListener(v -> joinQueueForMachine(machineId));
+            } else {
+                primaryButton.setOnClickListener(v -> connect());
+            }
             return;
         }
 
