@@ -74,6 +74,34 @@ public class LauncherPollingTest {
         return response;
     }
 
+    private static SpaceConnectApiClient.StatusResponse queuedExhausted() {
+        SpaceConnectApiClient.StatusResponse response = queued();
+        response.queue.machineId = "vm-fixture";
+        response.queue.bootAttempt = 15;
+        response.queue.bootAttemptMax = 15;
+        response.queue.bootAttemptsExhausted = true;
+        return response;
+    }
+
+    // WS3: esgotou as 15 tentativas de boot em SPOT. connect() reabriria a
+    // SessionLoadingActivity mostrando a mesma mensagem de "esgotado" pra sempre
+    // (SessionOrchestrator.poll() só rechama joinQueue quando state=="idle"), sem
+    // nunca de fato re-tentar. O botão "Tentar novamente" precisa acionar a ação
+    // direta (joinQueueForMachine/machineAction "power_on", que o backend resolve
+    // em QueueService.addToQueue resetando o contador) em vez de abrir a tela de
+    // loading de novo.
+    @Test public void exhaustedQueueRetryDoesNotReopenLoadingFlow() {
+        ActivityController<Launcher> controller = Robolectric.buildActivity(Launcher.class).setup();
+        Launcher launcher = controller.get();
+        ReflectionHelpers.setField(launcher, "selectedMachineId", "vm-fixture");
+        launcher.callbacks.get(0).onSuccess(queuedExhausted());
+        Button retry = launcher.findViewById(R.id.launcherPrimaryButton);
+        assertEquals(launcher.getString(R.string.launcher_retry_queue), retry.getText().toString());
+        retry.performClick();
+        assertNull(shadowOf(launcher).getNextStartedActivity());
+        controller.pause().stop().destroy();
+    }
+
     @Test public void choosingAnotherMachineOnlyChangesSelectionAndDropsOldStatus() {
         ActivityController<Launcher> controller = Robolectric.buildActivity(Launcher.class).setup();
         Launcher launcher = controller.get();
