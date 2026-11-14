@@ -23,6 +23,39 @@ private slots:
         QCOMPARE(status.planSlug, QStringLiteral("builder-pro"));
     }
 
+    void parsesBootAttemptFields()
+    {
+        const QByteArray json = R"({
+            "state":"queued",
+            "queue":{"position":1,"total":3,"priority":5,"planSlug":"builder-pro",
+                     "bootAttempt":4,"bootAttemptMax":15,"bootAttemptsExhausted":false},
+            "session":null
+        })";
+
+        const LauncherStatus status = LauncherJson::parseStatus(json);
+
+        QCOMPARE(status.bootAttempt, 4);
+        QCOMPARE(status.bootAttemptMax, 15);
+        QCOMPARE(status.bootAttemptsExhausted, false);
+    }
+
+    void parsesBootAttemptsExhausted()
+    {
+        const QByteArray json = R"({
+            "state":"queued",
+            "queue":{"position":1,"total":3,"priority":5,"planSlug":"builder-pro",
+                     "bootAttempt":15,"bootAttemptMax":15,"bootAttemptsExhausted":true,
+                     "blockedReason":"exhausted"},
+            "session":null
+        })";
+
+        const LauncherStatus status = LauncherJson::parseStatus(json);
+
+        QCOMPARE(status.bootAttempt, 15);
+        QCOMPARE(status.bootAttemptsExhausted, true);
+        QCOMPARE(status.blockedReason, QStringLiteral("exhausted"));
+    }
+
     void parsesConnectionWithoutPrivatePorts()
     {
         const QByteArray json = R"({

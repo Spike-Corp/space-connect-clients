@@ -1094,7 +1094,11 @@ void LauncherApi::applyStatus(const QJsonObject& root)
         m_StatusMachineId = status.machineId;
         m_CreationPhase = status.creationPhase;
         m_BootTexts = root.value(QStringLiteral("bootTexts")).toObject().toVariantMap();
-        m_QueueBlockedReason = root.value(QStringLiteral("queue")).toObject().value(QStringLiteral("blockedReason")).toString();
+        const QJsonObject queueObj = root.value(QStringLiteral("queue")).toObject();
+        m_QueueBlockedReason = queueObj.value(QStringLiteral("blockedReason")).toString();
+        m_BootAttempt = queueObj.value(QStringLiteral("bootAttempt")).toInt();
+        m_BootAttemptMax = queueObj.value(QStringLiteral("bootAttemptMax")).toInt();
+        m_BootAttemptsExhausted = queueObj.value(QStringLiteral("bootAttemptsExhausted")).toBool();
         m_BootElapsedSeconds = root.value(QStringLiteral("bootElapsedSeconds")).toInt();
         m_RemainingMs = status.remainingMs;
         setError(QString());

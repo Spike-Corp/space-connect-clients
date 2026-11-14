@@ -218,11 +218,19 @@ void SessionOrchestrator::syncStatus()
     if (m_Status.state == QStringLiteral("queued")) {
         const int position = m_Status.queuePosition;
         const int total = m_Status.queueTotal;
-        QString text = position > 0
-                ? copy(QStringLiteral("queueTitle"), tr("You are #%1 in queue").arg(position))
-                : copy(QStringLiteral("queueSearching"), tr("Finding your machine..."));
+        // WS3: motivo específico de bloqueio (ex.: "VM sofreu spot, tentativa
+        // X/15") tem prioridade sobre o texto genérico de posição na fila.
+        const QString reasonText = m_Status.blockedReason.isEmpty() ? QString()
+                : texts.value(QStringLiteral("reasons")).toMap()
+                        .value(m_Status.blockedReason).toString().trimmed();
+        QString text = !reasonText.isEmpty() ? reasonText
+                : position > 0
+                    ? copy(QStringLiteral("queueTitle"), tr("You are #%1 in queue").arg(position))
+                    : copy(QStringLiteral("queueSearching"), tr("Finding your machine..."));
         text.replace(QStringLiteral("{position}"), QString::number(position));
         text.replace(QStringLiteral("{total}"), QString::number(total));
+        text.replace(QStringLiteral("{attempt}"), QString::number(m_Status.bootAttempt));
+        text.replace(QStringLiteral("{max}"), QString::number(m_Status.bootAttemptMax));
         setPhase(QStringLiteral("queued"), text);
         emit queueUpdated(position, total);
     }
@@ -260,6 +268,10 @@ void SessionOrchestrator::drive()
         m_JoinRequested = true;
         m_Launcher->joinQueue(m_MachineId);
     }
+    // WS3: tentativas SPOT esgotadas — igual ao Android/SessionOrchestrator.java,
+    // NÃO tenta de novo sozinho aqui. O texto (syncStatus) já orienta a cancelar
+    // e tocar em "Try again" no dashboard, que inicia uma sessão nova do zero
+    // (beginSession reseta m_JoinRequested) e o backend reseta o contador.
 }
 
 void SessionOrchestrator::prepareHost(const QString& address, const QString& machineId, const QString& name)
