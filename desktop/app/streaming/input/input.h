@@ -135,6 +135,7 @@ private:
         KeyComboPasteText,
         KeyComboTogglePointerRegionLock,
         KeyComboToggleStreamMenu,
+        KeyComboToggleGuestMenuHidden,
         KeyComboMax
     };
 

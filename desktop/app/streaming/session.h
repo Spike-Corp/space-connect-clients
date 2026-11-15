@@ -104,6 +104,7 @@ class Session : public QObject
     Q_PROPERTY(QRect streamMenuBounds READ streamMenuBounds NOTIFY streamMenuChanged)
     Q_PROPERTY(bool streamMenuVisible READ streamMenuVisible NOTIFY streamMenuChanged)
     Q_PROPERTY(bool streamMenuOpen READ streamMenuOpen NOTIFY streamMenuChanged)
+    Q_PROPERTY(bool streamGuestMenuHidden READ streamGuestMenuHidden NOTIFY streamMenuChanged)
 
     friend class SdlInputHandler;
     friend class DeferredSessionCleanupTask;
@@ -128,9 +129,14 @@ public:
     bool streamMenuVisible() const { return m_StreamMenuVisible; }
     bool streamMenuOpen() const { return m_StreamMenuOpen; }
     bool streamGuestControlsAvailable() const { return m_StreamMenuAllowed.load(); }
+    // User-settable override (persisted preference, toggled live by the in-stream
+    // hotkey) that hides the guest side-menu and its edge button regardless of the
+    // automatic m_StreamMenuAllowed logic.
+    bool streamGuestMenuHidden() const { return m_Preferences && m_Preferences->hideStreamGuestMenu; }
     Q_INVOKABLE void toggleStreamMenu();
     Q_INVOKABLE void closeStreamMenu(bool restoreCapture);
     Q_INVOKABLE void setStreamMenuFocused(bool focused);
+    void toggleStreamGuestMenuHidden();
 
     static
     void getDecoderInfo(SDL_Window* window,

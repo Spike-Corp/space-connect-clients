@@ -11,6 +11,7 @@ Window {
     readonly property var controller: session ? session.streamGuests : null
     readonly property bool opened: session ? session.streamMenuOpen : false
     readonly property rect bounds: session ? session.streamMenuBounds : Qt.rect(0, 0, 0, 0)
+    readonly property bool userHidden: session ? session.streamGuestMenuHidden : false
     readonly property bool confirming: controller && controller.confirmationName.length > 0
     readonly property real bodyPointSize: Math.max(11, Qt.application.font.pointSize)
     transientParent: null
@@ -23,7 +24,7 @@ Window {
     x: bounds.x + bounds.width - width - 16
     y: bounds.y + 16
     visible: !!session && !!controller && controller.ownerSession && session.streamMenuVisible
-             && bounds.width >= 80 && bounds.height >= 80
+             && !userHidden && bounds.width >= 80 && bounds.height >= 80
     Material.theme: Material.Dark
     Material.accent: brand.purple
     BrandTheme { id: brand }

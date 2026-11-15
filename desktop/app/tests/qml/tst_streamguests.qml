@@ -33,6 +33,7 @@ TestCase {
         property rect streamMenuBounds: Qt.rect(100, 50, 900, 640)
         property bool streamMenuVisible: true
         property bool streamMenuOpen: false
+        property bool streamGuestMenuHidden: false
         property var streamMenuParent: null
         property bool returnFocus: false
         signal streamMenuChanged()
@@ -62,6 +63,7 @@ TestCase {
         stream.streamMenuBounds = Qt.rect(100, 50, 900, 640)
         stream.streamMenuVisible = true
         stream.streamMenuOpen = false
+        stream.streamGuestMenuHidden = false
         stream.returnFocus = false
     }
 
@@ -147,5 +149,30 @@ TestCase {
         stream.streamMenuBounds = Qt.rect(0, 0, 0, 0)
         stream.streamMenuVisible = true
         compare(menu.visible, false)
+    }
+
+    function test_user_hide_override_hides_bubble_even_when_allowed() {
+        // Automatic allow logic is on (owner session, menu visible, big bounds)
+        var menu = createMenu()
+        tryCompare(menu, "visible", true)
+        var bubble = findChild(menu, "streamGuestsBubble")
+        verify(bubble)
+        tryCompare(bubble, "visible", true)
+        // User flips the hide override on (the persisted preference / hotkey)
+        stream.streamGuestMenuHidden = true
+        tryCompare(menu, "visible", false)
+        // Turning it back off restores the automatic behavior
+        stream.streamGuestMenuHidden = false
+        tryCompare(menu, "visible", true)
+        tryCompare(findChild(menu, "streamGuestsBubble"), "visible", true)
+    }
+
+    function test_user_hide_override_hides_open_panel() {
+        stream.streamMenuOpen = true
+        var menu = createMenu()
+        tryCompare(menu, "visible", true)
+        verify(findChild(menu, "streamGuestsPanel").visible)
+        stream.streamGuestMenuHidden = true
+        tryCompare(menu, "visible", false)
     }
 }

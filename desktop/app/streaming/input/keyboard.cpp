@@ -143,6 +143,12 @@ void SdlInputHandler::performSpecialKeyCombo(KeyCombo combo)
         Session::get()->toggleStreamMenu();
         break;
 
+    case KeyComboToggleGuestMenuHidden:
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                    "Detected guest menu hide toggle combo");
+        Session::get()->toggleStreamGuestMenuHidden();
+        break;
+
     default:
         Q_UNREACHABLE();
     }

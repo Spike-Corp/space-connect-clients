@@ -701,6 +701,24 @@ void Session::closeStreamMenu(bool restoreCapture)
 {
     postStreamMenuCommand(restoreCapture ? StreamMenuState::CloseAndReturn : StreamMenuState::CloseExternal);
 }
+
+// Called on the SDL streaming thread from the Ctrl+Alt+Shift+H special key combo.
+// Flips and persists the user's "hide guest menu" preference, then re-evaluates
+// visibility so the change takes effect live during the stream.
+void Session::toggleStreamGuestMenuHidden()
+{
+    if (!m_Preferences) return;
+    m_Preferences->hideStreamGuestMenu = !m_Preferences->hideStreamGuestMenu;
+    m_Preferences->save();
+    SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Guest side-menu %s by user",
+                m_Preferences->hideStreamGuestMenu ? "hidden" : "shown");
+    // If we just hid the menu while the slide-out panel was open, close it so it
+    // doesn't linger invisibly and so input capture returns to the stream.
+    if (m_Preferences->hideStreamGuestMenu && m_StreamMenuState.isOpen())
+        applyStreamMenuCommand(StreamMenuState::CloseAndReturn);
+    else
+        updateStreamMenu(true);
+}
 void Session::setStreamMenuFocused(bool focused)
 {
     postStreamMenuCommand(focused ? StreamMenuState::MenuFocused : StreamMenuState::MenuUnfocused);
@@ -715,7 +733,8 @@ void Session::applyStreamMenuCommand(StreamMenuState::Command command)
             applyStreamMenuCommand(StreamMenuState::CloseAndReturn);
             return;
         }
-        if (!m_StreamMenuAllowed.load() || !streamFocused || !m_FirstFramePresented.load() || !m_RevealComplete.load())
+        if (!m_StreamMenuAllowed.load() || (m_Preferences && m_Preferences->hideStreamGuestMenu)
+                || !streamFocused || !m_FirstFramePresented.load() || !m_RevealComplete.load())
             return;
         m_StreamMenuState.open(m_InputHandler->isCaptureActive(), SDL_GetMouseState(nullptr, nullptr));
         m_InputHandler->suspendForMenu();
@@ -772,7 +791,8 @@ void Session::updateStreamMenu(bool force)
     SDL_GetWindowSize(m_Window, &width, &height);
     if (index >= 0) SDL_GetDisplayBounds(index, &display);
     const char* name = index >= 0 ? SDL_GetDisplayName(index) : nullptr;
-    const bool visible = m_StreamMenuAllowed.load() && m_FirstFramePresented.load() && m_RevealComplete.load()
+    const bool userHidden = m_Preferences && m_Preferences->hideStreamGuestMenu;
+    const bool visible = m_StreamMenuAllowed.load() && !userHidden && m_FirstFramePresented.load() && m_RevealComplete.load()
             && !(flags & SDL_WINDOW_MINIMIZED) && (streamFocused || m_StreamMenuState.isOpen());
     emit streamMenuPresentation(QRect(x, y, width, height), QRect(display.x, display.y, display.w, display.h),
                                  QString::fromUtf8(name ? name : ""), visible, m_StreamMenuState.isOpen());

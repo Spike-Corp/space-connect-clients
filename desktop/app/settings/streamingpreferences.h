@@ -140,6 +140,7 @@ public:
     Q_PROPERTY(bool enableMicForwarding MEMBER enableMicForwarding NOTIFY enableMicForwardingChanged)
     Q_PROPERTY(QString micCaptureDeviceName MEMBER micCaptureDeviceName NOTIFY micCaptureDeviceNameChanged)
     Q_PROPERTY(CaptureSysKeysMode captureSysKeysMode MEMBER captureSysKeysMode NOTIFY captureSysKeysModeChanged)
+    Q_PROPERTY(bool hideStreamGuestMenu MEMBER hideStreamGuestMenu NOTIFY hideStreamGuestMenuChanged)
     Q_PROPERTY(Language language MEMBER language NOTIFY languageChanged);
 
     Q_INVOKABLE bool retranslate();
@@ -182,6 +183,7 @@ public:
     UIDisplayMode uiDisplayMode;
     Language language;
     CaptureSysKeysMode captureSysKeysMode;
+    bool hideStreamGuestMenu;
 
 signals:
     void displayModeChanged();
@@ -214,6 +216,7 @@ signals:
     void reverseScrollDirectionChanged();
     void swapFaceButtonsChanged();
     void captureSysKeysModeChanged();
+    void hideStreamGuestMenuChanged();
     void keepAwakeChanged();
     void enableMicForwardingChanged();
     void micCaptureDeviceNameChanged();

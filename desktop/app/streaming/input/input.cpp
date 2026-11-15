@@ -113,6 +113,12 @@ SdlInputHandler::SdlInputHandler(StreamingPreferences& prefs, int streamWidth, i
     m_SpecialKeyCombos[KeyComboToggleStreamMenu].enabled =
             Session::get() && Session::get()->streamGuestControlsAvailable();
 
+    m_SpecialKeyCombos[KeyComboToggleGuestMenuHidden].keyCombo = KeyComboToggleGuestMenuHidden;
+    m_SpecialKeyCombos[KeyComboToggleGuestMenuHidden].keyCode = SDLK_h;
+    m_SpecialKeyCombos[KeyComboToggleGuestMenuHidden].scanCode = SDL_SCANCODE_H;
+    m_SpecialKeyCombos[KeyComboToggleGuestMenuHidden].enabled =
+            Session::get() && Session::get()->streamGuestControlsAvailable();
+
     m_OldIgnoreDevices = SDL_GetHint(SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES);
     m_OldIgnoreDevicesExcept = SDL_GetHint(SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT);
 
