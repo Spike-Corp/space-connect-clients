@@ -227,7 +227,7 @@ public final class StreamSideMenu extends FrameLayout {
     }
 
     public int getReservedWidth() {
-        return handleSize;
+        return handlePinned ? handleSize : 0;
     }
 
     public void setControllerState(boolean visible, boolean inEditor) {

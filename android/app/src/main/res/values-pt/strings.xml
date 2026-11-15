@@ -15,6 +15,8 @@
     <string name="summary_frame_pacing">Especifique o equilíbrio entre latência e suavidade do vídeo</string>
     <string name="title_checkbox_disable_warnings">Desabilitar mensagens de alerta</string>
     <string name="title_checkbox_enable_pip">Habilitar modo Picture-in-Picture</string>
+    <string name="title_checkbox_enable_stream_side_menu">Menu lateral no stream</string>
+    <string name="summary_checkbox_enable_stream_side_menu">Mantém o menu rápido (opções, teclado, microfone, convidados) acessível durante a transmissão, independente dos controles na tela</string>
     <string name="summary_checkbox_small_icon_mode">Diminui o tamanho dos ícones permitindo que mais aplicativos sejam visíveis na tela</string>
     <string name="dialog_text_reset_osc">Tem certeza de que deseja excluir o layout salvo dos controles de tela\?</string>
     <string name="summary_checkbox_touchscreen_trackpad">Se habilitado, a tela sensível ao toque funciona como um trackpad. Se desativado, a tela controla diretamente o cursor do mouse.</string>

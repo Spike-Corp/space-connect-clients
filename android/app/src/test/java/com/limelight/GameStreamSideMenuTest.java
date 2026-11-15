@@ -80,6 +80,10 @@ public class GameStreamSideMenuTest {
     }
 
     private Game createUi(Bundle saved, boolean withController, Boolean guestOwner) {
+        return createUi(saved, withController, guestOwner, true);
+    }
+
+    private Game createUi(Bundle saved, boolean withController, Boolean guestOwner, boolean sideMenuEnabled) {
         // Build only the real Activity's UI/input bridge, without launching a remote session.
         Game game = Robolectric.buildActivity(Game.class).get();
         games.add(game);
@@ -91,6 +95,7 @@ public class GameStreamSideMenuTest {
         ReflectionHelpers.setField(game, "prefConfig", PreferenceConfiguration.readPreferences(game));
         PreferenceConfiguration preferences = ReflectionHelpers.getField(game, "prefConfig");
         preferences.onscreenController = withController;
+        preferences.enableStreamSideMenu = sideMenuEnabled;
         if (withController) {
             VirtualController controls = new VirtualController(null,
                     (FrameLayout) game.findViewById(R.id.backgroundTouchView).getParent(), game);
@@ -172,7 +177,9 @@ public class GameStreamSideMenuTest {
     }
 
     @Test public void actualGameDispatchKeepsRevealGestureOnBackground() {
-        Game game = createUi(null);
+        // Side menu disabled: the handle must never pin itself visible, so the reveal
+        // gesture area stays free for the background touch view to receive events.
+        Game game = createUi(null, false, null, false);
         AtomicInteger events = new AtomicInteger();
         game.findViewById(R.id.backgroundTouchView).setOnTouchListener((v, event) -> {
             events.incrementAndGet();

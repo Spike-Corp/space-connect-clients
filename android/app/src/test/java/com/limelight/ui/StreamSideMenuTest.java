@@ -187,6 +187,15 @@ public class StreamSideMenuTest {
         assertFalse(menu.isOpen());
     }
 
+    @Test public void reservedWidthOnlyCountsWhileHandleIsPinned() {
+        int handleSize = host.getResources().getDimensionPixelSize(R.dimen.stream_side_handle_size);
+        assertEquals(0, menu.getReservedWidth());
+        menu.setHandlePinned(true);
+        assertEquals(handleSize, menu.getReservedWidth());
+        menu.setHandlePinned(false);
+        assertEquals(0, menu.getReservedWidth());
+    }
+
     @Test public void outsideDismissalConsumesDownMoveAndUpButNotFollowingGesture() {
         menu.setControllerState(true, false);
         menu.setOpen(true, false);

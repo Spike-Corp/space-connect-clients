@@ -931,7 +931,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private void updateStreamSideMenu() {
         if (streamSideMenu == null) return;
         boolean gamepadVisible = virtualController != null && virtualController.isVirtualGamepadVisible();
-        streamSideMenu.setHandlePinned(onScreenControlsHidden);
+        streamSideMenu.setHandlePinned(prefConfig.enableStreamSideMenu);
         streamSideMenu.setControllerState(gamepadVisible,
                 gamepadVisible && virtualController.getControllerMode() != VirtualController.ControllerMode.Active);
         boolean available = connected && !connectionClosed && !isHidingOverlays && !isSessionOverlayVisible();

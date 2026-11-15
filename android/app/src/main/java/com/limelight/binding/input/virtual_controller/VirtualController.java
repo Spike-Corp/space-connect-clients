@@ -19,6 +19,7 @@ import android.widget.Toast;
 import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.binding.input.ControllerHandler;
+import com.limelight.preferences.PreferenceConfiguration;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -72,8 +73,10 @@ public class VirtualController {
         this.context = context;
         this.handler = new Handler(Looper.getMainLooper());
         DisplayMetrics screen = context.getResources().getDisplayMetrics();
-        usableBounds.set(0, 0, Math.max(1, screen.widthPixels
-                - context.getResources().getDimensionPixelSize(R.dimen.stream_side_handle_size)), screen.heightPixels);
+        boolean reserveSideMenuSpace = PreferenceConfiguration.readPreferences(context).enableStreamSideMenu;
+        int sideMenuReservation = reserveSideMenuSpace
+                ? context.getResources().getDimensionPixelSize(R.dimen.stream_side_handle_size) : 0;
+        usableBounds.set(0, 0, Math.max(1, screen.widthPixels - sideMenuReservation), screen.heightPixels);
 
         buttonConfigure = new Button(context);
         buttonConfigure.setAlpha(0.25f);
@@ -93,7 +96,7 @@ public class VirtualController {
                     currentMode = ControllerMode.ResizeButtons;
                     message = R.string.stream_side_edit_resize;
                 } else {
-                    if (!isLayoutInsideBounds()) {
+                    if (VirtualControllerConfigurationLoader.fitToBounds(elements, usableBounds) < 0) {
                         Toast.makeText(context, R.string.stream_side_layout_conflict, Toast.LENGTH_LONG).show();
                         return;
                     }
@@ -163,16 +166,6 @@ public class VirtualController {
         if (next.equals(usableBounds) || next.isEmpty()) return;
         usableBounds.set(next);
         fitLayout();
-    }
-
-    private boolean isLayoutInsideBounds() {
-        for (VirtualControllerElement element : elements) {
-            FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) element.getLayoutParams();
-            if (params.width <= 0 || params.height <= 0 || !usableBounds.contains(
-                    params.leftMargin, params.topMargin, params.leftMargin + params.width,
-                    params.topMargin + params.height)) return false;
-        }
-        return true;
     }
 
     private void fitLayout() {

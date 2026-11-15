@@ -131,4 +131,15 @@ public class VirtualControllerMenuTest {
         configure().performClick();
         assertEquals(VirtualController.ControllerMode.Active, controller.getControllerMode());
     }
+
+    @Test public void defaultStartButtonLandsAtUnshiftedMoonlightPositionOnExact16to9Screen() {
+        // Call createDefaultLayout directly (skipping refreshLayout's trailing fitLayout)
+        // so the raw, pre-clamp position is observed: an isolated readout of the
+        // rightDisplacement formula alone, unaffected by reservation clamping.
+        VirtualControllerConfigurationLoader.createDefaultLayout(controller, activity.get());
+        // 640x360 is an exact 16:9 screen, so rightDisplacement must be 0: Start lands at
+        // its true Moonlight-default X (base unit 83 * scale 5 = 415), not shifted 48px
+        // left as it was before the rightDisplacement fix.
+        assertEquals(415, bounds(element(VirtualControllerElement.EID_START)).left);
+    }
 }

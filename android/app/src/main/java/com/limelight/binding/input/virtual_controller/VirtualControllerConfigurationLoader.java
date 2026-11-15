@@ -210,7 +210,7 @@ public class VirtualControllerConfigurationLoader {
         PreferenceConfiguration config = PreferenceConfiguration.readPreferences(context);
 
         // Displace controls on the right by this amount of pixels to account for different aspect ratios
-        int rightDisplacement = controller.getUsableBounds().right - screen.heightPixels * 16 / 9;
+        int rightDisplacement = screen.widthPixels - screen.heightPixels * 16 / 9;
 
         int height = screen.heightPixels;
 
