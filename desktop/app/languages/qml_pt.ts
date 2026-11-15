@@ -1235,6 +1235,11 @@
         <translation>Entre na fila compartilhada. Seu plano determina sua prioridade.</translation>
     </message>
     <message>
+        <location filename="../gui/LauncherView.qml" line="759"/>
+        <source>Leave queue</source>
+        <translation>Sair da fila</translation>
+    </message>
+    <message>
         <location filename="../gui/LauncherView.qml" line="177"/>
         <source>%1 · %2 minutes remaining</source>
         <translation>%1 · %2 minutos restantes</translation>

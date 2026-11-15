@@ -1135,8 +1135,9 @@
         <translation>Entre na fila compartilhada. Seu plano determina sua prioridade.</translation>
     </message>
     <message>
+        <location filename="../gui/LauncherView.qml" line="759"/>
         <source>Leave queue</source>
-        <translation type="vanished">Sair da fila</translation>
+        <translation>Sair da fila</translation>
     </message>
     <message>
         <source>Connect</source>

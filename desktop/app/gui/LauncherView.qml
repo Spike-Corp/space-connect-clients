@@ -757,6 +757,18 @@ Item {
                 }
 
                 Button {
+                    // Pedido do Davi: cliente precisa conseguir sair da fila por
+                    // vontade própria, não só esperar/esgotar as 15 tentativas
+                    // (WS3). LauncherApi.leaveQueue() já existia (chama DELETE
+                    // /launcher/v1/queue) mas nunca tinha botão nenhum na UI.
+                    text: qsTr("Leave queue")
+                    visible: LauncherApi.state === "queued"
+                    enabled: !LauncherApi.busy
+                    Layout.fillWidth: true
+                    onClicked: LauncherApi.leaveQueue()
+                }
+
+                Button {
                     text: qsTranslate("MachineManagementView", "Shut down")
                     visible: LauncherApi.state === "ready"
                     enabled: !LauncherApi.busy
