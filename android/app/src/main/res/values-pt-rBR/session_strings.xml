@@ -16,4 +16,6 @@
     <string name="session_pair_failed">Não foi possível conectar este dispositivo com segurança. Tente novamente.</string>
     <string name="session_desktop_missing">O Desktop não está disponível neste computador. Fale com o suporte para habilitá-lo.</string>
     <string name="session_host_busy">Outro aplicativo está aberto neste computador. Feche-o no computador remoto antes de conectar ao Desktop.</string>
+    <string name="session_retry_gpu_license">Preparando a licença da GPU… (tentativa %1$d/%2$d)</string>
+    <string name="session_retry_connection">Conexão interrompida. Tentando consultar o status da máquina novamente… (tentativa %1$d/%2$d)</string>
 </resources>

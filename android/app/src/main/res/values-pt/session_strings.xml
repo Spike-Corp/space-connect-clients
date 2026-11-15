@@ -16,4 +16,6 @@
     <string name="session_pair_failed">Não foi possível ligar este dispositivo em segurança. Tente novamente.</string>
     <string name="session_desktop_missing">O Desktop não está disponível neste computador. Contacte o suporte para o ativar.</string>
     <string name="session_host_busy">Está aberta outra aplicação neste computador. Feche-a no computador remoto antes de ligar ao Desktop.</string>
+    <string name="session_retry_gpu_license">A preparar a licença da GPU… (tentativa %1$d/%2$d)</string>
+    <string name="session_retry_connection">Ligação interrompida. A repetir a consulta ao estado da máquina… (tentativa %1$d/%2$d)</string>
 </resources>

@@ -363,7 +363,7 @@ public class SessionAccountSafetyTest {
         @Implementation protected SpaceConnectApiClient.StreamDisconnectResponse disconnectStreamGuest(
                 String token, String machineId, String bindingId, String guestUserId) throws SpaceConnectApiClient.ApiException {
             disconnectCount++;
-            throw new SpaceConnectApiClient.ApiException(401, "ACCESS_REVOKED", "Access revoked", null, 1, 0, 1, 0);
+            throw new SpaceConnectApiClient.ApiException(401, "ACCESS_REVOKED", "Access revoked", null, 1, 0, 1, 0, false);
         }
     }
 }

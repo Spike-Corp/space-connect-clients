@@ -35,6 +35,8 @@ public class VmMonitorService extends Service {
     private static final String CHANNEL = "vm_operations";
     private static final int FOREGROUND_ID = 46000;
     private static final long MAX_MONITOR_MS = 30 * 60_000L;
+    /** WS9a: same ~3min retry budget as the foreground SessionOrchestrator, at this service's 15s poll cadence. */
+    static final int MAX_BOOT_READ_FAILURES = 12;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Map<String, BootWatch> waitingForBoot = new LinkedHashMap<>();
     private RequestScope scope;
@@ -349,7 +351,7 @@ public class VmMonitorService extends Service {
     }
 
     private void bootReadFailed(BootWatch watch, boolean retryable) {
-        if (retryable && ++watch.failedReads < 3) {
+        if (retryable && ++watch.failedReads < MAX_BOOT_READ_FAILURES) {
             showRefreshError();
             return;
         }

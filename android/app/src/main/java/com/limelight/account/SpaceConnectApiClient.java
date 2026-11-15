@@ -644,7 +644,8 @@ public final class SpaceConnectApiClient {
                         envelope.error.requested,
                         envelope.error.alreadyDisconnected,
                         envelope.error.failed,
-                        envelope.error.notAttempted);
+                        envelope.error.notAttempted,
+                        envelope.error.retryable);
             }
         } catch (JsonSyntaxException ignored) {
         }
@@ -713,6 +714,7 @@ public final class SpaceConnectApiClient {
         String message;
         String tempToken;
         Integer requested, alreadyDisconnected, failed, notAttempted;
+        boolean retryable;
     }
 
     public static final class DeviceInfo {
@@ -1270,13 +1272,15 @@ public final class SpaceConnectApiClient {
         public final String code;
         public final String tempToken;
         public final Integer requested, alreadyDisconnected, failed, notAttempted;
+        /** Whether the backend says this specific failure is worth retrying (e.g. GPU_LICENSE_NOT_READY). */
+        public final boolean retryable;
 
         ApiException(int status, String code, String message, String tempToken) {
-            this(status, code, message, tempToken, null, null, null, null);
+            this(status, code, message, tempToken, null, null, null, null, false);
         }
 
         ApiException(int status, String code, String message, String tempToken,
-                Integer requested, Integer alreadyDisconnected, Integer failed, Integer notAttempted) {
+                Integer requested, Integer alreadyDisconnected, Integer failed, Integer notAttempted, boolean retryable) {
             super(message != null && !message.isEmpty() ? message : "Falha ao acessar a SpaceCloud");
             this.status = status;
             this.code = code != null ? code : "REQUEST_FAILED";
@@ -1285,6 +1289,7 @@ public final class SpaceConnectApiClient {
             this.alreadyDisconnected = alreadyDisconnected;
             this.failed = failed;
             this.notAttempted = notAttempted;
+            this.retryable = retryable;
         }
 
     }

@@ -160,7 +160,8 @@ public class StreamGuestsControllerTest {
                 ClassParameter.from(Integer.class, 1),
                 ClassParameter.from(Integer.class, 0),
                 ClassParameter.from(Integer.class, 1),
-                ClassParameter.from(Integer.class, 0));
+                ClassParameter.from(Integer.class, 0),
+                ClassParameter.from(boolean.class, false));
         AlertDialog panel = ShadowAlertDialog.getLatestAlertDialog();
         findButton(panel.getWindow().getDecorView(), "Conta Amiga").performClick();
         ShadowAlertDialog.getLatestAlertDialog().getButton(AlertDialog.BUTTON_POSITIVE).performClick();

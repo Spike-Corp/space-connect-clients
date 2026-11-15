@@ -239,18 +239,84 @@ public class SessionOrchestratorTest {
         assertEquals(4, backend.reads.get());
     }
 
-    @Test public void repeatedStatusFailuresStopAfterTwoReadRetries() throws Exception {
+    @Test public void repeatedStatusFailuresStopAfterExhaustingTheRetryBudget() throws Exception {
         Backend backend = new Backend();
-        for (int i = 1; i <= 3; i++) backend.readErrors.put(i, new IOException("transport failed"));
+        int totalAttempts = SessionOrchestrator.maxStatusReadFailures() + 1;
+        for (int i = 1; i <= totalAttempts; i++) backend.readErrors.put(i, new IOException("transport failed"));
         Callbacks callbacks = new Callbacks();
         Listener listener = new Listener();
         SessionOrchestrator attempt = attempt(backend, new Host(), callbacks, listener);
         attempt.start();
         awaitStage(attempt, SessionOrchestrator.Stage.FAILED);
         callbacks.drain();
-        assertEquals(3, backend.reads.get());
+        assertEquals(totalAttempts, backend.reads.get());
         assertEquals(SessionOrchestrator.Failure.CONNECTION, listener.failure);
         assertEquals(0, backend.joins.get());
+    }
+
+    @Test public void explicitNonRetryableFlagStopsEvenWithAnInRangeStatus() throws Exception {
+        // WS9a: an unrecognized code at a normally-retryable status (503) must NOT be retried once
+        // the backend explicitly marks it non-retryable - the explicit flag now wins over the old
+        // status-range guess, which used to retry blindly in this situation.
+        Backend backend = new Backend();
+        backend.readErrors.put(1, apiError(503, "SOME_FUTURE_NONRETRYABLE_CODE", false));
+        Callbacks callbacks = new Callbacks();
+        Listener listener = new Listener();
+        SessionOrchestrator attempt = attempt(backend, new Host(), callbacks, listener);
+        attempt.start();
+        awaitStage(attempt, SessionOrchestrator.Stage.FAILED);
+        callbacks.drain();
+        assertEquals(1, backend.reads.get());
+        assertEquals(SessionOrchestrator.Failure.CONNECTION, listener.failure);
+    }
+
+    @Test public void retryableConnectionFailureFallsBackToPollingInsteadOfFailing() throws Exception {
+        // WS9a: this is the core bug fix - a retryable /connection failure (e.g. the GPU license
+        // isn't confirmed yet) must no longer fail the whole attempt on the first try.
+        Backend backend = new Backend();
+        backend.statuses.add(status("ready"));
+        backend.connectionErrors.put(1, apiError(409, "GPU_LICENSE_NOT_READY", true));
+        backend.statuses.add(status("ready"));
+        Host host = new Host();
+        Listener listener = new Listener();
+        Callbacks callbacks = new Callbacks();
+        SessionOrchestrator attempt = attempt(backend, host, callbacks, listener);
+        attempt.start();
+        await(host.prepared);
+        callbacks.drain();
+        assertEquals(2, backend.connections.get());
+        assertTrue("retry must re-publish Stage.STARTING so canBackground() stays true",
+                listener.stages.contains(SessionOrchestrator.Stage.STARTING));
+    }
+
+    @Test public void nonRetryableConnectionFailureStillFailsImmediately() throws Exception {
+        Backend backend = new Backend();
+        backend.statuses.add(status("ready"));
+        backend.connectionErrors.put(1, apiError(409, "ACTIVE_SESSION_EXISTS", true)); // business failure must win regardless of the flag
+        Callbacks callbacks = new Callbacks();
+        Listener listener = new Listener();
+        SessionOrchestrator attempt = attempt(backend, new Host(), callbacks, listener);
+        attempt.start();
+        awaitStage(attempt, SessionOrchestrator.Stage.FAILED);
+        callbacks.drain();
+        assertEquals(SessionOrchestrator.Failure.OPERATION_BUSY, listener.failure);
+        assertEquals(1, backend.connections.get());
+    }
+
+    @Test public void unclassifiedConnectionFailureIsNotRetriedEvenWithInRangeStatus() throws Exception {
+        // WS9a: unlike /status reads, /connection reads must never fall back to the status-range
+        // guess for a codeless/REQUEST_FAILED error - mirrors Desktop's allowStatusFallback split.
+        Backend backend = new Backend();
+        backend.statuses.add(status("ready"));
+        backend.connectionErrors.put(1, apiError(503, "REQUEST_FAILED", true));
+        Callbacks callbacks = new Callbacks();
+        Listener listener = new Listener();
+        SessionOrchestrator attempt = attempt(backend, new Host(), callbacks, listener);
+        attempt.start();
+        awaitStage(attempt, SessionOrchestrator.Stage.FAILED);
+        callbacks.drain();
+        assertEquals(1, backend.connections.get());
+        assertEquals(SessionOrchestrator.Failure.CONNECTION, listener.failure);
     }
 
     @Test public void ambiguousJoinIsNotRetriedAsAStatusRead() throws Exception {
@@ -279,6 +345,14 @@ public class SessionOrchestratorTest {
         return ReflectionHelpers.callConstructor(ApiException.class, ClassParameter.from(int.class, status),
                 ClassParameter.from(String.class, code), ClassParameter.from(String.class, "Business failure"),
                 ClassParameter.from(String.class, null));
+    }
+
+    private static ApiException apiError(int status, String code, boolean retryable) {
+        return ReflectionHelpers.callConstructor(ApiException.class, ClassParameter.from(int.class, status),
+                ClassParameter.from(String.class, code), ClassParameter.from(String.class, "Business failure"),
+                ClassParameter.from(String.class, null), ClassParameter.from(Integer.class, null),
+                ClassParameter.from(Integer.class, null), ClassParameter.from(Integer.class, null),
+                ClassParameter.from(Integer.class, null), ClassParameter.from(boolean.class, retryable));
     }
 
     private CountDownLatch gate() {
@@ -330,6 +404,7 @@ public class SessionOrchestratorTest {
         }
         final Queue<StatusResponse> statuses = new ConcurrentLinkedQueue<>();
         final Map<Integer, Exception> readErrors = new HashMap<>();
+        final Map<Integer, Exception> connectionErrors = new HashMap<>();
         final AtomicInteger reads = new AtomicInteger();
         Exception joinError;
         final AtomicInteger joins = new AtomicInteger(), connections = new AtomicInteger(),
@@ -355,8 +430,9 @@ public class SessionOrchestratorTest {
             joinReturned.countDown();
             return joinResult;
         }
-        @Override public ConnectionResponse connection() {
-            connections.incrementAndGet();
+        @Override public ConnectionResponse connection() throws Exception {
+            Exception error = connectionErrors.get(connections.incrementAndGet());
+            if (error != null) throw error;
             ConnectionResponse connection = new ConnectionResponse();
             connection.machineId = MACHINE;
             return connection;

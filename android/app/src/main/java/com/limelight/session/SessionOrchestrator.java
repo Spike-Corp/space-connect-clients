@@ -80,6 +80,13 @@ public final class SessionOrchestrator {
     private static final Object REGISTRY_LOCK = new Object();
     private static volatile SessionOrchestrator active;
     private static CompletableFuture<Void> previousCleanup = CompletableFuture.completedFuture(null);
+    /**
+     * WS9a: how many consecutive retryable failures (status poll OR connection) we tolerate before
+     * giving up. GPU license confirmation and stream-service startup can legitimately take a couple
+     * of minutes after the VM reports "ready" - mirrors Desktop's sessionorchestrator.cpp budget
+     * (60 attempts * 3s poll). pollMillis is 5000 in production, so 36 * 5s = 180s (~3min).
+     */
+    static final int MAX_STATUS_READ_FAILURES = 36;
 
     public final String id = UUID.randomUUID().toString();
     public final String machineId;
@@ -99,7 +106,8 @@ public final class SessionOrchestrator {
     private boolean joinUncertain;
     private boolean joined;
     private int idlePollsAfterJoin;
-    private int failedStatusReads;
+    private volatile int failedStatusReads;
+    private volatile String retryCode;
     private Runnable streamCancellation;
 
     public SessionOrchestrator(String machineId, boolean friend, Backend backend, Host host,
@@ -168,6 +176,7 @@ public final class SessionOrchestrator {
             try {
                 next = backend.status();
                 failedStatusReads = 0;
+                retryCode = null;
             } catch (Exception error) {
                 if (retryStatusRead(error)) return;
                 throw error;
@@ -192,21 +201,70 @@ public final class SessionOrchestrator {
         }
     }
 
-    public static boolean isRetryableStatusRead(Exception error) {
-        boolean temporary = error instanceof IOException && !(error instanceof javax.net.ssl.SSLException);
+    /**
+     * WS9a: a codeless/unclassified failure is only guessed-retryable via its HTTP status for
+     * /status-style reads (the machine may simply still be booting, nothing to classify yet).
+     * For /connection-style reads an unclassified error is more likely a real bug, so it must
+     * never fall back to the status-range guess - mirrors Desktop's allowStatusFallback split.
+     */
+    private static boolean isRetryableFailure(Exception error, boolean allowStatusFallback) {
         if (error instanceof ApiException) {
             ApiException api = (ApiException) error;
-            temporary = businessFailure(api) == null
+            if (businessFailure(api) != null) return false;
+            if (api.code != null && !"REQUEST_FAILED".equals(api.code)) return api.retryable;
+            return allowStatusFallback
                     && (api.status == 500 || api.status == 502 || api.status == 503 || api.status == 504);
         }
-        return temporary;
+        return error instanceof IOException && !(error instanceof javax.net.ssl.SSLException);
+    }
+
+    public static boolean isRetryableStatusRead(Exception error) {
+        return isRetryableFailure(error, true);
+    }
+
+    public static boolean isRetryableConnectionFailure(Exception error) {
+        return isRetryableFailure(error, false);
+    }
+
+    public static int maxStatusReadFailures() {
+        return MAX_STATUS_READ_FAILURES;
     }
 
     private boolean retryStatusRead(Exception error) {
         synchronized (REGISTRY_LOCK) {
-            if (!isActive() || !isRetryableStatusRead(error) || failedStatusReads >= 2) return false;
+            if (!isActive() || !isRetryableStatusRead(error) || failedStatusReads >= MAX_STATUS_READ_FAILURES) return false;
             failedStatusReads++;
+            retryCode = error instanceof ApiException ? ((ApiException) error).code : null;
             SessionLog.failure("status retry", error);
+            publish(stage, status);
+            worker.schedule(this::poll, pollMillis, TimeUnit.MILLISECONDS);
+            return true;
+        }
+    }
+
+    /** How many consecutive retryable failures have happened so far in the current attempt, or 0. */
+    public int retryAttempt() {
+        return failedStatusReads;
+    }
+
+    /** The ApiException.code that triggered the active retry, or null (e.g. a plain IOException). */
+    public String retryCode() {
+        return retryCode;
+    }
+
+    /**
+     * WS9a: a retryable /connection failure (e.g. GPU_LICENSE_NOT_READY, STREAM_SERVICE_UNAVAILABLE)
+     * resets back to Stage.STARTING (re-enabling canBackground()) and reschedules poll(), which will
+     * naturally re-enter acceptStatus()/prepare() and retry backend.connection() fresh - instead of
+     * failing the whole attempt the first time the GPU license simply hasn't been confirmed yet.
+     */
+    private boolean retryConnectionRead(Exception error) {
+        synchronized (REGISTRY_LOCK) {
+            if (!isActive() || !isRetryableConnectionFailure(error) || failedStatusReads >= MAX_STATUS_READ_FAILURES) return false;
+            failedStatusReads++;
+            retryCode = error instanceof ApiException ? ((ApiException) error).code : null;
+            SessionLog.failure("connection retry", error);
+            publish(Stage.STARTING, status);
             worker.schedule(this::poll, pollMillis, TimeUnit.MILLISECONDS);
             return true;
         }
@@ -264,7 +322,15 @@ public final class SessionOrchestrator {
     private void prepare() throws Exception {
         publish(Stage.CONNECTING, status);
         if (!isActive()) return;
-        ConnectionResponse connection = backend.connection();
+        ConnectionResponse connection;
+        try {
+            connection = backend.connection();
+        } catch (Exception error) {
+            if (retryConnectionRead(error)) return;
+            throw error;
+        }
+        failedStatusReads = 0;
+        retryCode = null;
         if (!isActive()) return;
         if (connection == null || (connection.machineId != null && !machineId.equals(connection.machineId))) {
             throw new SessionException(Failure.CONNECTION);

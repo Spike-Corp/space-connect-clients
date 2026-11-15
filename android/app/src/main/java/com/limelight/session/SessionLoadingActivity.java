@@ -114,7 +114,8 @@ public class SessionLoadingActivity extends Activity implements SessionOrchestra
 
     @Override public void onProgress(SessionOrchestrator.Stage stage, StatusResponse status) {
         if (!closed && attempt != null && attempt.isActive()) {
-            overlay.showMessage(SessionMessages.message(this, stage, status));
+            overlay.showMessage(SessionMessages.message(this, stage, status,
+                    attempt.retryAttempt(), SessionOrchestrator.maxStatusReadFailures(), attempt.retryCode()));
             overlay.setTips(status != null && status.bootTexts != null ? status.bootTexts.tips : null);
             overlay.setBackgroundEnabled(attempt.canBackground());
         }

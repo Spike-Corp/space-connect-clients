@@ -127,7 +127,8 @@ public class VmMonitorServiceTest {
         service = Robolectric.buildService(VmMonitorService.class).create();
         service.get().onStartCommand(observation(FIRST), 0, 1);
         settle();
-        for (int i = 0; i < 4; i++) pollAgain();
+        int extraPolls = VmMonitorService.MAX_BOOT_READ_FAILURES + 1;
+        for (int i = 0; i < extraPolls; i++) pollAgain();
         assertEquals(attempts, Api.reads.size());
         assertNotNull(shadowOf(context.getSystemService(NotificationManager.class))
                 .getNotification("boot_failed:" + FIRST, 1));
@@ -147,8 +148,8 @@ public class VmMonitorServiceTest {
         assertBootReadStops(new ApiException(403, "ACCESS_DENIED", "Denied", null), 1);
     }
 
-    @Test public void transportFailuresEndBootObservationAfterThreeReads() throws Exception {
-        assertBootReadStops(new java.io.IOException("Fixture transport failure"), 3);
+    @Test public void transportFailuresEndBootObservationAfterExhaustingTheRetryBudget() throws Exception {
+        assertBootReadStops(new java.io.IOException("Fixture transport failure"), VmMonitorService.MAX_BOOT_READ_FAILURES);
     }
 
     @Test public void successfulReadsResetTheConsecutiveFailureBudget() throws Exception {

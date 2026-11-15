@@ -8,6 +8,22 @@ import com.limelight.account.SpaceConnectApiClient.StatusResponse;
 final class SessionMessages {
     private SessionMessages() {}
 
+    /**
+     * WS9a: same formatting as the 3-arg overload, but overridden with a retry-progress message
+     * while a status-poll or connection retry is active (retryAttempt > 0) - e.g. the GPU license
+     * is still being confirmed, or a transient connection read is being retried. GPU_LICENSE_NOT_READY
+     * gets its own wording (mirrors Desktop); any other retryable code shares a generic message.
+     */
+    static String message(Context context, SessionOrchestrator.Stage stage, StatusResponse status,
+            int retryAttempt, int maxRetryAttempts, String retryCode) {
+        if (retryAttempt > 0) {
+            return "GPU_LICENSE_NOT_READY".equals(retryCode)
+                    ? context.getString(R.string.session_retry_gpu_license, retryAttempt, maxRetryAttempts)
+                    : context.getString(R.string.session_retry_connection, retryAttempt, maxRetryAttempts);
+        }
+        return message(context, stage, status);
+    }
+
     static String message(Context context, SessionOrchestrator.Stage stage, StatusResponse status) {
         BootTexts texts = status == null ? null : status.bootTexts;
         if (stage == SessionOrchestrator.Stage.QUEUED && status != null && status.queue != null) {

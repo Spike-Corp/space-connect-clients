@@ -16,4 +16,6 @@
     <string name="session_pair_failed">We couldn’t securely connect this device. Please try again.</string>
     <string name="session_desktop_missing">Desktop isn’t available on this computer. Contact support to enable it.</string>
     <string name="session_host_busy">Another app is running on this computer. Close it on the host before connecting to Desktop.</string>
+    <string name="session_retry_gpu_license">Preparing GPU license… (attempt %1$d/%2$d)</string>
+    <string name="session_retry_connection">Connection interrupted. Retrying machine status… (attempt %1$d/%2$d)</string>
 </resources>
