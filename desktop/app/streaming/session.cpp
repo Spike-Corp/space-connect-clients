@@ -861,6 +861,15 @@ void Session::showStreamWindow()
 
 void Session::revealStreamWindow()
 {
+    // Defense in depth: never let the stream window stay minimized once we're
+    // revealing it. We no longer inherit a minimized state at window creation
+    // time (see execInternal()), but this guards against any other path
+    // (window manager quirks, a future regression) leaving it minimized, which
+    // would otherwise look exactly like the app silently failing to open.
+    if (SDL_GetWindowFlags(m_Window) & SDL_WINDOW_MINIMIZED) {
+        SDL_RestoreWindow(m_Window);
+    }
+
     bool appFocused = QGuiApplication::applicationState() == Qt::ApplicationActive
             || (SDL_GetWindowFlags(m_Window) & SDL_WINDOW_INPUT_FOCUS);
 #ifdef Q_OS_WIN32
@@ -2198,13 +2207,21 @@ void Session::execInternal()
 
     // If we're starting in windowed mode and the Moonlight GUI is maximized or
     // minimized, match that with the streaming window.
+    //
+    // NB: For managed desktop (Space Connect launcher) sessions, m_QtWindow is
+    // the full-screen loading overlay, which the user can still minimize via an
+    // OS-level gesture (Win+D, taskbar, etc.) while waiting for the VM to boot.
+    // Unlike the stock Moonlight GUI flow, nothing here restores that state
+    // automatically afterwards, so a stream window born minimized would stay
+    // stuck in the taskbar forever with no visible window. We still honor the
+    // maximized state (harmless: the window is visible either way).
     if (!m_IsFullScreen && m_QtWindow != nullptr) {
 #if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
         // Qt 5.10+ can propagate multiple states together
         if (m_QtWindow->windowStates() & Qt::WindowMaximized) {
             defaultWindowFlags |= SDL_WINDOW_MAXIMIZED;
         }
-        if (m_QtWindow->windowStates() & Qt::WindowMinimized) {
+        if (!m_ManagedDesktop && (m_QtWindow->windowStates() & Qt::WindowMinimized)) {
             defaultWindowFlags |= SDL_WINDOW_MINIMIZED;
         }
 #else
@@ -2212,7 +2229,7 @@ void Session::execInternal()
         if (m_QtWindow->windowState() == Qt::WindowMaximized) {
             defaultWindowFlags |= SDL_WINDOW_MAXIMIZED;
         }
-        else if (m_QtWindow->windowState() == Qt::WindowMinimized) {
+        else if (!m_ManagedDesktop && m_QtWindow->windowState() == Qt::WindowMinimized) {
             defaultWindowFlags |= SDL_WINDOW_MINIMIZED;
         }
 #endif
@@ -2390,6 +2407,7 @@ void Session::execInternal()
     const Uint32 startupTicks = SDL_GetTicks();
     Uint32 lastBackgroundPump = startupTicks;
     bool revealApplied = !m_ManagedDesktop;
+    Uint32 firstFramePresentedTicks = 0;
 
     for (;;) {
         if (connectionCancelled(m_ConnectionCancellation))
@@ -2403,6 +2421,24 @@ void Session::execInternal()
                 emit displayLaunchError(tr("No video frame arrived. Check your connection and try again."));
                 m_UnexpectedTermination = true;
                 goto DispatchDeferredCleanup;
+            }
+            if (m_FirstFramePresented.load()) {
+                if (firstFramePresentedTicks == 0) {
+                    firstFramePresentedTicks = SDL_GetTicks();
+                }
+                // Safety net: the QML-side reveal (loading overlay fade-out)
+                // normally completes within a few hundred ms of the first
+                // frame arriving. If it never does for some reason (a glitch
+                // in the loader UI, a missed signal, etc.), force the loading
+                // overlay out of the way and the stream window visible and
+                // focused ourselves instead of leaving the user stuck looking
+                // at a frozen loader (or nothing at all).
+                if (SDL_GetTicks() - firstFramePresentedTicks > 5000) {
+                    if (m_QtWindow != nullptr) {
+                        m_QtWindow->hide();
+                    }
+                    completeReveal(true);
+                }
             }
         }
         if (!revealApplied && m_RevealComplete.load()) {
