@@ -87,54 +87,66 @@ private:
         // Always fetch the applist the first time
         int pollsSinceLastAppListFetch = POLLS_PER_APPLIST_FETCH;
         while (!isInterruptionRequested()) {
-            bool stateChanged = false;
-            bool online = false;
-            bool wasOnline = m_Computer->state == NvComputer::CS_ONLINE;
-            for (int i = 0; i < (wasOnline ? TRIES_BEFORE_OFFLINING : 1) && !online; i++) {
-                for (auto& address : m_Computer->uniqueAddresses()) {
-                    if (isInterruptionRequested()) {
-                        return;
-                    }
-
-                    if (tryPollComputer(address, stateChanged)) {
-                        if (!wasOnline) {
-                            qInfo() << m_Computer->name << "is now online at" << m_Computer->activeAddress.toString();
+            // WS9c: this thread polls for the whole app lifetime, for every known
+            // host. QThread::run() has no implicit exception handling in Qt - an
+            // exception escaping uncaught here terminates the entire process
+            // (std::terminate()) with no dialog, which looks to the user exactly
+            // like "the app just closed". Catch broadly and skip this cycle
+            // instead of letting that happen.
+            try {
+                bool stateChanged = false;
+                bool online = false;
+                bool wasOnline = m_Computer->state == NvComputer::CS_ONLINE;
+                for (int i = 0; i < (wasOnline ? TRIES_BEFORE_OFFLINING : 1) && !online; i++) {
+                    for (auto& address : m_Computer->uniqueAddresses()) {
+                        if (isInterruptionRequested()) {
+                            return;
                         }
-                        online = true;
-                        break;
+
+                        if (tryPollComputer(address, stateChanged)) {
+                            if (!wasOnline) {
+                                qInfo() << m_Computer->name << "is now online at" << m_Computer->activeAddress.toString();
+                            }
+                            online = true;
+                            break;
+                        }
                     }
                 }
-            }
 
-            // Check if we failed after all retry attempts
-            // Note: we don't need to acquire the read lock here,
-            // because we're on the writing thread.
-            if (!online && m_Computer->state != NvComputer::CS_OFFLINE) {
-                qInfo() << m_Computer->name << "is now offline";
-                m_Computer->state = NvComputer::CS_OFFLINE;
-                stateChanged = true;
-            }
+                // Check if we failed after all retry attempts
+                // Note: we don't need to acquire the read lock here,
+                // because we're on the writing thread.
+                if (!online && m_Computer->state != NvComputer::CS_OFFLINE) {
+                    qInfo() << m_Computer->name << "is now offline";
+                    m_Computer->state = NvComputer::CS_OFFLINE;
+                    stateChanged = true;
+                }
 
-            // Grab the applist if it's empty or it's been long enough that we need to refresh
-            pollsSinceLastAppListFetch++;
-            if (m_Computer->state == NvComputer::CS_ONLINE &&
-                    m_Computer->pairState == NvComputer::PS_PAIRED &&
-                    (m_Computer->appList.isEmpty() || pollsSinceLastAppListFetch >= POLLS_PER_APPLIST_FETCH)) {
-                // Notify prior to the app list poll since it may take a while, and we don't
-                // want to delay onlining of a machine, especially if we already have a cached list.
+                // Grab the applist if it's empty or it's been long enough that we need to refresh
+                pollsSinceLastAppListFetch++;
+                if (m_Computer->state == NvComputer::CS_ONLINE &&
+                        m_Computer->pairState == NvComputer::PS_PAIRED &&
+                        (m_Computer->appList.isEmpty() || pollsSinceLastAppListFetch >= POLLS_PER_APPLIST_FETCH)) {
+                    // Notify prior to the app list poll since it may take a while, and we don't
+                    // want to delay onlining of a machine, especially if we already have a cached list.
+                    if (stateChanged) {
+                        emit computerStateChanged(m_Computer);
+                        stateChanged = false;
+                    }
+
+                    if (updateAppList(stateChanged)) {
+                        pollsSinceLastAppListFetch = 0;
+                    }
+                }
+
                 if (stateChanged) {
+                    // Tell anyone listening that we've changed state
                     emit computerStateChanged(m_Computer);
-                    stateChanged = false;
                 }
-
-                if (updateAppList(stateChanged)) {
-                    pollsSinceLastAppListFetch = 0;
-                }
-            }
-
-            if (stateChanged) {
-                // Tell anyone listening that we've changed state
-                emit computerStateChanged(m_Computer);
+            } catch (const std::exception& e) {
+                qWarning() << "Unhandled exception while polling" << m_Computer->name << ":" << e.what();
+            } catch (...) {
+                qWarning() << "Unknown unhandled exception while polling" << m_Computer->name;
             }
 
             // Wait a bit to poll again, but do it in 100 ms chunks
@@ -243,65 +255,76 @@ ComputerManager::~ComputerManager()
 
 void DelayedFlushThread::run() {
     for (;;) {
-        // Wait for a delayed flush request or an interruption
-        {
-            QMutexLocker locker(&m_ComputerManager->m_DelayedFlushMutex);
-
-            while (!QThread::currentThread()->isInterruptionRequested() && !m_ComputerManager->m_NeedsDelayedFlush) {
-                m_ComputerManager->m_DelayedFlushCondition.wait(&m_ComputerManager->m_DelayedFlushMutex);
-            }
-
-            // Bail without flushing if we woke up for an interruption alone.
-            // If we have both an interruption and a flush request, do the flush.
-            if (!m_ComputerManager->m_NeedsDelayedFlush) {
-                Q_ASSERT(QThread::currentThread()->isInterruptionRequested());
-                break;
-            }
-
-            // Reset the delayed flush flag to ensure any racing saveHosts() call will set it again
-            m_ComputerManager->m_NeedsDelayedFlush = false;
-
-            // Update the last serialized hosts map under the delayed flush mutex
-            m_ComputerManager->m_LastSerializedHosts.clear();
-            for (const NvComputer* computer : m_ComputerManager->m_KnownHosts) {
-                // Copy the current state of the NvComputer to allow us to check later if we need
-                // to serialize it again when attribute updates occur.
-                QReadLocker computerLock(&computer->lock);
-                m_ComputerManager->m_LastSerializedHosts[computer->uuid] = *computer;
-            }
-        }
-
-        // Perform the flush
-        {
-            QSettings settings;
-
-            // First, write to the backup location
-            settings.beginWriteArray(SER_HOSTS_BACKUP);
+        // WS9c: same reasoning as PcMonitorThread - this thread runs for the whole
+        // app lifetime, and an uncaught exception here would terminate() the whole
+        // process. "break" below still works correctly from inside the try (it
+        // unwinds the try scope like any other block), so wrapping the full body
+        // doesn't change the normal exit path.
+        try {
+            // Wait for a delayed flush request or an interruption
             {
-                QReadLocker lock(&m_ComputerManager->m_Lock);
-                int i = 0;
+                QMutexLocker locker(&m_ComputerManager->m_DelayedFlushMutex);
+
+                while (!QThread::currentThread()->isInterruptionRequested() && !m_ComputerManager->m_NeedsDelayedFlush) {
+                    m_ComputerManager->m_DelayedFlushCondition.wait(&m_ComputerManager->m_DelayedFlushMutex);
+                }
+
+                // Bail without flushing if we woke up for an interruption alone.
+                // If we have both an interruption and a flush request, do the flush.
+                if (!m_ComputerManager->m_NeedsDelayedFlush) {
+                    Q_ASSERT(QThread::currentThread()->isInterruptionRequested());
+                    break;
+                }
+
+                // Reset the delayed flush flag to ensure any racing saveHosts() call will set it again
+                m_ComputerManager->m_NeedsDelayedFlush = false;
+
+                // Update the last serialized hosts map under the delayed flush mutex
+                m_ComputerManager->m_LastSerializedHosts.clear();
                 for (const NvComputer* computer : m_ComputerManager->m_KnownHosts) {
-                    settings.setArrayIndex(i++);
-                    computer->serialize(settings, false);
+                    // Copy the current state of the NvComputer to allow us to check later if we need
+                    // to serialize it again when attribute updates occur.
+                    QReadLocker computerLock(&computer->lock);
+                    m_ComputerManager->m_LastSerializedHosts[computer->uuid] = *computer;
                 }
             }
-            settings.endArray();
 
-            // Next, write to the primary location
-            settings.remove(SER_HOSTS);
-            settings.beginWriteArray(SER_HOSTS);
+            // Perform the flush
             {
-                QReadLocker lock(&m_ComputerManager->m_Lock);
-                int i = 0;
-                for (const NvComputer* computer : m_ComputerManager->m_KnownHosts) {
-                    settings.setArrayIndex(i++);
-                    computer->serialize(settings, true);
-                }
-            }
-            settings.endArray();
+                QSettings settings;
 
-            // Finally, delete the backup copy
-            settings.remove(SER_HOSTS_BACKUP);
+                // First, write to the backup location
+                settings.beginWriteArray(SER_HOSTS_BACKUP);
+                {
+                    QReadLocker lock(&m_ComputerManager->m_Lock);
+                    int i = 0;
+                    for (const NvComputer* computer : m_ComputerManager->m_KnownHosts) {
+                        settings.setArrayIndex(i++);
+                        computer->serialize(settings, false);
+                    }
+                }
+                settings.endArray();
+
+                // Next, write to the primary location
+                settings.remove(SER_HOSTS);
+                settings.beginWriteArray(SER_HOSTS);
+                {
+                    QReadLocker lock(&m_ComputerManager->m_Lock);
+                    int i = 0;
+                    for (const NvComputer* computer : m_ComputerManager->m_KnownHosts) {
+                        settings.setArrayIndex(i++);
+                        computer->serialize(settings, true);
+                    }
+                }
+                settings.endArray();
+
+                // Finally, delete the backup copy
+                settings.remove(SER_HOSTS_BACKUP);
+            }
+        } catch (const std::exception& e) {
+            qWarning() << "Unhandled exception while flushing host list:" << e.what();
+        } catch (...) {
+            qWarning() << "Unknown unhandled exception while flushing host list";
         }
     }
 }
@@ -499,34 +522,45 @@ public:
 
     void run()
     {
-        ComputerPollingEntry* pollingEntry;
+        // WS9c: this is a one-shot QThreadPool task (connect-to-host/teardown
+        // flows funnel through here). An uncaught exception on a pool thread also
+        // terminate()s the whole process like on a QThread - catch broadly so a
+        // failure here (worst case: a leaked NvComputer/polling entry, recoverable
+        // by restarting the app) can never take the whole app down with it.
+        try {
+            ComputerPollingEntry* pollingEntry;
 
-        // Only do the minimum amount of work while holding the writer lock.
-        // We must release it before calling saveHosts().
-        {
-            QWriteLocker lock(&m_ComputerManager->m_Lock);
+            // Only do the minimum amount of work while holding the writer lock.
+            // We must release it before calling saveHosts().
+            {
+                QWriteLocker lock(&m_ComputerManager->m_Lock);
 
-            pollingEntry = m_ComputerManager->m_PollEntries.take(m_Computer->uuid);
+                pollingEntry = m_ComputerManager->m_PollEntries.take(m_Computer->uuid);
 
-            m_ComputerManager->m_KnownHosts.remove(m_Computer->uuid);
+                m_ComputerManager->m_KnownHosts.remove(m_Computer->uuid);
+            }
+
+            // Persist the new host list with this computer deleted
+            m_ComputerManager->saveHosts();
+
+            // Avisa a UI ANTES de deletar o objeto — o model compara ponteiros
+            // (não derefencia) e faz reset pegando a lista nova sem o removido.
+            emit m_ComputerManager->computerRemoved();
+
+            // Delete the polling entry first. This will stop all polling threads too.
+            delete pollingEntry;
+
+            // Delete cached box art
+            BoxArtManager::deleteBoxArt(m_Computer);
+
+            // Finally, delete the computer itself. This must be done
+            // last because the polling thread might be using it.
+            delete m_Computer;
+        } catch (const std::exception& e) {
+            qWarning() << "Unhandled exception while deleting host" << m_Computer->name << ":" << e.what();
+        } catch (...) {
+            qWarning() << "Unknown unhandled exception while deleting host" << m_Computer->name;
         }
-
-        // Persist the new host list with this computer deleted
-        m_ComputerManager->saveHosts();
-
-        // Avisa a UI ANTES de deletar o objeto — o model compara ponteiros
-        // (não derefencia) e faz reset pegando a lista nova sem o removido.
-        emit m_ComputerManager->computerRemoved();
-
-        // Delete the polling entry first. This will stop all polling threads too.
-        delete pollingEntry;
-
-        // Delete cached box art
-        BoxArtManager::deleteBoxArt(m_Computer);
-
-        // Finally, delete the computer itself. This must be done
-        // last because the polling thread might be using it.
-        delete m_Computer;
     }
 
 private:
@@ -653,6 +687,15 @@ private:
             emit pairingCompleted(m_Computer, tr("GameStream returned error: %1").arg(e.toQString()));
         } catch (const QtNetworkReplyException& e) {
             emit pairingCompleted(m_Computer, e.toQString());
+        } catch (const std::exception& e) {
+            // WS9c: a QThreadPool task throwing uncaught also terminate()s the
+            // whole process, same as a QThread - keep this as the last line of
+            // defense beyond the 2 expected exception types above.
+            qWarning() << "Unhandled exception while pairing with" << m_Computer->name << ":" << e.what();
+            emit pairingCompleted(m_Computer, tr("Pairing failed due to an unexpected error. Please try again."));
+        } catch (...) {
+            qWarning() << "Unknown unhandled exception while pairing with" << m_Computer->name;
+            emit pairingCompleted(m_Computer, tr("Pairing failed due to an unexpected error. Please try again."));
         }
     }
 
@@ -715,6 +758,23 @@ private:
                 m_Computer->pendingQuit = false;
             }
             emit quitAppFailed(e.toQString());
+        } catch (const std::exception& e) {
+            // WS9c: last line of defense beyond the 2 expected exception types
+            // above - an uncaught throw on a QThreadPool thread terminate()s the
+            // whole process just like on a QThread.
+            {
+                QWriteLocker lock(&m_Computer->lock);
+                m_Computer->pendingQuit = false;
+            }
+            qWarning() << "Unhandled exception while quitting app on" << m_Computer->name << ":" << e.what();
+            emit quitAppFailed(tr("Failed to quit the running app due to an unexpected error."));
+        } catch (...) {
+            {
+                QWriteLocker lock(&m_Computer->lock);
+                m_Computer->pendingQuit = false;
+            }
+            qWarning() << "Unknown unhandled exception while quitting app on" << m_Computer->name;
+            emit quitAppFailed(tr("Failed to quit the running app due to an unexpected error."));
         }
     }
 
@@ -958,6 +1018,17 @@ private:
 
     void run()
     {
+        // WS9c: addNewHost() funnels through this task for both mDNS discovery and
+        // every explicit "connect to this host" attempt, including the SpaceCloud
+        // launcher flow that adds the VM's address right before streaming starts.
+        // An uncaught exception on a QThreadPool thread terminate()s the whole
+        // process with no dialog - exactly what "app fechando antes de abrir a vm"
+        // looks like from the outside. fetchServerInfo() already catches its own
+        // HTTP work, but everything else below it (NvComputer construction/update,
+        // container/lock bookkeeping, the STUN calls) was unguarded. Wrap the rest
+        // of the task body below so nothing here can take the whole app down.
+        // (Not reindented to keep this diff reviewable - see matching catch below.)
+        try {
         NvHTTP http(m_Address, 0, QSslCertificate());
         http.setCancellation(m_Cancellation);
 
@@ -1154,6 +1225,17 @@ private:
 
                 // Tell our client about this new PC
                 emit computerStateChanged(newComputer);
+            }
+        }
+        } catch (const std::exception& e) {
+            qWarning() << "Unhandled exception while adding host at" << m_Address.toString() << ":" << e.what();
+            if (!m_Mdns && !connectionCancelled(m_Cancellation)) {
+                emit computerAddCompleted(false, false);
+            }
+        } catch (...) {
+            qWarning() << "Unknown unhandled exception while adding host at" << m_Address.toString();
+            if (!m_Mdns && !connectionCancelled(m_Cancellation)) {
+                emit computerAddCompleted(false, false);
             }
         }
     }
