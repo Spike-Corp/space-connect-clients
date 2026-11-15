@@ -201,6 +201,18 @@
                 android:visibility="gone" />
 
             <Button
+                android:id="@+id/launcherLeaveQueueButton"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_button_ghost"
+                android:text="@string/launcher_leave_queue"
+                android:textAllCaps="false"
+                android:textColor="@color/moonlight_danger"
+                android:textSize="13sp"
+                android:visibility="gone" />
+
+            <Button
                 android:id="@+id/launcherMachinesButton"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"

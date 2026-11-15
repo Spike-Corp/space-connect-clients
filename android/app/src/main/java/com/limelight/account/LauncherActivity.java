@@ -46,6 +46,7 @@ public class LauncherActivity extends Activity {
     private TextView planHoursText;
     private Button primaryButton;
     private Button endSessionButton;
+    private Button leaveQueueButton;
     private ProgressBar progressBar;
     private boolean requestRunning;
     private boolean resumed;
@@ -90,6 +91,7 @@ public class LauncherActivity extends Activity {
         planHoursText = findViewById(R.id.launcherPlanHours);
         primaryButton = findViewById(R.id.launcherPrimaryButton);
         endSessionButton = findViewById(R.id.launcherEndSessionButton);
+        leaveQueueButton = findViewById(R.id.launcherLeaveQueueButton);
         progressBar = findViewById(R.id.launcherProgress);
 
         String email = AccountManager.getLoggedInEmail(this);
@@ -248,6 +250,7 @@ public class LauncherActivity extends Activity {
         maybeNotifySession(status);
         renderPlanHours();
         endSessionButton.setVisibility(View.GONE);
+        leaveQueueButton.setVisibility(View.GONE);
         primaryButton.setVisibility(View.VISIBLE);
         primaryButton.setEnabled(true);
 
@@ -263,6 +266,11 @@ public class LauncherActivity extends Activity {
             reason = reason.replace("{attempt}", String.valueOf(status.queue.bootAttempt))
                     .replace("{max}", String.valueOf(status.queue.bootAttemptMax));
             detailsText.setText(bootDetails(status, reason));
+            // Machine da fila de verdade (status.queue.machineId), com fallback pra
+            // selectedMachineId só se o backend não mandar — usado tanto pelo retry
+            // quanto pelo botão "Sair da fila" abaixo.
+            String queueMachineId = status.queue.machineId != null && !status.queue.machineId.trim().isEmpty()
+                    ? status.queue.machineId : selectedMachineId;
             primaryButton.setText(status.queue.bootAttemptsExhausted
                     ? R.string.launcher_retry_queue : R.string.launcher_join_queue);
             if (status.queue.bootAttemptsExhausted) {
@@ -272,12 +280,15 @@ public class LauncherActivity extends Activity {
                 // funcionar de verdade, aciona a mesma ação do dashboard em idle
                 // (joinQueueForMachine -> machineAction "power_on"), que o backend
                 // resolve em QueueService.addToQueue e reseta o contador de tentativas.
-                String machineId = status.queue.machineId != null && !status.queue.machineId.trim().isEmpty()
-                        ? status.queue.machineId : selectedMachineId;
-                primaryButton.setOnClickListener(v -> joinQueueForMachine(machineId));
+                primaryButton.setOnClickListener(v -> joinQueueForMachine(queueMachineId));
             } else {
                 primaryButton.setOnClickListener(v -> connect());
             }
+            // Pedido do Davi: cliente precisa conseguir sair da fila por vontade
+            // própria, não só esperar/esgotar tentativas. DELETE /launcher/v1/queue
+            // (AccountManager.leaveQueue) já existia, só faltava essa UI.
+            leaveQueueButton.setVisibility(View.VISIBLE);
+            leaveQueueButton.setOnClickListener(v -> leaveQueue(queueMachineId));
             return;
         }
 
@@ -965,12 +976,12 @@ public class LauncherActivity extends Activity {
         });
     }
 
-    private void leaveQueue() {
-        if (selectedMachineId == null) {
+    private void leaveQueue(String machineId) {
+        if (machineId == null || machineId.trim().isEmpty()) {
             Toast.makeText(this, R.string.launcher_select_machine_required, Toast.LENGTH_LONG).show();
             return;
         }
-        runStatusAction(callback -> AccountManager.leaveQueue(this, selectedMachineId, callback));
+        runStatusAction(callback -> AccountManager.leaveQueue(this, machineId, callback));
     }
 
     private void runStatusAction(StatusAction action) {
