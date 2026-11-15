@@ -198,6 +198,16 @@ public:
     // Relato de bug de dentro do app (vai pra página "Bugs app" do admin).
     // Funciona mesmo deslogado (tela de login): nesse caso emailHint é usado.
     Q_INVOKABLE void reportBug(const QString& description, const QString& emailHint);
+    // WS9c: detecção leve de crash. main.cpp grava um .dmp local (Windows) quando
+    // uma exceção não tratada derruba o processo; até aqui nada lia esse arquivo
+    // de volta, então o único sinal que chegava no suporte era o texto livre que
+    // o cliente digitava (se digitasse). No startup a gente verifica se existe
+    // algum .dmp novo (nunca visto antes) e guarda nome+hora pra anexar sozinho
+    // no próximo relato de bug - nunca lemos/enviamos o conteúdo do dump em si.
+    Q_PROPERTY(bool hasPendingCrashReport READ hasPendingCrashReport NOTIFY pendingCrashReportChanged)
+    Q_PROPERTY(QString pendingCrashReportTimestamp READ pendingCrashReportTimestamp NOTIFY pendingCrashReportChanged)
+    bool hasPendingCrashReport() const { return !m_PendingCrashDumps.isEmpty(); }
+    QString pendingCrashReportTimestamp() const;
     // Som curto de notificação (máquina pronta / desligando). Falha silenciosa
     // em sistema sem áudio — nunca deve quebrar o fluxo da sessão.
     Q_INVOKABLE void playNotifySound();
@@ -293,6 +303,7 @@ signals:
     void machineDeleteFinished(bool success, QString message);
     void machinePasswordFinished(bool success, QString message, QString applied, QString machineId);
     void displayModeFinished(bool success, QString machineId, QString displayMode, QString message);
+    void pendingCrashReportChanged();
 
 private:
     using ResponseHandler = std::function<void(int, const QJsonObject&)>;
@@ -323,6 +334,21 @@ private:
     // Tipo de host (teto de bitrate) da VM em uso — ver backend/launcherbitrate.h.
     LauncherBitrate::Detection detectBitrate() const;
     static QString platformName();
+    // WS9c: roda uma vez no construtor - acha .dmp em Path::getLogDir() ainda
+    // não marcados como reportados (QSettings) e popula m_PendingCrashDumps.
+    void scanForUnreportedCrashDumps();
+    // Resumo somente-leitura de m_PendingCrashDumps pro campo "context" do
+    // bug-report (ex.: "SpaceConnect-1763000000.dmp (13/11/2026 10:42)").
+    // Retorna string vazia se não há nada pendente. O backend só aceita valores
+    // escalares dentro de "context" (ver launcher.routes.ts::sanitizeBugContext),
+    // por isso um resumo em texto em vez de um array/objeto estruturado. Não
+    // mexe em m_PendingCrashDumps - só markPendingCrashDumpsReported() faz isso,
+    // e só deve ser chamado depois de confirmar que o envio deu certo (senão,
+    // numa falha de rede, o sinal de crash seria perdido pra sempre em silêncio).
+    QString pendingCrashDumpsSummary() const;
+    // Persiste os nomes de m_PendingCrashDumps no QSettings (não serão anexados
+    // de novo) e limpa a lista local. Chamar só após confirmação de envio OK.
+    void markPendingCrashDumpsReported();
 
     const QUrl m_ApiBase;
     QNetworkAccessManager m_Network;
@@ -339,6 +365,9 @@ private:
     bool m_ManagementLoading = false;
     bool m_NoticesInitialized = false;
     QSet<QString> m_SeenNotices;
+    // WS9c: cada item é {fileName, detectedAt} de um .dmp ainda não
+    // reportado - ver scanForUnreportedCrashDumps()/pendingCrashDumpsSummary().
+    QVariantList m_PendingCrashDumps;
     struct BootWatch {
         quint64 serial = 0;
         QElapsedTimer elapsed;

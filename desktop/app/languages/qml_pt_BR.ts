@@ -1353,6 +1353,11 @@
         <translation>Conte o que aconteceu. Já incluímos a versão do app e o status da sua máquina automaticamente.</translation>
     </message>
     <message>
+        <location filename="../gui/LauncherView.qml" line="1011"/>
+        <source>We noticed the app closed unexpectedly on %1. That will be attached to this report automatically.</source>
+        <translation>Detectamos que o app fechou inesperadamente em %1. Isso será anexado a este relato automaticamente.</translation>
+    </message>
+    <message>
         <location filename="../gui/LauncherView.qml" line="796"/>
         <source>Describe the problem (what you did, what happened)...</source>
         <translation>Descreva o problema (o que você fez, o que aconteceu)...</translation>
@@ -1648,6 +1653,11 @@
         <location filename="../gui/LoginView.qml" line="292"/>
         <source>Tell us what happened. The report goes straight to our team.</source>
         <translation>Conte o que aconteceu. O relato vai direto pro nosso time.</translation>
+    </message>
+    <message>
+        <location filename="../gui/LoginView.qml" line="301"/>
+        <source>We noticed the app closed unexpectedly on %1. That will be attached to this report automatically.</source>
+        <translation>Detectamos que o app fechou inesperadamente em %1. Isso será anexado a este relato automaticamente.</translation>
     </message>
     <message>
         <location filename="../gui/LoginView.qml" line="299"/>

@@ -1003,6 +1003,17 @@ Item {
                 Layout.fillWidth: true
             }
 
+            Label {
+                // WS9c: avisa o cliente que um crash anterior foi detectado e
+                // será incluído sozinho no relato - ele não precisa descrever
+                // o crash em si, só o que estava fazendo quando aconteceu.
+                visible: LauncherApi.hasPendingCrashReport
+                text: qsTr("We noticed the app closed unexpectedly on %1. That will be attached to this report automatically.").arg(LauncherApi.pendingCrashReportTimestamp)
+                color: "#e8c85a"
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
             TextArea {
                 id: bugReportText
                 placeholderText: qsTr("Describe the problem (what you did, what happened)...")

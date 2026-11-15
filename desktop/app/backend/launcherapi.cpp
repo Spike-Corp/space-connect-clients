@@ -1,6 +1,7 @@
 #include "launcherapi.h"
 
 #include "launcherjson.h"
+#include "../path.h"
 
 #include <QCoreApplication>
 #include <QDateTime>
@@ -141,6 +142,8 @@ LauncherApi::LauncherApi(QObject* parent, const QUrl& apiBase)
             }
         }
     }
+
+    scanForUnreportedCrashDumps();
 }
 
 QNetworkReply* LauncherApi::streamRequest(quint64 account, const QByteArray& method, const QString& path,
@@ -1378,12 +1381,119 @@ void LauncherApi::playNotifySound()
 #endif
 }
 
+void LauncherApi::scanForUnreportedCrashDumps()
+{
+    // WS9c: main.cpp grava "SpaceConnect-<epoch>.dmp" em Path::getLogDir()
+    // (Windows) quando uma exceção escapa sem catch - até aqui nada lia esse
+    // arquivo de volta, então o único sinal que chegava no suporte era o texto
+    // livre que o cliente digitava (se digitasse). Aqui só listamos nome + hora
+    // de modificação e comparamos com o que já foi anexado antes (QSettings) -
+    // nunca abrimos/lemos o conteúdo binário do dump em si.
+    const QDir logDir(Path::getLogDir());
+    const QFileInfoList dumpFiles = logDir.entryInfoList(
+        QStringList() << QStringLiteral("SpaceConnect-*.dmp"), QDir::Files);
+    if (dumpFiles.isEmpty())
+        return;
+
+    QSettings settings;
+    QSet<QString> alreadyReported;
+    for (const QString& name : settings.value(QStringLiteral("crashReport/reportedDumps")).toStringList())
+        alreadyReported.insert(name);
+
+    for (const QFileInfo& info : dumpFiles) {
+        if (alreadyReported.contains(info.fileName()))
+            continue;
+        QVariantMap entry;
+        entry.insert(QStringLiteral("fileName"), info.fileName());
+        entry.insert(QStringLiteral("detectedAt"), info.lastModified().toString(Qt::ISODate));
+        m_PendingCrashDumps.append(entry);
+    }
+
+    if (!m_PendingCrashDumps.isEmpty())
+        qWarning() << "Found" << m_PendingCrashDumps.size() << "unreported crash dump(s) in" << logDir.absolutePath();
+}
+
+QString LauncherApi::pendingCrashReportTimestamp() const
+{
+    QDateTime newest;
+    for (const QVariant& entry : m_PendingCrashDumps) {
+        const QDateTime when = QDateTime::fromString(
+            entry.toMap().value(QStringLiteral("detectedAt")).toString(), Qt::ISODate);
+        if (when.isValid() && (!newest.isValid() || when > newest))
+            newest = when;
+    }
+    return newest.isValid() ? newest.toString(QStringLiteral("dd/MM/yyyy HH:mm")) : QString();
+}
+
+QString LauncherApi::pendingCrashDumpsSummary() const
+{
+    if (m_PendingCrashDumps.isEmpty())
+        return QString();
+
+    QStringList parts;
+    for (const QVariant& entry : m_PendingCrashDumps) {
+        const QVariantMap map = entry.toMap();
+        const QString fileName = map.value(QStringLiteral("fileName")).toString();
+        const QDateTime when = QDateTime::fromString(
+            map.value(QStringLiteral("detectedAt")).toString(), Qt::ISODate);
+        parts.append(fileName + QStringLiteral(" (")
+            + (when.isValid() ? when.toString(QStringLiteral("dd/MM/yyyy HH:mm")) : QStringLiteral("?"))
+            + QStringLiteral(")"));
+    }
+    return parts.join(QStringLiteral("; "));
+}
+
+void LauncherApi::markPendingCrashDumpsReported()
+{
+    if (m_PendingCrashDumps.isEmpty())
+        return;
+
+    QStringList fileNames;
+    for (const QVariant& entry : m_PendingCrashDumps) {
+        const QString fileName = entry.toMap().value(QStringLiteral("fileName")).toString();
+        if (!fileName.isEmpty())
+            fileNames.append(fileName);
+    }
+
+    QSettings settings;
+    QStringList alreadyReported = settings.value(QStringLiteral("crashReport/reportedDumps")).toStringList();
+    for (const QString& fileName : fileNames) {
+        if (!alreadyReported.contains(fileName))
+            alreadyReported.append(fileName);
+    }
+    settings.setValue(QStringLiteral("crashReport/reportedDumps"), alreadyReported);
+
+    m_PendingCrashDumps.clear();
+    emit pendingCrashReportChanged();
+}
+
 void LauncherApi::reportBug(const QString& description, const QString& emailHint)
 {
     const QString trimmed = description.trimmed();
     if (trimmed.size() < 10) {
         emit bugReportFinished(false, tr("Descreva o problema em pelo menos 10 caracteres."));
         return;
+    }
+
+    // WS9c: se existir .dmp local ainda não reportado, inclui um resumo
+    // (nome+hora) no contexto - vira um sinal rastreável na página "Bugs app"
+    // mesmo que este relato seja sobre outra coisa. Só marca como reportado lá
+    // embaixo, DEPOIS de confirmar que o envio deu certo (uma falha de rede não
+    // pode fazer esse sinal sumir silenciosamente).
+    const QString crashDumpInfo = pendingCrashDumpsSummary();
+
+    QJsonObject context{
+        {QStringLiteral("state"), m_State},
+        {QStringLiteral("queuePosition"), m_QueuePosition},
+        {QStringLiteral("queueTotal"), m_QueueTotal},
+        {QStringLiteral("planSlug"), m_PlanSlug},
+        {QStringLiteral("machineName"), m_MachineName},
+        {QStringLiteral("creationPhase"), m_CreationPhase},
+        {QStringLiteral("loggedIn"), m_LoggedIn},
+    };
+    if (!crashDumpInfo.isEmpty()) {
+        context.insert(QStringLiteral("crashDumpDetected"), true);
+        context.insert(QStringLiteral("crashDumpInfo"), crashDumpInfo.left(200));
     }
 
     QJsonObject body{
@@ -1395,15 +1505,7 @@ void LauncherApi::reportBug(const QString& description, const QString& emailHint
         {QStringLiteral("deviceModel"), QSysInfo::machineHostName()},
         {QStringLiteral("deviceId"), deviceId()},
         // Contexto pra entender COMO o bug aconteceu (visto na página "Bugs app").
-        {QStringLiteral("context"), QJsonObject{
-            {QStringLiteral("state"), m_State},
-            {QStringLiteral("queuePosition"), m_QueuePosition},
-            {QStringLiteral("queueTotal"), m_QueueTotal},
-            {QStringLiteral("planSlug"), m_PlanSlug},
-            {QStringLiteral("machineName"), m_MachineName},
-            {QStringLiteral("creationPhase"), m_CreationPhase},
-            {QStringLiteral("loggedIn"), m_LoggedIn},
-        }},
+        {QStringLiteral("context"), context},
     };
     if (!emailHint.trimmed().isEmpty())
         body.insert(QStringLiteral("email"), emailHint.trimmed());
@@ -1413,6 +1515,7 @@ void LauncherApi::reportBug(const QString& description, const QString& emailHint
     request("POST", QStringLiteral("bug-report"), body, !m_AccessToken.isEmpty(),
             [this](int status, const QJsonObject& root) {
                 if (status >= 200 && status < 300) {
+                    markPendingCrashDumpsReported();
                     emit bugReportFinished(true, tr("Relato enviado. Obrigado por avisar!"));
                 }
                 else {

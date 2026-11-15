@@ -294,6 +294,16 @@ Item {
                 Layout.fillWidth: true
             }
 
+            Label {
+                // WS9c: mesmo aviso de crash detectado do LauncherView - aqui
+                // cobre o caso do bug ser reportado ANTES de logar (tela de login).
+                visible: LauncherApi.hasPendingCrashReport
+                text: qsTr("We noticed the app closed unexpectedly on %1. That will be attached to this report automatically.").arg(LauncherApi.pendingCrashReportTimestamp)
+                color: "#e8c85a"
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
             TextField {
                 id: loginBugEmailField
                 placeholderText: qsTr("Your email")
