@@ -16,5 +16,6 @@ SOURCES += stream_guests_test.cpp \
     ../backend/launcherjson.cpp \
     ../backend/recaptchafetcher.cpp \
     ../backend/identitymanager.cpp \
-    ../backend/streamguestcontroller.cpp
-HEADERS += ../backend/launcherapi.h ../backend/recaptchafetcher.h ../backend/streamguestcontroller.h
+    ../backend/streamguestcontroller.cpp \
+    ../path.cpp
+HEADERS += ../backend/launcherapi.h ../backend/recaptchafetcher.h ../backend/streamguestcontroller.h ../path.h
