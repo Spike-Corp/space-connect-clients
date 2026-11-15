@@ -36,6 +36,12 @@ public:
     Q_INVOKABLE void completeReveal(bool activate = true);
     Q_INVOKABLE void reportError(const QString& message);
 
+    // Seam só pra teste automatizado: deixa um teste simular o esgotamento do
+    // orçamento de retentativas sem esperar os ~3min reais (produção sempre usa
+    // o valor padrão setado no construtor). Não é chamado em nenhum caminho de
+    // produção/QML.
+    void setMaxStatusReadFailuresForTests(int value) { m_MaxStatusReadFailures = value; }
+
     bool active() const { return m_Active; }
     bool busy() const { return m_Active || m_Session != nullptr || m_CancelQueued; }
     bool backgrounded() const { return !m_BackgroundMachineId.isEmpty(); }
@@ -82,6 +88,7 @@ private:
     bool m_FreshlyPaired = false;
     bool m_OwnsPolling = false;
     int m_StatusReadFailures = 0;
+    int m_MaxStatusReadFailures;
     LauncherStatus m_Status;
     QVariantMap m_BootTexts;
     QString m_MachineId;

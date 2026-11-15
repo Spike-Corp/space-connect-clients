@@ -63,12 +63,27 @@ QString responseErrorMessage(const QJsonObject& root, const QString& fallback)
     return message.isEmpty() ? fallback : message;
 }
 
-bool retryableStatusFailure(int status, const QJsonObject& root)
+bool retryableStatusFailure(int status, const QJsonObject& root, bool allowStatusFallback = true)
 {
     const QString code = errorObject(root).value(QStringLiteral("code")).toString();
     if (code == QStringLiteral("CLIENT_TRANSIENT_NETWORK_ERROR")) return true;
-    return code.isEmpty() && (status == 408 || status == 429 || status == 500 ||
-                             status == 502 || status == 503 || status == 504);
+    if (!code.isEmpty()) {
+        // Erros de negócio do backend agora informam retryable por código (ver
+        // launcher.routes.ts::errorResponse) — ex.: GPU_LICENSE_NOT_READY/
+        // CONNECTION_NOT_READY são esperas legítimas (licença/streaming ainda
+        // confirmando), não erros definitivos. Respeitar o que o backend manda
+        // em vez de assumir sempre "não retryable" pra qualquer erro com code.
+        return errorObject(root).value(QStringLiteral("retryable")).toBool(false);
+    }
+    // Sem "code" nenhum, a única pista é o status HTTP — isso é um padrão
+    // conhecido e testado pra leituras de /status (máquina ainda inicializando
+    // sem classificação de erro ainda). Pra /connection, uma resposta sem
+    // "code" é inesperada/genuína o bastante pra não merecer o mesmo benefício
+    // da dúvida (allowStatusFallback=false lá) — evita loop de retry silencioso
+    // num erro que o próprio backend não conseguiu nem classificar.
+    if (!allowStatusFallback) return false;
+    return status == 408 || status == 429 || status == 500 ||
+           status == 502 || status == 503 || status == 504;
 }
 }
 
@@ -751,8 +766,16 @@ void LauncherApi::requestConnection(const QString& machineId)
                 if (status < 200 || status >= 300) {
                     const QString message = responseErrorMessage(root,
                         tr("Could not connect to your machine. Please try again."));
-                    emit machineRequestFailed(targetMachineId, message, errorObject(root).value(QStringLiteral("code")).toString());
-                    setError(message);
+                    // WS9a: o 4º argumento (retryable) não era passado aqui, então
+                    // CONNECTION_NOT_READY (espera legítima, ex.: streaming ainda
+                    // subindo) sempre caía como erro definitivo. Também não seta
+                    // mais o banner de erro permanente (setError) quando é
+                    // retryable — quem decide o que mostrar é o SessionOrchestrator,
+                    // que vai tentar de novo em vez de desistir na hora.
+                    const bool retryable = retryableStatusFailure(status, root, false);
+                    emit machineRequestFailed(targetMachineId, message,
+                        errorObject(root).value(QStringLiteral("code")).toString(), retryable);
+                    if (!retryable) setError(message);
                     return;
                 }
                 try {
@@ -784,8 +807,10 @@ void LauncherApi::requestConnection(const QString& machineId)
                     emit connectionReady(address, targetMachineId, name);
                 }
                 catch (const std::exception&) {
-                    emit machineRequestFailed(targetMachineId, tr("Connection is not available yet."));
-                    setError(QStringLiteral("Conexão ainda não disponível"));
+                    // Resposta 2xx mas sem host/porta utilizável: mesma espera
+                    // transitória de CONNECTION_NOT_READY, só detectada no formato
+                    // da resposta em vez de um código de erro — também retryable.
+                    emit machineRequestFailed(targetMachineId, tr("Connection is not available yet."), QString(), true);
                 }
             }, true);
 }

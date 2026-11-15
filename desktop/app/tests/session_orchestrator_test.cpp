@@ -312,15 +312,81 @@ private slots:
         QCOMPARE(m_Host->count("DELETE", QStringLiteral("/queue")), 0);
     }
 
-    void statusReadRecoveryStopsAfterTwoRetries()
+    void aRetryableGpuLicenseFailureRecoversWithAttemptCountedMessaging()
     {
+        // WS9a: antes, QUALQUER erro de status com "code" preenchido era tratado
+        // como definitivo na hora (heurística quebrada em retryableStatusFailure(),
+        // que ignorava o campo "retryable" do backend) e o orçamento de
+        // retentativas era só 2 — por isso a licença de GPU (que confirma em
+        // segundos/minutos, não instantaneamente) virava um erro "GPU não
+        // autorizada" prematuro e definitivo. Agora o campo "retryable" é
+        // respeitado e a janela de paciência é bem maior (60 tentativas),
+        // mostrando um texto com contador em vez de desistir.
+        QSignalSpy failure(m_Orchestrator.get(), &SessionOrchestrator::errorOccurred);
+        const int before = m_Host->count("GET", QStringLiteral("/status"));
+        m_Host->state = QStringLiteral("queued");
+        m_Host->statusFailures = 3;
+        m_Host->statusFailureCode = 503;
+        m_Host->statusError = {{QStringLiteral("error"), QJsonObject{
+            {QStringLiteral("code"), QStringLiteral("GPU_LICENSE_NOT_READY")},
+            {QStringLiteral("message"), QStringLiteral("GPU license not confirmed yet")},
+            {QStringLiteral("retryable"), true}}}};
+        m_Orchestrator->startDesktopSession();
+        QTRY_COMPARE_WITH_TIMEOUT(m_Host->statusFailures, 0, 10000);
+        QVERIFY(m_Orchestrator->statusText().contains(QStringLiteral("Preparing GPU license")));
+        QTRY_COMPARE_WITH_TIMEOUT(m_Orchestrator->phase(), QStringLiteral("queued"), 14000);
+        QCOMPARE(failure.count(), 0);
+        QCOMPARE(m_Host->count("GET", QStringLiteral("/status")) - before, 4);
+        QCOMPARE(m_Host->count("POST", QStringLiteral("/queue")), 0);
+    }
+
+    void statusReadRecoveryStopsAfterExhaustingRetryBudget()
+    {
+        // Mesma lógica de esgotamento de sempre, só que com o orçamento
+        // reduzido via seam de teste (setMaxStatusReadFailuresForTests) pra não
+        // precisar esperar os ~3min reais do orçamento de produção (60
+        // tentativas) só pra provar que o app ainda desiste e mostra erro no
+        // final, em vez de tentar pra sempre.
+        m_Orchestrator->setMaxStatusReadFailuresForTests(3);
         QSignalSpy failure(m_Orchestrator.get(), &SessionOrchestrator::errorOccurred);
         const int before = m_Host->count("GET", QStringLiteral("/status"));
         m_Host->statusFailures = 8;
         m_Orchestrator->startDesktopSession();
-        QTRY_COMPARE_WITH_TIMEOUT(failure.count(), 1, 8500);
+        QTRY_COMPARE_WITH_TIMEOUT(failure.count(), 1, 14000);
         QVERIFY(!m_Orchestrator->active());
-        QCOMPARE(m_Host->count("GET", QStringLiteral("/status")) - before, 3);
+        QCOMPARE(m_Host->count("GET", QStringLiteral("/status")) - before, 4);
+        QCOMPARE(m_Host->count("POST", QStringLiteral("/queue")), 0);
+    }
+
+    void aRetryableConnectionNotReadyFailureRetriesInsteadOfFailingPermanently()
+    {
+        // WS9a (gap #3): requestConnection() nunca passava o "retryable" pra
+        // machineRequestFailed (sempre caía no default "false" do sinal), e o
+        // orquestrador excluía explicitamente a fase de conexão
+        // (m_ConnectionRequested) de qualquer retentativa — então
+        // CONNECTION_NOT_READY (ex.: stream service ainda subindo, espera
+        // legítima e curta) sempre virava erro definitivo com banner
+        // permanente (setError), mesmo com a mensagem de retry ao lado.
+        // Agora volta a pollar /status e tenta /connection de novo assim que
+        // confirma "ready" de novo — provado aqui por 2 ciclos seguidos de
+        // falha retryable sem nunca declarar erro definitivo (não precisa
+        // chegar a um host real pra provar o ponto; isso é testado à parte
+        // pelos testes de connectionReady/pendingConnection existentes).
+        QSignalSpy failure(m_Orchestrator.get(), &SessionOrchestrator::errorOccurred);
+        m_Host->state = QStringLiteral("ready");
+        m_Host->holdConnection = false;
+        m_Host->connectionStatus = 503;
+        m_Host->connectionError = {{QStringLiteral("error"), QJsonObject{
+            {QStringLiteral("code"), QStringLiteral("CONNECTION_NOT_READY")},
+            {QStringLiteral("message"), QStringLiteral("Stream service still starting")},
+            {QStringLiteral("retryable"), true}}}};
+        m_Orchestrator->startDesktopSession();
+        QTRY_COMPARE(m_Host->count("GET", QStringLiteral("/connection")), 1);
+        QCOMPARE(failure.count(), 0);
+        QVERIFY(m_Api->errorMessage().isEmpty());
+        QTRY_COMPARE_WITH_TIMEOUT(m_Host->count("GET", QStringLiteral("/connection")), 2, 10000);
+        QCOMPARE(failure.count(), 0);
+        QVERIFY(m_Api->errorMessage().isEmpty());
         QCOMPARE(m_Host->count("POST", QStringLiteral("/queue")), 0);
     }
 

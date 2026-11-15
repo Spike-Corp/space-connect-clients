@@ -2441,8 +2441,12 @@ Se só quer tirar o atalho deste app sem apagar a VM, use &quot;Delete PC&quot; 
 <context>
     <name>SessionOrchestrator</name>
     <message>
-        <source>Connection interrupted. Retrying machine status...</source>
-        <translation>Conexão interrompida. Tentando consultar a máquina novamente...</translation>
+        <source>Connection interrupted. Retrying machine status... (attempt %1/%2)</source>
+        <translation>Conexão interrompida. Tentando consultar a máquina novamente... (tentativa %1/%2)</translation>
+    </message>
+    <message>
+        <source>Preparing GPU license... (attempt %1/%2)</source>
+        <translation>Preparando a licença da GPU... (tentativa %1/%2)</translation>
     </message>
     <message>
         <source>Enable machine-ready notifications in Settings before following in the background.</source>

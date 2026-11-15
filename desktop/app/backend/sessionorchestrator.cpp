@@ -13,7 +13,16 @@
 #include <windows.h>
 #endif
 
-SessionOrchestrator::SessionOrchestrator(QObject* parent) : QObject(parent)
+namespace {
+// WS9a: antes eram só 2 tentativas (~6-9s a 3s/poll) antes de mostrar um erro
+// definitivo pra qualquer falha "retryable" (ex.: GPU_LICENSE_NOT_READY) — curto
+// demais perto da janela real de confirmação da licença NVIDIA (minutos, não
+// segundos). 60 tentativas a 3s/poll ~= 3min de paciência antes de desistir.
+constexpr int kMaxStatusReadFailures = 60;
+}
+
+SessionOrchestrator::SessionOrchestrator(QObject* parent)
+    : QObject(parent), m_MaxStatusReadFailures(kMaxStatusReadFailures)
 {
     m_Poll.setInterval(3000);
     connect(&m_Poll, &QTimer::timeout, this, [this]() {
@@ -81,10 +90,20 @@ void SessionOrchestrator::initialize(LauncherApi* launcher, ComputerManager* com
             [this](const QString& machineId, const QString& message, const QString& code, bool retryableStatus) {
         if (!m_Active || machineId != m_MachineId || m_Account != m_Launcher->accountGeneration())
             return;
-        if (retryableStatus && !m_ConnectionRequested && m_StatusReadFailures < 2) {
+        if (retryableStatus && m_StatusReadFailures < m_MaxStatusReadFailures) {
             ++m_StatusReadFailures;
             qWarning() << "Retrying machine status read:" << code << m_StatusReadFailures;
-            m_StatusText = tr("Connection interrupted. Retrying machine status...");
+            // WS9a: uma falha retryable durante a fase de conexão (ex.: vinda de
+            // requestConnection() com CONNECTION_NOT_READY) volta pro polling de
+            // status em vez de desistir na hora — o próximo m_Poll já tenta
+            // requestConnection() de novo assim que o backend confirmar "ready".
+            m_ConnectionRequested = false;
+            m_HandshakeDeadline.stop();
+            m_StatusText = (code == QStringLiteral("GPU_LICENSE_NOT_READY"))
+                    ? tr("Preparing GPU license... (attempt %1/%2)")
+                            .arg(m_StatusReadFailures).arg(m_MaxStatusReadFailures)
+                    : tr("Connection interrupted. Retrying machine status... (attempt %1/%2)")
+                            .arg(m_StatusReadFailures).arg(m_MaxStatusReadFailures);
             emit changed();
             return;
         }
