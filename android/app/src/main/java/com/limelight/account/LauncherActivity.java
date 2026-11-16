@@ -44,6 +44,7 @@ public class LauncherActivity extends Activity {
     private TextView statusText;
     private TextView detailsText;
     private TextView planHoursText;
+    private TextView provisoriaNotice;
     private Button primaryButton;
     private Button endSessionButton;
     private Button leaveQueueButton;
@@ -89,6 +90,7 @@ public class LauncherActivity extends Activity {
         statusText = findViewById(R.id.launcherStatus);
         detailsText = findViewById(R.id.launcherDetails);
         planHoursText = findViewById(R.id.launcherPlanHours);
+        provisoriaNotice = findViewById(R.id.launcherProvisoriaNotice);
         primaryButton = findViewById(R.id.launcherPrimaryButton);
         endSessionButton = findViewById(R.id.launcherEndSessionButton);
         leaveQueueButton = findViewById(R.id.launcherLeaveQueueButton);
@@ -249,6 +251,7 @@ public class LauncherActivity extends Activity {
         lastStatus = status;
         maybeNotifySession(status);
         renderPlanHours();
+        renderProvisoriaNotice(status);
         endSessionButton.setVisibility(View.GONE);
         leaveQueueButton.setVisibility(View.GONE);
         primaryButton.setVisibility(View.VISIBLE);
@@ -353,6 +356,31 @@ public class LauncherActivity extends Activity {
         }
         if (hasMachine == null) {
             checkMachines();
+        }
+    }
+
+    // WS14: avisa o cliente quando ele está numa máquina PROVISÓRIA (cluster proxmox
+    // temporário, ligado porque o GCP ficou sem capacidade) ou quando a VM que ele está
+    // olhando é a GCP original guardada com uma provisória ativa no lugar. Mesmo texto do
+    // painel web (MinhasMaquinas.tsx). Lê status.session.machine (campos expostos pelo
+    // /launcher/v1/status). Fica escondido em qualquer outro caso.
+    private void renderProvisoriaNotice(SpaceConnectApiClient.StatusResponse status) {
+        if (provisoriaNotice == null) {
+            return;
+        }
+        SpaceConnectApiClient.MachineStatus machine =
+                status != null && status.session != null ? status.session.machine : null;
+        if (machine != null && machine.provisoria) {
+            String plan = machine.provisoriaOriginalPlan != null && !machine.provisoriaOriginalPlan.trim().isEmpty()
+                    ? machine.provisoriaOriginalPlan
+                    : getString(R.string.launcher_provisoria_plan_fallback);
+            provisoriaNotice.setText(getString(R.string.launcher_provisoria_notice, plan));
+            provisoriaNotice.setVisibility(View.VISIBLE);
+        } else if (machine != null && machine.hasProvisoria) {
+            provisoriaNotice.setText(R.string.launcher_provisoria_guarded);
+            provisoriaNotice.setVisibility(View.VISIBLE);
+        } else {
+            provisoriaNotice.setVisibility(View.GONE);
         }
     }
 

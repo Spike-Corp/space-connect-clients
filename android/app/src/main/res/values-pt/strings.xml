@@ -352,6 +352,9 @@
     <string name="launcher_status_ending">Encerrando sessão</string>
     <string name="launcher_session_details">%1$s · %2$d minutos restantes</string>
     <string name="launcher_machine">PC SpaceCloud</string>
+    <string name="launcher_provisoria_notice">⚡ Você está usando uma máquina provisória. O Google Cloud ficou sem capacidade, então ligamos uma provisória pra você não ficar parado. Sua máquina original (%1$s) e todos os seus arquivos continuam guardados e seguros — você volta pra ela assim que houver vaga.</string>
+    <string name="launcher_provisoria_guarded">Sua máquina original está guardada e segura. Você está numa máquina provisória temporária enquanto o Google não tem capacidade.</string>
+    <string name="launcher_provisoria_plan_fallback">do seu plano</string>
     <string name="launcher_join_queue">Abrir máquina</string>
     <string name="launcher_plan_unlimited">%1$s · horas ilimitadas</string>
     <string name="launcher_plan_unlimited_short">ilimitado</string>

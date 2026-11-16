@@ -334,6 +334,9 @@
     <string name="launcher_status_ending">Ending session</string>
     <string name="launcher_session_details">%1$s · %2$d minutes remaining</string>
     <string name="launcher_machine">SpaceCloud PC</string>
+    <string name="launcher_provisoria_notice">⚡ You\'re on a temporary machine. Google Cloud ran out of capacity, so we spun up a provisional machine so you don\'t stay stuck. Your original machine (%1$s) and all your files are safe and stored — you\'ll go back to it as soon as there\'s room.</string>
+    <string name="launcher_provisoria_guarded">Your original machine is safe and stored. You\'re on a temporary provisional machine while Google has no capacity.</string>
+    <string name="launcher_provisoria_plan_fallback">your plan</string>
     <string name="launcher_join_queue">Open machine</string>
     <!-- WS3: shown instead of launcher_join_queue when boot retries were exhausted (spot stockout). -->
     <string name="launcher_retry_queue">Try again</string>

@@ -968,6 +968,15 @@ public final class SpaceConnectApiClient {
         public int bootAttemptMax;
         public String bootAttemptReason;
         public boolean bootAttemptsExhausted;
+        // WS14 — Provisória Proxmox (fallback de stockout GCP). Avisa o cliente que
+        // está numa VM provisória (cluster temporário) e que a máquina + arquivos do
+        // plano original (GCP) estão guardados e voltam depois.
+        //  - provisoria: esta máquina É a provisória que o cliente está usando agora.
+        //  - provisoriaOriginalPlan: slug do plano GCP guardado (ex.: "t4-azuli").
+        //  - hasProvisoria: esta máquina é a GCP original e tem uma provisória ativa.
+        public boolean provisoria;
+        public String provisoriaOriginalPlan;
+        public boolean hasProvisoria;
     }
 
     public static final class ConnectionResponse {
