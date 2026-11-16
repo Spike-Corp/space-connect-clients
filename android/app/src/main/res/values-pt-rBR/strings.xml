@@ -64,6 +64,13 @@
     <string name="game_special_keys_button_desc">Teclas especiais</string>
     <string name="game_special_keys_title">Teclas Especiais</string>
     <string name="game_choose_keyboard">Escolher Teclado</string>
+    <string name="game_special_keys_add">+ Adicionar tecla</string>
+    <string name="game_special_keys_add_confirm">Adicionar</string>
+    <string name="game_special_keys_main_key">Tecla principal</string>
+    <string name="game_special_keys_duplicate">Essa combinação já existe</string>
+    <string name="game_special_keys_remove_title">Remover tecla</string>
+    <string name="game_special_keys_remove_message">Remover \"%1$s\"?</string>
+    <string name="game_special_keys_remove_confirm">Remover</string>
     <string name="game_menu_button_desc">Menu do jogo</string>
     <string name="game_menu_title">Menu do Jogo</string>
     <string name="game_menu_send_special_keys">Enviar teclas especiais</string>

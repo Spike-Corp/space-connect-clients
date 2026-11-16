@@ -40,6 +40,7 @@ import com.limelight.utils.Dialog;
 import com.limelight.utils.ServerHelper;
 import com.limelight.utils.ShortcutHelper;
 import com.limelight.utils.SpinnerDialog;
+import com.limelight.utils.SpecialKeyCombos;
 import com.limelight.utils.UiHelper;
 
 import android.annotation.SuppressLint;
@@ -56,6 +57,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
+import android.content.DialogInterface;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
@@ -91,8 +93,12 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.GridLayout;
+import android.widget.LinearLayout;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -104,8 +110,10 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Locale;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Future;
@@ -2303,6 +2311,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private static final short VK_C = 0x43;
     private static final short VK_V = 0x56;
     private static final short VK_Z = 0x5A;
+    private static final short VK_P = 0x50;
 
     private static final class SpecialKeyAction {
         final String label;
@@ -2325,7 +2334,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             new SpecialKeyAction("Ctrl+V", VK_LCONTROL, VK_V),
             new SpecialKeyAction("Ctrl+Z", VK_LCONTROL, VK_Z),
             new SpecialKeyAction("Ctrl+Shift+Esc", VK_LCONTROL, VK_LSHIFT, VK_ESCAPE),
+            new SpecialKeyAction("Win+P", VK_LWIN, VK_P),
     };
+
+    private static final String SPECIAL_KEYS_PREFS = "SpaceConnectSpecialKeys";
+    private static final String SPECIAL_KEYS_CUSTOM = "custom_combos";
 
     // Sends a synthetic key combination (e.g. Ctrl+Alt+Del) straight to the host, independent of
     // any real KeyEvent - used by the in-stream Special Keys menu below.
@@ -2376,32 +2389,176 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         });
 
         GridLayout grid = view.findViewById(R.id.specialKeysGrid);
-        float density = getResources().getDisplayMetrics().density;
-        for (final SpecialKeyAction action : SPECIAL_KEYS) {
-            Button keyButton = new Button(this);
-            keyButton.setText(action.label);
-            keyButton.setTextColor(getResources().getColor(R.color.moonlight_gold_foreground));
-            keyButton.setBackgroundResource(R.drawable.bg_button_purple);
-            keyButton.setAllCaps(false);
-            keyButton.setTextSize(13);
-            keyButton.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    sendSyntheticKeyCombo(action.keys);
-                }
-            });
-
-            GridLayout.LayoutParams params = new GridLayout.LayoutParams();
-            params.width = 0;
-            params.height = (int) (48 * density);
-            params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
-            params.setMargins((int) (4 * density), (int) (4 * density), (int) (4 * density), (int) (4 * density));
-            grid.addView(keyButton, params);
-        }
+        buildSpecialKeysGrid(grid);
 
         new AlertDialog.Builder(this)
                 .setTitle(R.string.game_special_keys_title)
                 .setView(view)
+                .setNegativeButton(R.string.game_menu_cancel, null)
+                .show();
+    }
+
+    private List<SpecialKeyCombos.CustomSpec> loadCustomCombos() {
+        SharedPreferences prefs = getSharedPreferences(SPECIAL_KEYS_PREFS, 0);
+        return new ArrayList<>(SpecialKeyCombos.deserialize(prefs.getString(SPECIAL_KEYS_CUSTOM, "")));
+    }
+
+    private void saveCustomCombos(List<SpecialKeyCombos.CustomSpec> combos) {
+        getSharedPreferences(SPECIAL_KEYS_PREFS, 0).edit()
+                .putString(SPECIAL_KEYS_CUSTOM, SpecialKeyCombos.serialize(combos))
+                .apply();
+    }
+
+    // (Re)builds the special-keys grid: built-in combos, then the user's custom combos
+    // (long-press to remove), then an "Add key" tile that opens the builder dialog.
+    private void buildSpecialKeysGrid(final GridLayout grid) {
+        grid.removeAllViews();
+        float density = getResources().getDisplayMetrics().density;
+
+        for (final SpecialKeyAction action : SPECIAL_KEYS) {
+            addSpecialKeyButton(grid, density, action.label, action.keys, null);
+        }
+
+        for (final SpecialKeyCombos.CustomSpec spec : loadCustomCombos()) {
+            addSpecialKeyButton(grid, density, SpecialKeyCombos.toLabel(spec),
+                    SpecialKeyCombos.toKeys(spec), spec);
+        }
+
+        Button addButton = new Button(this);
+        addButton.setText(R.string.game_special_keys_add);
+        addButton.setTextColor(getResources().getColor(R.color.moonlight_gold_foreground));
+        addButton.setBackgroundResource(R.drawable.bg_button_purple);
+        addButton.setAllCaps(false);
+        addButton.setTextSize(13);
+        addButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showAddSpecialKeyDialog(grid);
+            }
+        });
+        GridLayout.LayoutParams addParams = new GridLayout.LayoutParams();
+        addParams.width = 0;
+        addParams.height = (int) (48 * density);
+        addParams.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
+        addParams.setMargins((int) (4 * density), (int) (4 * density), (int) (4 * density), (int) (4 * density));
+        grid.addView(addButton, addParams);
+    }
+
+    private void addSpecialKeyButton(final GridLayout grid, float density, String label,
+                                     final short[] keys, final SpecialKeyCombos.CustomSpec custom) {
+        Button keyButton = new Button(this);
+        keyButton.setText(label);
+        keyButton.setTextColor(getResources().getColor(R.color.moonlight_gold_foreground));
+        keyButton.setBackgroundResource(R.drawable.bg_button_purple);
+        keyButton.setAllCaps(false);
+        keyButton.setTextSize(13);
+        keyButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                sendSyntheticKeyCombo(keys);
+            }
+        });
+        if (custom != null) {
+            keyButton.setOnLongClickListener(new View.OnLongClickListener() {
+                @Override
+                public boolean onLongClick(View v) {
+                    confirmRemoveCustomCombo(grid, custom);
+                    return true;
+                }
+            });
+        }
+
+        GridLayout.LayoutParams params = new GridLayout.LayoutParams();
+        params.width = 0;
+        params.height = (int) (48 * density);
+        params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
+        params.setMargins((int) (4 * density), (int) (4 * density), (int) (4 * density), (int) (4 * density));
+        grid.addView(keyButton, params);
+    }
+
+    private void confirmRemoveCustomCombo(final GridLayout grid, final SpecialKeyCombos.CustomSpec target) {
+        final String label = SpecialKeyCombos.toLabel(target);
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.game_special_keys_remove_title)
+                .setMessage(getString(R.string.game_special_keys_remove_message, label))
+                .setPositiveButton(R.string.game_special_keys_remove_confirm, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        List<SpecialKeyCombos.CustomSpec> kept = new ArrayList<>();
+                        boolean removed = false;
+                        for (SpecialKeyCombos.CustomSpec c : loadCustomCombos()) {
+                            if (!removed && SpecialKeyCombos.toLabel(c).equals(label)) {
+                                removed = true;
+                                continue;
+                            }
+                            kept.add(c);
+                        }
+                        saveCustomCombos(kept);
+                        buildSpecialKeysGrid(grid);
+                    }
+                })
+                .setNegativeButton(R.string.game_menu_cancel, null)
+                .show();
+    }
+
+    // Builder dialog for a user-defined combo: Ctrl/Alt/Shift/Win checkboxes + a main-key picker.
+    private void showAddSpecialKeyDialog(final GridLayout grid) {
+        float density = getResources().getDisplayMetrics().density;
+        int pad = (int) (16 * density);
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        container.setPadding(pad, pad, pad, pad);
+
+        final CheckBox ctrl = new CheckBox(this);
+        ctrl.setText("Ctrl");
+        final CheckBox alt = new CheckBox(this);
+        alt.setText("Alt");
+        final CheckBox shift = new CheckBox(this);
+        shift.setText("Shift");
+        final CheckBox win = new CheckBox(this);
+        win.setText("Win");
+
+        TextView mainLabel = new TextView(this);
+        mainLabel.setText(R.string.game_special_keys_main_key);
+        mainLabel.setPadding(0, pad / 2, 0, 0);
+
+        final Spinner spinner = new Spinner(this);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_dropdown_item, SpecialKeyCombos.availableMainKeys());
+        spinner.setAdapter(adapter);
+
+        container.addView(ctrl);
+        container.addView(alt);
+        container.addView(shift);
+        container.addView(win);
+        container.addView(mainLabel);
+        container.addView(spinner);
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.game_special_keys_add)
+                .setView(container)
+                .setPositiveButton(R.string.game_special_keys_add_confirm, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        String mainKey = (String) spinner.getSelectedItem();
+                        if (!SpecialKeyCombos.isValidMainKey(mainKey)) {
+                            return;
+                        }
+                        SpecialKeyCombos.CustomSpec spec = new SpecialKeyCombos.CustomSpec(
+                                ctrl.isChecked(), alt.isChecked(), shift.isChecked(), win.isChecked(), mainKey);
+                        String label = SpecialKeyCombos.toLabel(spec);
+                        List<SpecialKeyCombos.CustomSpec> combos = loadCustomCombos();
+                        for (SpecialKeyCombos.CustomSpec c : combos) {
+                            if (SpecialKeyCombos.toLabel(c).equals(label)) {
+                                Toast.makeText(Game.this, R.string.game_special_keys_duplicate, Toast.LENGTH_SHORT).show();
+                                return;
+                            }
+                        }
+                        combos.add(spec);
+                        saveCustomCombos(combos);
+                        buildSpecialKeysGrid(grid);
+                    }
+                })
                 .setNegativeButton(R.string.game_menu_cancel, null)
                 .show();
     }

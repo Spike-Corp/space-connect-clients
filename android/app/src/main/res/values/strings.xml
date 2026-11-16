@@ -105,6 +105,13 @@
     <string name="game_special_keys_button_desc">Full keyboard</string>
     <string name="game_special_keys_title">Special Keys</string>
     <string name="game_choose_keyboard">Choose Keyboard</string>
+    <string name="game_special_keys_add">+ Add key</string>
+    <string name="game_special_keys_add_confirm">Add</string>
+    <string name="game_special_keys_main_key">Main key</string>
+    <string name="game_special_keys_duplicate">This key combo already exists</string>
+    <string name="game_special_keys_remove_title">Remove key</string>
+    <string name="game_special_keys_remove_message">Remove \"%1$s\"?</string>
+    <string name="game_special_keys_remove_confirm">Remove</string>
     <!-- Ported from Artemis: in-stream quick menu -->
     <string name="game_menu_button_desc">Game menu</string>
     <string name="game_menu_title">Game Menu</string>
