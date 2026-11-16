@@ -50,6 +50,10 @@ LauncherStatus LauncherJson::parseStatus(const QByteArray& json)
     // Fase de criação/boot da VM (protegendo ambiente, anexando GPU, etc.) — o app
     // mostra isso em vez de um "Your PC is starting" genérico.
     status.creationPhase = machine.value(QStringLiteral("creationPhase")).toString();
+    // WS14: campos de provisória (ficam em session.machine) pro app avisar o cliente.
+    status.provisoria = machine.value(QStringLiteral("provisoria")).toBool();
+    status.provisoriaOriginalPlan = machine.value(QStringLiteral("provisoriaOriginalPlan")).toString();
+    status.hasProvisoria = machine.value(QStringLiteral("hasProvisoria")).toBool();
     return status;
 }
 

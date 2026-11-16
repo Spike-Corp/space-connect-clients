@@ -1062,6 +1062,18 @@
 <context>
     <name>LauncherView</name>
     <message>
+        <source>your plan</source>
+        <translation>seu plano</translation>
+    </message>
+    <message>
+        <source>⚡ You're on a temporary machine. Google Cloud ran out of capacity, so we spun up a provisional machine so you don't stay stuck. Your original machine (%1) and all your files are safe and stored — you'll go back to it as soon as there's room.</source>
+        <translation>⚡ Você está numa máquina provisória. O Google Cloud ficou sem capacidade, então subimos uma máquina provisória pra você não ficar travado. Sua máquina original (%1) e todos os seus arquivos estão salvos e guardados — você volta pra ela assim que tiver vaga.</translation>
+    </message>
+    <message>
+        <source>Your original machine is safe and stored. You're on a temporary provisional machine while Google has no capacity.</source>
+        <translation>Sua máquina original está salva e guardada. Você está numa máquina provisória temporária enquanto o Google está sem capacidade.</translation>
+    </message>
+    <message>
         <location filename="../gui/LauncherView.qml" line="10"/>
         <source>SpaceCloud</source>
         <translation>SpaceCloud</translation>

@@ -72,6 +72,40 @@ private slots:
         QCOMPARE(connection.port, 48000);
         QCOMPARE(connection.machineName, QStringLiteral("Space PC"));
     }
+    void parsesProvisoriaFromSessionMachine()
+    {
+        // WS14: o app avisa quando o cliente está numa provisória proxmox (GCP sem
+        // capacidade). Os campos vêm em session.machine do /launcher/v1/status.
+        const QByteArray json = R"({
+            "state":"ready",
+            "queue":null,
+            "session":{"remainingMs":60000,"machine":{
+                "id":"prox-1","name":"spk-builder-lite-nw-x","creationPhase":null,
+                "provisoria":true,"provisoriaOriginalPlan":"t4-azuli","hasProvisoria":false}}
+        })";
+
+        const LauncherStatus status = LauncherJson::parseStatus(json);
+
+        QCOMPARE(status.provisoria, true);
+        QCOMPARE(status.provisoriaOriginalPlan, QStringLiteral("t4-azuli"));
+        QCOMPARE(status.hasProvisoria, false);
+    }
+
+    void parsesHasProvisoriaOnOriginalGcp()
+    {
+        const QByteArray json = R"({
+            "state":"ready",
+            "queue":null,
+            "session":{"remainingMs":60000,"machine":{
+                "id":"cloud-1","name":"spk-t4-azuli-x","creationPhase":null,
+                "provisoria":false,"provisoriaOriginalPlan":null,"hasProvisoria":true}}
+        })";
+
+        const LauncherStatus status = LauncherJson::parseStatus(json);
+
+        QCOMPARE(status.provisoria, false);
+        QCOMPARE(status.hasProvisoria, true);
+    }
 };
 
 QTEST_APPLESS_MAIN(LauncherJsonTest)

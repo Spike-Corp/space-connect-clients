@@ -223,6 +223,20 @@ Item {
         return qsTr("Please wait")
     }
 
+    // WS14: texto do aviso de provisória (mesma redação do painel web e do app Android).
+    // provisoria = cliente está NA provisória proxmox (GCP sem capacidade);
+    // hasProvisoria = cliente está na GCP original guardada com provisória ativa.
+    function provisoriaText() {
+        if (LauncherApi.provisoria) {
+            var plan = LauncherApi.provisoriaOriginalPlan && LauncherApi.provisoriaOriginalPlan.length > 0
+                    ? LauncherApi.provisoriaOriginalPlan : qsTr("your plan")
+            return qsTr("⚡ You're on a temporary machine. Google Cloud ran out of capacity, so we spun up a provisional machine so you don't stay stuck. Your original machine (%1) and all your files are safe and stored — you'll go back to it as soon as there's room.").arg(plan)
+        }
+        if (LauncherApi.hasProvisoria)
+            return qsTr("Your original machine is safe and stored. You're on a temporary provisional machine while Google has no capacity.")
+        return ""
+    }
+
     function prettifyPlan(slug) {
         if (!slug) return qsTr("Plan")
         var clean = ("" + slug).replace(/-nw$/, "")
@@ -464,6 +478,39 @@ Item {
                     color: "#F87171"
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
+                }
+
+                // WS14: aviso de máquina provisória (proxmox) quando o GCP ficou sem
+                // capacidade. Card dourado, mesma redação do painel web e do Android.
+                Rectangle {
+                    visible: provisoriaText().length > 0
+                    Layout.fillWidth: true
+                    implicitHeight: provisoriaRow.implicitHeight + 20
+                    radius: 10
+                    color: "#1f1705"
+                    border.width: 1
+                    border.color: "#e8c85a"
+
+                    RowLayout {
+                        id: provisoriaRow
+                        anchors.fill: parent
+                        anchors.margins: 10
+                        spacing: 10
+
+                        Label {
+                            text: "⚡"
+                            font.pixelSize: 16
+                            Layout.alignment: Qt.AlignTop
+                        }
+
+                        Label {
+                            text: provisoriaText()
+                            textFormat: Text.PlainText
+                            color: "#f3e3a8"
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
+                        }
+                    }
                 }
 
                 // Saldo do plano (horas restantes / ilimitado) — paridade com o

@@ -22,6 +22,12 @@ struct LauncherStatus
     int bootAttemptMax = 0;
     bool bootAttemptsExhausted = false;
     QString blockedReason;
+    // WS14: aviso de provisória. provisoria = esta VM É a provisória proxmox que o
+    // cliente está usando (GCP sem capacidade); provisoriaOriginalPlan = slug GCP
+    // guardado; hasProvisoria = esta é a GCP original com uma provisória ativa no lugar.
+    bool provisoria = false;
+    QString provisoriaOriginalPlan;
+    bool hasProvisoria = false;
 };
 
 struct LauncherConnection

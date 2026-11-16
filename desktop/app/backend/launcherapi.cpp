@@ -1130,6 +1130,9 @@ void LauncherApi::applyStatus(const QJsonObject& root)
         m_MachineName = status.machineName;
         m_StatusMachineId = status.machineId;
         m_CreationPhase = status.creationPhase;
+        m_Provisoria = status.provisoria;
+        m_ProvisoriaOriginalPlan = status.provisoriaOriginalPlan;
+        m_HasProvisoria = status.hasProvisoria;
         m_BootTexts = root.value(QStringLiteral("bootTexts")).toObject().toVariantMap();
         const QJsonObject queueObj = root.value(QStringLiteral("queue")).toObject();
         m_QueueBlockedReason = queueObj.value(QStringLiteral("blockedReason")).toString();

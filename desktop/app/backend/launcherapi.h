@@ -38,6 +38,9 @@ class LauncherApi : public QObject
     Q_PROPERTY(int bootAttempt READ bootAttempt NOTIFY statusChanged)
     Q_PROPERTY(int bootAttemptMax READ bootAttemptMax NOTIFY statusChanged)
     Q_PROPERTY(bool bootAttemptsExhausted READ bootAttemptsExhausted NOTIFY statusChanged)
+    Q_PROPERTY(bool provisoria READ provisoria NOTIFY statusChanged)
+    Q_PROPERTY(QString provisoriaOriginalPlan READ provisoriaOriginalPlan NOTIFY statusChanged)
+    Q_PROPERTY(bool hasProvisoria READ hasProvisoria NOTIFY statusChanged)
     Q_PROPERTY(int bootElapsedSeconds READ bootElapsedSeconds NOTIFY statusChanged)
     Q_PROPERTY(qint64 remainingMinutes READ remainingMinutes NOTIFY statusChanged)
     // Falso enquanto ainda não sabemos (undecided) ou o usuário realmente não
@@ -106,6 +109,9 @@ public:
     int bootAttempt() const { return m_BootAttempt; }
     int bootAttemptMax() const { return m_BootAttemptMax; }
     bool bootAttemptsExhausted() const { return m_BootAttemptsExhausted; }
+    bool provisoria() const { return m_Provisoria; }
+    QString provisoriaOriginalPlan() const { return m_ProvisoriaOriginalPlan; }
+    bool hasProvisoria() const { return m_HasProvisoria; }
     int bootElapsedSeconds() const { return m_BootElapsedSeconds; }
     qint64 remainingMinutes() const { return m_RemainingMs / 60000; }
     bool hasMachine() const { return m_HasMachine; }
@@ -401,6 +407,9 @@ private:
     int m_BootAttempt = 0;
     int m_BootAttemptMax = 0;
     bool m_BootAttemptsExhausted = false;
+    bool m_Provisoria = false;
+    QString m_ProvisoriaOriginalPlan;
+    bool m_HasProvisoria = false;
     int m_BootElapsedSeconds = 0;
     int m_QueuePosition = 0;
     int m_QueueTotal = 0;
