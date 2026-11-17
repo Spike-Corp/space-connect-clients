@@ -621,15 +621,18 @@ Item {
                     onClicked: createMachineDialog.open()
                 }
 
-                // Modo de vídeo (Padrão x Desempenho/Sudo Maker). Aparece ANTES de
-                // ligar a VM, de forma discreta. Padrão = NVIDIA VGX normal (nada
-                // muda). Desempenho = display virtual Apollo (Sudo Maker/SudoVDA) p/
-                // +120 FPS e resoluções custom. O backend aplica no host ao conectar;
-                // ao reiniciar a VM, ela volta ao Padrão. NÃO mexe na tela de stream.
+                // Modo de vídeo (Padrão x Desempenho/Sudo Maker). Padrão = NVIDIA VGX
+                // normal (nada muda). Desempenho = display virtual Apollo (Sudo Maker/
+                // SudoVDA) p/ +120 FPS e resoluções custom. O backend aplica no host no
+                // próximo connect (getConnection), então dá pra trocar A QUALQUER MOMENTO
+                // — inclusive com a VM ligada (state "ready"), igual ao site; basta
+                // reconectar pro novo modo valer. Fica oculto só durante boot/fila/ending
+                // (starting/queued/ending) pra não competir com o provisioning.
                 Rectangle {
                     id: displayModeCard
                     visible: LauncherApi.hasMachine && !activationPending()
-                             && LauncherApi.state === "idle" && selectedMachineObj() !== null
+                             && (LauncherApi.state === "idle" || LauncherApi.state === "ready")
+                             && selectedMachineObj() !== null
                     Layout.fillWidth: true
                     implicitHeight: displayModeCol.implicitHeight + 24
                     radius: 10
@@ -665,6 +668,27 @@ Item {
                         anchors.fill: parent
                         anchors.margins: 12
                         spacing: 8
+
+                        // Banner do Sudo Maker (pedido do Davi): destaca os benefícios do
+                        // modo Desempenho logo acima do seletor.
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: displayModeBannerLabel.implicitHeight + 20
+                            radius: 10
+                            color: "#201641"
+                            border.width: 1
+                            border.color: "#a482fa"
+                            Label {
+                                id: displayModeBannerLabel
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                text: qsTr("⚡ Sudo Maker — o modo Desempenho liga um monitor virtual pra +120 FPS, 4K e resoluções personalizadas. Escolha abaixo quando quiser, mesmo com a máquina ligada.")
+                                color: "#d9ccff"
+                                font.pixelSize: 12
+                                wrapMode: Text.WordWrap
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                        }
 
                         RowLayout {
                             Layout.fillWidth: true
@@ -768,8 +792,8 @@ Item {
                         Label {
                             Layout.fillWidth: true
                             text: displayModeCard.displayModeChoice === "performance"
-                                  ? qsTr("Sudo Maker liga um monitor virtual pra taxas acima de 120 FPS e resoluções altas. Escolha antes de ligar a VM; ao reiniciar, ela volta ao Padrão.")
-                                  : qsTr("Recomendado pra maioria. Use o Desempenho só se quer passar de 120 FPS ou resoluções fora do comum.")
+                                  ? qsTr("Sudo Maker liga um monitor virtual pra taxas acima de 120 FPS e resoluções altas. Pode trocar a qualquer momento, mesmo com a VM ligada — vale ao reconectar.")
+                                  : qsTr("Recomendado pra maioria. Use o Desempenho só se quer passar de 120 FPS ou resoluções fora do comum. Dá pra trocar a qualquer momento — vale ao reconectar.")
                             color: "#9793aa"
                             font.pixelSize: 12
                             wrapMode: Text.WordWrap

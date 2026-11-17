@@ -89,6 +89,21 @@ public class MachineManagementActivity extends Activity {
         parent.addView(view);
         return view;
     }
+    private TextView banner(LinearLayout parent, String value) {
+        TextView view = new TextView(this);
+        view.setText(value);
+        view.setTextSize(13);
+        view.setTypeface(UiHelper.getBodyTypeface(this));
+        view.setTextColor(0xFFD9CCFF);
+        view.setLineSpacing(dp(2), 1f);
+        view.setBackgroundResource(R.drawable.bg_display_banner);
+        view.setPadding(dp(14), dp(12), dp(14), dp(12));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+        params.topMargin = dp(12);
+        params.bottomMargin = dp(2);
+        parent.addView(view, params);
+        return view;
+    }
     private void button(LinearLayout parent, String label, String key, boolean enabled, Runnable action) {
         Button button = new Button(this);
         button.setText(label);
@@ -120,6 +135,13 @@ public class MachineManagementActivity extends Activity {
                 && ("offline".equals(machine.state) || "deleted".equals(machine.state)
                     || "hibernated".equals(machine.state) || "archived".equals(machine.state));
     }
+    // O modo de vídeo (Padrão x Desempenho/Sudo Maker) pode ser trocado A QUALQUER
+    // momento — inclusive com a VM ligada, igual ao site —, porque o host aplica a
+    // escolha no próximo connect. Só bloqueia durante operação (working), fila ou lock.
+    // NÃO depende de "powered": trocar ligada é permitido (vale ao reconectar).
+    static boolean canPickDisplayMode(boolean working, boolean queued, boolean locked) {
+        return !working && !queued && !locked;
+    }
     private void render() {
         int y = scroll.getScrollY();
         Object focus = getCurrentFocus() == null ? null : getCurrentFocus().getTag();
@@ -135,12 +157,15 @@ public class MachineManagementActivity extends Activity {
             text(box, getString(working ? R.string.vm_working : machine.queue != null ? R.string.vm_queued : powered ? R.string.vm_on : R.string.vm_off), false);
             text(box, getString(R.string.vm_windows_disk, machine.specs != null && machine.specs.diskGb != null ? machine.specs.diskGb.toString() : "—"), false);
             boolean available = !working;
-            // Modo de vídeo (Padrão x Desempenho/Sudo Maker) — escolhido ANTES de
-            // ligar a VM. "standard" = NVIDIA VGX normal (nada muda). "performance" =
-            // display virtual Apollo (Sudo Maker) p/ +120 FPS e resoluções altas. O
-            // host aplica ao conectar e volta ao padrão quando a VM reinicia.
+            // Modo de vídeo (Padrão x Desempenho/Sudo Maker). "standard" = NVIDIA VGX
+            // normal (nada muda). "performance" = display virtual Apollo (Sudo Maker) p/
+            // +120 FPS e resoluções altas. O host aplica a escolha no próximo connect
+            // (getConnection), então dá pra trocar A QUALQUER MOMENTO — inclusive com a
+            // VM ligada, igual ao site; basta reconectar pro novo modo valer. Só trava
+            // durante operação/fila (evita corrida com boot/format/shutdown).
             String displayMode = "performance".equals(machine.displayMode) ? "performance" : "standard";
-            boolean canPickMode = available && !powered && machine.queue == null && !machine.locked;
+            boolean canPickMode = canPickDisplayMode(working, machine.queue != null, machine.locked);
+            banner(box, getString(R.string.vm_display_banner));
             text(box, getString(R.string.vm_display_mode), true);
             button(box, getString(R.string.vm_display_standard)
                             + ("standard".equals(displayMode) ? "   " + getString(R.string.vm_display_current) : ""),
@@ -150,7 +175,7 @@ public class MachineManagementActivity extends Activity {
                             + ("performance".equals(displayMode) ? "   " + getString(R.string.vm_display_current) : ""),
                     "dmperf:" + machine.id, canPickMode && !"performance".equals(displayMode),
                     () -> setDisplayMode(machine.id, "performance"));
-            text(box, getString(powered ? R.string.vm_display_mode_locked_hint : R.string.vm_display_mode_hint), false);
+            text(box, getString(powered ? R.string.vm_display_mode_powered_hint : R.string.vm_display_mode_hint), false);
             button(box, getString(R.string.vm_power_on), "on:" + machine.id, available && !machine.locked && !powered && machine.queue == null,
                     () -> submit(machine.id, new MachineAction("power_on")));
             button(box, getString(R.string.vm_restart), "restart:" + machine.id, available && machine.session != null,

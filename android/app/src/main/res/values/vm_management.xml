@@ -53,10 +53,11 @@
     <string name="vm_tip_input">Use the in-stream menu for keyboard and controller options. Upload sends files to your VM, not to this device.</string>
     <string name="vm_diagnostic">Connection details: %1$s</string>
     <string name="vm_display_mode">Video mode</string>
+    <string name="vm_display_banner">⚡ Sudo Maker — Performance mode turns on a virtual display for 120+ FPS, 4K and custom resolutions. Pick it below whenever you want, even with the machine on.</string>
     <string name="vm_display_standard">Standard — NVIDIA, up to 120 FPS</string>
     <string name="vm_display_performance">Performance — Sudo Maker, 120+ FPS / 4K</string>
     <string name="vm_display_current">✓ current</string>
-    <string name="vm_display_mode_hint">Choose before powering on. Performance uses the Sudo Maker virtual display for higher refresh rates and custom resolutions; the VM returns to Standard when restarted.</string>
-    <string name="vm_display_mode_locked_hint">Power off the VM to change the video mode.</string>
-    <string name="vm_display_mode_saved">Video mode saved. It applies the next time you power on this machine.</string>
+    <string name="vm_display_mode_hint">Choose your video mode. Standard (NVIDIA) is recommended; Performance (Sudo Maker) unlocks 120+ FPS and custom resolutions. You can switch anytime — it applies the next time you connect.</string>
+    <string name="vm_display_mode_powered_hint">Machine is on: switch here whenever you want — reconnect to the machine for the new mode to take effect.</string>
+    <string name="vm_display_mode_saved">Video mode saved. It applies the next time you connect to this machine.</string>
 </resources>
