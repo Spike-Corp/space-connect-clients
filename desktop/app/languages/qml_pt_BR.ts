@@ -2618,6 +2618,14 @@ Se só quer tirar o atalho deste app sem apagar a VM, use &quot;Delete PC&quot; 
         <translation>Reduzir animações de conexão</translation>
     </message>
     <message>
+        <source>Hide guest menu during stream</source>
+        <translation>Ocultar menu de convidados durante a transmissão</translation>
+    </message>
+    <message>
+        <source>Hides the floating guests icon that appears while streaming. You can also toggle it live with Ctrl+Alt+Shift+H.</source>
+        <translation>Oculta o ícone flutuante de convidados que aparece durante a transmissão. Você também pode alternar ao vivo com Ctrl+Alt+Shift+H.</translation>
+    </message>
+    <message>
         <location filename="../gui/SettingsView.qml" line="2190"/>
         <source>Signed in</source>
         <translation>Conectado</translation>
@@ -3532,6 +3540,14 @@ Se só quer tirar o atalho deste app sem apagar a VM, use &quot;Delete PC&quot; 
         <location filename="../gui/StreamSideMenuWindow.qml" line="259"/>
         <source>Disconnect</source>
         <translation>Desconectar</translation>
+    </message>
+    <message>
+        <source>Hide icon</source>
+        <translation>Ocultar ícone</translation>
+    </message>
+    <message>
+        <source>Hides the guests icon during the stream. Show it again with Ctrl+Alt+Shift+H or in Settings.</source>
+        <translation>Oculta o ícone de convidados durante a transmissão. Mostre de novo com Ctrl+Alt+Shift+H ou nas Configurações.</translation>
     </message>
 </context>
 <context>

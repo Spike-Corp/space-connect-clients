@@ -247,6 +247,16 @@ Window {
                         onClicked: menu.controller.refresh()
                     }
                     MenuButton {
+                        objectName: "streamGuestsHide"
+                        Layout.fillWidth: true
+                        visible: !menu.confirming
+                        text: qsTr("Hide icon")
+                        onClicked: if (menu.session) menu.session.toggleStreamGuestMenuHidden()
+                        ToolTip.visible: hovered
+                        ToolTip.delay: 600
+                        ToolTip.text: qsTr("Hides the guests icon during the stream. Show it again with Ctrl+Alt+Shift+H or in Settings.")
+                    }
+                    MenuButton {
                         Layout.fillWidth: true
                         visible: menu.confirming
                         text: qsTr("Cancel")

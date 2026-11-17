@@ -1400,6 +1400,19 @@ Flickable {
                     width: parent.width
                 }
 
+                SpaceCheckBox {
+                    id: hideGuestMenuCheck
+                    text: qsTr("Hide guest menu during stream")
+                    checked: StreamingPreferences.hideStreamGuestMenu
+                    onToggled: StreamingPreferences.hideStreamGuestMenu = checked
+                    width: parent.width
+                    hoverEnabled: true
+                    ToolTip.delay: 1000
+                    ToolTip.timeout: 6000
+                    ToolTip.visible: hovered
+                    ToolTip.text: qsTr("Hides the floating guests icon that appears while streaming. You can also toggle it live with Ctrl+Alt+Shift+H.")
+                }
+
                 Label {
                     width: parent.width
                     id: languageTitle
