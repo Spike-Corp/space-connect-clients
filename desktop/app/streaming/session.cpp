@@ -1940,8 +1940,25 @@ bool Session::startConnectionAsync()
             m_App = apps[desktop];
             m_Computer->currentGameId = NvHTTP::getCurrentGame(http.getServerInfo(NvHTTP::NVLL_ERROR));
             if (m_Computer->currentGameId != 0 && m_Computer->currentGameId != m_App.id) {
-                emit displayLaunchError(tr("Another app is running on this machine. Close it before opening Desktop."));
-                return false;
+                // Trocar entre desktops gerenciados (ex.: Desktop -> Virtual Display
+                // ao entrar no Sudo Maker) é seguro: encerra o que está rodando e
+                // lança o alvo. Um jogo real (não-desktop) mantém o erro, pra nunca
+                // matar a sessão de um jogo do cliente.
+                if (DesktopLaunch::isManagedDesktopApp(apps, m_Computer->currentGameId)) {
+                    try {
+                        http.quitApp();
+                        m_Computer->currentGameId = 0;
+                    } catch (const GfeHttpResponseException&) {
+                        emit displayLaunchError(tr("Another app is running on this machine. Close it before opening Desktop."));
+                        return false;
+                    } catch (const QtNetworkReplyException&) {
+                        emit displayLaunchError(tr("Another app is running on this machine. Close it before opening Desktop."));
+                        return false;
+                    }
+                } else {
+                    emit displayLaunchError(tr("Another app is running on this machine. Close it before opening Desktop."));
+                    return false;
+                }
             }
         }
         http.startApp(m_Computer->currentGameId != 0 ? "resume" : "launch",

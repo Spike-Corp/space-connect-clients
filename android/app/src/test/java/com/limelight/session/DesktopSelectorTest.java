@@ -65,4 +65,24 @@ public class DesktopSelectorTest {
         assertSame(desktop, chosen);
         assertEquals(4321, chosen.getAppId());
     }
+
+    // Desktop e Virtual Display são "managed desktop apps": trocar de um pro outro
+    // (ex.: Desktop -> Virtual Display no Sudo Maker) deve dar quit+relaunch, não
+    // o erro "outro app aberto".
+    @Test public void isManagedDesktopAppRecognizesDesktopVariants() {
+        NvApp desktop = new NvApp("Desktop", 10, false);
+        NvApp virtualDisplay = new NvApp("Virtual Display", 20, false);
+        NvApp game = new NvApp("Steam", 99, false);
+        java.util.List<NvApp> apps = Arrays.asList(desktop, virtualDisplay, game);
+        assertTrue(DesktopSelector.isManagedDesktopApp(apps, 10));
+        assertTrue(DesktopSelector.isManagedDesktopApp(apps, 20));
+        // Um jogo real NUNCA é managed desktop -> mantém o erro (não mata o jogo).
+        assertFalse(DesktopSelector.isManagedDesktopApp(apps, 99));
+        // Id que não está na lista -> conservador: trata como não-managed.
+        assertFalse(DesktopSelector.isManagedDesktopApp(apps, 12345));
+        // Id 0 (nada rodando) -> não é managed.
+        assertFalse(DesktopSelector.isManagedDesktopApp(apps, 0));
+        // Lista nula é segura.
+        assertFalse(DesktopSelector.isManagedDesktopApp(null, 10));
+    }
 }

@@ -14,8 +14,8 @@ android {
         minSdk 24
         targetSdk 36
 
-        versionName "0.3.59"
-        versionCode = 85
+        versionName "0.3.60"
+        versionCode = 86
         if (micDiagnostics) versionNameSuffix "-diag.1"
         buildConfigField "boolean", "MIC_DIAGNOSTICS", micDiagnostics.toString()
 

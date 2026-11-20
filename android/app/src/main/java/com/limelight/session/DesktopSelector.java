@@ -36,6 +36,25 @@ public final class DesktopSelector {
         return app != null && app.isInitialized() && app.getAppId() != 0 && app.getAppName() != null;
     }
 
+    // True quando o app que está rodando no host é um "desktop gerenciado" —
+    // Desktop normal OU Virtual Display. Nesse caso, trocar de um pro outro
+    // (ex.: Desktop -> Virtual Display ao entrar no Sudo Maker) é seguro via
+    // quit+relaunch. Um jogo real, um id desconhecido ou id 0 retornam false,
+    // pra NUNCA encerrar silenciosamente algo que não seja um desktop que nós
+    // mesmos gerenciamos (mantém o erro "outro app aberto" só pra esses casos).
+    public static boolean isManagedDesktopApp(Iterable<NvApp> apps, int appId) {
+        if (appId == 0 || apps == null) {
+            return false;
+        }
+        for (NvApp app : apps) {
+            if (app != null && app.getAppId() == appId && app.getAppName() != null) {
+                String name = app.getAppName().trim();
+                return isDesktopName(name) || isVirtualDisplayName(name);
+            }
+        }
+        return false;
+    }
+
     private static boolean isDesktopName(String name) {
         return "Desktop".equalsIgnoreCase(name);
     }

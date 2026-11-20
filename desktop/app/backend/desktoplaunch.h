@@ -46,6 +46,26 @@ inline int appIndex(const QVector<NvApp>& apps, bool preferVirtualDisplay = fals
     return -1;
 }
 
+// True quando o app que está rodando no host (currentGameId) é um "desktop
+// gerenciado" — Desktop normal OU Virtual Display. Nesse caso, trocar de um pro
+// outro (ex.: Desktop -> Virtual Display ao entrar no Sudo Maker) é seguro via
+// quit+relaunch. Um jogo real, um id desconhecido ou id 0 retornam false, pra
+// NUNCA encerrar silenciosamente algo que não seja um desktop que nós mesmos
+// gerenciamos (mantém o erro "outro app aberto" só pra esses casos).
+inline bool isManagedDesktopApp(const QVector<NvApp>& apps, int appId)
+{
+    if (appId == 0) {
+        return false;
+    }
+    for (const NvApp& app : apps) {
+        if (app.id == appId) {
+            const QString name = app.name.trimmed();
+            return isDesktopName(name) || isVirtualDisplayName(name);
+        }
+    }
+    return false;
+}
+
 // Lê, da lista exposta por LauncherApi::machines() (itens QVariantMap com "id" e
 // "displayMode"), se a máquina está em modo "performance" (Sudo Maker) — ou seja,
 // se o auto-launch deve preferir o app "Virtual Display". Default seguro: false

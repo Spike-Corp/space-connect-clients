@@ -115,11 +115,13 @@ final class ManagedSessionHost implements SessionOrchestrator.Host {
             }
 
             NvApp desktop;
+            java.util.List<NvApp> appList;
             long authorizationDeadline = SystemClock.elapsedRealtime() + (newlyPaired ? 20_000 : 0);
             while (true) {
                 scope.checkCancelled();
                 try {
-                    desktop = DesktopSelector.select(http.getAppList(), preferVirtualDisplay);
+                    appList = http.getAppList();
+                    desktop = DesktopSelector.select(appList, preferVirtualDisplay);
                     break;
                 } catch (HostHttpResponseException e) {
                     if (e.getErrorCode() != 403 || SystemClock.elapsedRealtime() >= authorizationDeadline) throw e;
@@ -128,7 +130,20 @@ final class ManagedSessionHost implements SessionOrchestrator.Host {
                 }
             }
             if (computer.runningGameId != 0 && computer.runningGameId != desktop.getAppId()) {
-                throw new SessionOrchestrator.SessionException(SessionOrchestrator.Failure.HOST_BUSY);
+                // Trocar entre desktops gerenciados (Desktop <-> Virtual Display no
+                // Sudo Maker) é seguro: encerra aqui mesmo o que está rodando (o
+                // stream nativo não troca de app em sessão gerenciada, allowAppSwitch
+                // é false) e segue pro launch. Só barra se for um jogo real.
+                if (DesktopSelector.isManagedDesktopApp(appList, computer.runningGameId)) {
+                    try {
+                        http.quitApp();
+                        computer.runningGameId = 0;
+                    } catch (Exception quitError) {
+                        throw new SessionOrchestrator.SessionException(SessionOrchestrator.Failure.HOST_BUSY);
+                    }
+                } else {
+                    throw new SessionOrchestrator.SessionException(SessionOrchestrator.Failure.HOST_BUSY);
+                }
             }
             scope.checkCancelled();
             manager.saveSessionComputer(computer, scope);

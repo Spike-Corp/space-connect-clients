@@ -355,7 +355,11 @@ void SessionOrchestrator::tryDesktop()
         return;
     }
     NvApp app = m_Computer->appList[index];
-    if (m_Computer->currentGameId != 0 && m_Computer->currentGameId != app.id) {
+    if (m_Computer->currentGameId != 0 && m_Computer->currentGameId != app.id &&
+        !DesktopLaunch::isManagedDesktopApp(m_Computer->appList, m_Computer->currentGameId)) {
+        // Só barra aqui se for um jogo real rodando. A troca entre desktops
+        // gerenciados (Desktop <-> Virtual Display) segue pro Session, que faz o
+        // quit+relaunch no ponto autoritativo (com re-fetch do currentGame ao vivo).
         lock.unlock();
         reportError(tr("Another app is running on this machine. Close it before opening Desktop."));
         return;

@@ -238,6 +238,37 @@ private slots:
         QVERIFY(!DesktopLaunch::preferVirtualDisplayForMachine(machines, QString()));
     }
 
+    void isManagedDesktopAppRecognizesDesktopVariants()
+    {
+        NvApp desktop;
+        desktop.name = QStringLiteral("Desktop");
+        desktop.id = 10;
+        NvApp virtualDisplay;
+        virtualDisplay.name = QStringLiteral("Virtual Display");
+        virtualDisplay.id = 20;
+        NvApp game;
+        game.name = QStringLiteral("Steam");
+        game.id = 99;
+        QVector<NvApp> apps{desktop, virtualDisplay, game};
+
+        // Desktop e Virtual Display são "managed desktop apps": trocar de um pro
+        // outro (ex.: Desktop -> Virtual Display no Sudo Maker) deve dar
+        // quit+relaunch, não o erro "outro app aberto".
+        QVERIFY(DesktopLaunch::isManagedDesktopApp(apps, 10));
+        QVERIFY(DesktopLaunch::isManagedDesktopApp(apps, 20));
+        // Um jogo real NUNCA é managed desktop -> mantém o erro (não mata o jogo).
+        QVERIFY(!DesktopLaunch::isManagedDesktopApp(apps, 99));
+        // Id que não está na lista -> conservador: trata como não-managed.
+        QVERIFY(!DesktopLaunch::isManagedDesktopApp(apps, 12345));
+        // Id 0 (nada rodando) -> não é managed.
+        QVERIFY(!DesktopLaunch::isManagedDesktopApp(apps, 0));
+        // Variações de nome PT também contam como desktop gerenciado.
+        NvApp ptDesktop;
+        ptDesktop.name = QString::fromUtf8("Área de trabalho");
+        ptDesktop.id = 30;
+        QVERIFY(DesktopLaunch::isManagedDesktopApp(QVector<NvApp>{ptDesktop}, 30));
+    }
+
     void preservesOriginalFailure()
     {
         QFETCH(int, cleanupStatus);
