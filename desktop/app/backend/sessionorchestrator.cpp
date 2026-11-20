@@ -346,7 +346,9 @@ void SessionOrchestrator::tryDesktop()
     QReadLocker lock(&m_Computer->lock);
     if (m_Computer->pairState != NvComputer::PS_PAIRED || m_Computer->appList.isEmpty())
         return;
-    const int index = DesktopLaunch::appIndex(m_Computer->appList);
+    const bool preferVirtual = m_Launcher &&
+        DesktopLaunch::preferVirtualDisplayForMachine(m_Launcher->machines(), m_MachineId);
+    const int index = DesktopLaunch::appIndex(m_Computer->appList, preferVirtual);
     if (index < 0) {
         lock.unlock();
         reportError(tr("Desktop is not available on this machine. Please contact support."));
@@ -362,7 +364,7 @@ void SessionOrchestrator::tryDesktop()
     lock.unlock();
     m_WaitingForApps = false;
     stopPreparation();
-    m_Session = new Session(computer, app, m_FreshlyPaired);
+    m_Session = new Session(computer, app, m_FreshlyPaired, preferVirtual);
     m_Session->initializeStreamControls(m_Launcher, m_Account);
     Session* session = m_Session;
     const quint64 attempt = m_Attempt;

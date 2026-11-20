@@ -1050,7 +1050,10 @@ public class LauncherActivity extends Activity {
         launchingSession = true;
         selectedMachineId = machineId;
         VmMonitorService.observe(this, machineId, false);
-        startActivity(SessionLoadingActivity.intent(this, machineId, accountNameFor(machineId), false));
+        SpaceConnectApiClient.MachineListItem machine = machineForId(machineId);
+        boolean preferVirtualDisplay = machine != null && "performance".equals(machine.displayMode);
+        startActivity(SessionLoadingActivity.intent(this, machineId, accountNameFor(machineId), false,
+                preferVirtualDisplay));
         overridePendingTransition(0, 0);
     }
 

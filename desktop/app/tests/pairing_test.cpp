@@ -170,6 +170,74 @@ private slots:
         QCOMPARE(DesktopLaunch::appIndex(QVector<NvApp>{desktop}), -1);
     }
 
+    void prefersVirtualDisplayInPerformanceMode()
+    {
+        NvApp desktop;
+        desktop.name = QStringLiteral("Desktop");
+        desktop.id = 10;
+        NvApp virtualDisplay;
+        virtualDisplay.name = QStringLiteral("Virtual Display");
+        virtualDisplay.id = 20;
+        QVector<NvApp> apps{desktop, virtualDisplay};
+
+        // Performance (Sudo Maker): prefer the dedicated "Virtual Display" app,
+        // which gives SudoVDA unlocked resolutions.
+        const int perf = DesktopLaunch::appIndex(apps, true);
+        QCOMPARE(perf, 1);
+        QCOMPARE(apps[perf].id, 20);
+
+        // Standard: keep opening the plain Desktop even when Virtual Display exists.
+        const int standard = DesktopLaunch::appIndex(apps, false);
+        QCOMPARE(standard, 0);
+        QCOMPARE(apps[standard].id, 10);
+
+        // Default (no arg) stays standard — preserves behavior for old callers.
+        QCOMPARE(DesktopLaunch::appIndex(apps), 0);
+    }
+
+    void fallsBackToDesktopWhenVirtualDisplayMissing()
+    {
+        NvApp game;
+        game.name = QStringLiteral("Steam");
+        game.id = 99;
+        NvApp desktop;
+        desktop.name = QStringLiteral("Desktop");
+        desktop.id = 4321;
+        QVector<NvApp> apps{game, desktop};
+
+        // Performance requested but the VM has no Virtual Display app:
+        // fall back to Desktop so the flow stays safe on any machine.
+        const int chosen = DesktopLaunch::appIndex(apps, true);
+        QCOMPARE(chosen, 1);
+        QCOMPARE(apps[chosen].id, 4321);
+
+        // An uninitialized Virtual Display (id 0) must be ignored; still fall back.
+        NvApp badVirtual;
+        badVirtual.name = QStringLiteral("Virtual Display");
+        badVirtual.id = 0;
+        QVector<NvApp> apps2{badVirtual, desktop};
+        const int chosen2 = DesktopLaunch::appIndex(apps2, true);
+        QCOMPARE(chosen2, 1);
+        QCOMPARE(apps2[chosen2].id, 4321);
+    }
+
+    void readsPreferVirtualDisplayFromMachineList()
+    {
+        // Espelha o shape de LauncherApi::machines(): lista de QVariantMap
+        // com "id" e "displayMode".
+        QVariantList machines{
+            QVariantMap{{QStringLiteral("id"), QStringLiteral("m-std")},
+                        {QStringLiteral("displayMode"), QStringLiteral("standard")}},
+            QVariantMap{{QStringLiteral("id"), QStringLiteral("m-perf")},
+                        {QStringLiteral("displayMode"), QStringLiteral("performance")}},
+        };
+        QVERIFY(DesktopLaunch::preferVirtualDisplayForMachine(machines, QStringLiteral("m-perf")));
+        QVERIFY(!DesktopLaunch::preferVirtualDisplayForMachine(machines, QStringLiteral("m-std")));
+        // Máquina inexistente ou id vazio → standard (não força o display virtual).
+        QVERIFY(!DesktopLaunch::preferVirtualDisplayForMachine(machines, QStringLiteral("nope")));
+        QVERIFY(!DesktopLaunch::preferVirtualDisplayForMachine(machines, QString()));
+    }
+
     void preservesOriginalFailure()
     {
         QFETCH(int, cleanupStatus);

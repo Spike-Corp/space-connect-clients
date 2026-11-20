@@ -31,6 +31,7 @@ public class SessionLoadingActivity extends Activity implements SessionOrchestra
     private static final String MACHINE = "session.machine";
     private static final String ACCOUNT_NAME = "session.accountName";
     private static final String FRIEND = "session.friend";
+    private static final String PREFER_VIRTUAL_DISPLAY = "session.preferVirtualDisplay";
     private static final String GENERATION = "session.accountGeneration";
     private final Handler callbacks = new Handler(Looper.getMainLooper());
     private SessionOverlayView overlay;
@@ -41,8 +42,16 @@ public class SessionLoadingActivity extends Activity implements SessionOrchestra
     private long accountGeneration;
 
     public static Intent intent(Context context, String machineId, String accountName, boolean friend) {
+        return intent(context, machineId, accountName, friend, false);
+    }
+
+    // preferVirtualDisplay: VM em modo Desempenho (Sudo Maker) — auto-lança o app
+    // "Virtual Display" (resoluções desbloqueadas) em vez do "Desktop" normal.
+    public static Intent intent(Context context, String machineId, String accountName, boolean friend,
+            boolean preferVirtualDisplay) {
         return new Intent(context, SessionLoadingActivity.class)
                 .putExtra(MACHINE, machineId).putExtra(ACCOUNT_NAME, accountName).putExtra(FRIEND, friend)
+                .putExtra(PREFER_VIRTUAL_DISPLAY, preferVirtualDisplay)
                 .putExtra(GENERATION, AccountManager.currentAccountGeneration())
                 .addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
     }
@@ -74,10 +83,11 @@ public class SessionLoadingActivity extends Activity implements SessionOrchestra
     protected SessionOrchestrator createAttempt(ComputerManagerService.ComputerManagerBinder binder) {
         String machineId = getIntent().getStringExtra(MACHINE);
         boolean friend = getIntent().getBooleanExtra(FRIEND, false);
+        boolean preferVirtualDisplay = getIntent().getBooleanExtra(PREFER_VIRTUAL_DISPLAY, false);
         RequestScope scope = new RequestScope();
         SessionBackend backend = new SessionBackend(this, machineId, friend, scope, accountGeneration);
         ManagedSessionHost host = new ManagedSessionHost(this, machineId,
-                getIntent().getStringExtra(ACCOUNT_NAME), friend, binder, backend.requests, scope);
+                getIntent().getStringExtra(ACCOUNT_NAME), friend, preferVirtualDisplay, binder, backend.requests, scope);
         return new SessionOrchestrator(machineId, friend, backend, host, new HandlerCallbacks(callbacks), this);
     }
 

@@ -25,6 +25,7 @@ final class ManagedSessionHost implements SessionOrchestrator.Host {
     private final String machineId;
     private final String accountName;
     private final boolean friend;
+    private final boolean preferVirtualDisplay;
     private final ComputerManagerBinder manager;
     private final AccountManager.SessionRequests requests;
     private final RequestScope scope;
@@ -32,11 +33,13 @@ final class ManagedSessionHost implements SessionOrchestrator.Host {
     private volatile Future<?> pinRequest;
 
     ManagedSessionHost(Context context, String machineId, String accountName, boolean friend,
-            ComputerManagerBinder manager, AccountManager.SessionRequests requests, RequestScope scope) {
+            boolean preferVirtualDisplay, ComputerManagerBinder manager,
+            AccountManager.SessionRequests requests, RequestScope scope) {
         this.context = context.getApplicationContext();
         this.machineId = machineId;
         this.accountName = accountName;
         this.friend = friend;
+        this.preferVirtualDisplay = preferVirtualDisplay;
         this.manager = manager;
         this.requests = requests;
         this.scope = scope;
@@ -116,7 +119,7 @@ final class ManagedSessionHost implements SessionOrchestrator.Host {
             while (true) {
                 scope.checkCancelled();
                 try {
-                    desktop = DesktopSelector.select(http.getAppList());
+                    desktop = DesktopSelector.select(http.getAppList(), preferVirtualDisplay);
                     break;
                 } catch (HostHttpResponseException e) {
                     if (e.getErrorCode() != 403 || SystemClock.elapsedRealtime() >= authorizationDeadline) throw e;

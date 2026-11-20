@@ -113,7 +113,7 @@ class Session : public QObject
 
 public:
     explicit Session(NvComputer* computer, NvApp& app, StreamingPreferences *preferences = nullptr);
-    Session(std::shared_ptr<NvComputer> computer, NvApp& app, bool freshlyPaired = false);
+    Session(std::shared_ptr<NvComputer> computer, NvApp& app, bool freshlyPaired = false, bool preferVirtualDisplay = false);
 
     // NB: This may not get destroyed for a long time! Don't put any cleanup here.
     // Use Session::exec() or DeferredSessionCleanupTask instead.
@@ -299,6 +299,7 @@ private:
     bool m_CaptureOnFocus = false;
     bool m_ManagedDesktop = false;
     bool m_FreshlyPaired = false;
+    bool m_PreferVirtualDisplay = false;
     StreamGuestController* m_StreamGuests = nullptr;
     std::atomic_bool m_StreamControlsEnded{false};
     std::atomic_bool m_StreamMenuAllowed{false}, m_StreamInputReady{false};

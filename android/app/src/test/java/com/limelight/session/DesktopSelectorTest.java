@@ -21,4 +21,48 @@ public class DesktopSelectorTest {
             assertEquals(SessionOrchestrator.Failure.DESKTOP_MISSING, e.failure);
         }
     }
+
+    // Modo Desempenho (Sudo Maker): lança o app "Virtual Display" (SudoVDA,
+    // resoluções desbloqueadas) em vez do "Desktop" normal.
+    @Test public void prefersVirtualDisplayInPerformanceMode() throws Exception {
+        NvApp desktop = new NvApp("Desktop", 10, false);
+        NvApp virtualDisplay = new NvApp("Virtual Display", 20, false);
+        NvApp chosen = DesktopSelector.select(Arrays.asList(desktop, virtualDisplay), true);
+        assertSame(virtualDisplay, chosen);
+        assertEquals(20, chosen.getAppId());
+    }
+
+    // Modo Padrão: continua abrindo o Desktop mesmo quando existe Virtual Display.
+    @Test public void standardModeKeepsDesktopEvenWithVirtualDisplay() throws Exception {
+        NvApp desktop = new NvApp("Desktop", 10, false);
+        NvApp virtualDisplay = new NvApp("Virtual Display", 20, false);
+        NvApp chosen = DesktopSelector.select(Arrays.asList(desktop, virtualDisplay), false);
+        assertSame(desktop, chosen);
+        assertEquals(10, chosen.getAppId());
+    }
+
+    // Overload antigo (sem arg) preserva comportamento: sempre Desktop.
+    @Test public void defaultOverloadStaysDesktop() throws Exception {
+        NvApp desktop = new NvApp("Desktop", 10, false);
+        NvApp virtualDisplay = new NvApp("Virtual Display", 20, false);
+        assertSame(desktop, DesktopSelector.select(Arrays.asList(desktop, virtualDisplay)));
+    }
+
+    // Desempenho pedido, mas a VM não tem Virtual Display: cai no Desktop (seguro).
+    @Test public void fallsBackToDesktopWhenVirtualDisplayMissing() throws Exception {
+        NvApp game = new NvApp("Steam", 99, false);
+        NvApp desktop = new NvApp("Desktop", 4321, false);
+        NvApp chosen = DesktopSelector.select(Arrays.asList(game, desktop), true);
+        assertSame(desktop, chosen);
+        assertEquals(4321, chosen.getAppId());
+    }
+
+    // Virtual Display não inicializado (id 0) é ignorado; ainda cai no Desktop.
+    @Test public void ignoresUninitializedVirtualDisplay() throws Exception {
+        NvApp badVirtual = new NvApp("Virtual Display", 0, false);
+        NvApp desktop = new NvApp("Desktop", 4321, false);
+        NvApp chosen = DesktopSelector.select(Arrays.asList(badVirtual, desktop), true);
+        assertSame(desktop, chosen);
+        assertEquals(4321, chosen.getAppId());
+    }
 }

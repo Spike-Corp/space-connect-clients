@@ -582,12 +582,13 @@ Session::Session(NvComputer* computer, NvApp& app, StreamingPreferences *prefere
             || m_Computer->scOrigin == QStringLiteral("friend");
 }
 
-Session::Session(std::shared_ptr<NvComputer> computer, NvApp& app, bool freshlyPaired)
+Session::Session(std::shared_ptr<NvComputer> computer, NvApp& app, bool freshlyPaired, bool preferVirtualDisplay)
     : Session(computer.get(), app)
 {
     m_OwnedComputer = std::move(computer);
     m_ManagedDesktop = true;
     m_FreshlyPaired = freshlyPaired;
+    m_PreferVirtualDisplay = preferVirtualDisplay;
     // Keep the m_IsFullScreen value computed by the delegated constructor from
     // the user's windowMode preference. Forcing it true here made "Windowed" and
     // "Borderless windowed" no-ops for the launcher flow (every session opened
@@ -1931,7 +1932,7 @@ bool Session::startConnectionAsync()
         http.setCancellation(m_ConnectionCancellation);
         if (m_ManagedDesktop) {
             const auto apps = http.getAppList();
-            const int desktop = DesktopLaunch::appIndex(apps);
+            const int desktop = DesktopLaunch::appIndex(apps, m_PreferVirtualDisplay);
             if (desktop < 0) {
                 emit displayLaunchError(tr("Desktop is not available on this machine. Please contact support."));
                 return false;
