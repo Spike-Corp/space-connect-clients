@@ -595,6 +595,12 @@ macx {
     system(sed -i -e 's/VERSION/$$cat(version.txt)/g' $$OUT_PWD/Info.plist)
 
     QMAKE_INFO_PLIST = $$OUT_PWD/Info.plist
+    xdconsole {
+        plist = $$shell_quote($$QMAKE_INFO_PLIST)
+        !system(/usr/bin/plutil -replace CFBundleIdentifier -string gg.spacecloud.xdconsole $$plist): error(Cannot set XD bundle identifier)
+        !system(/usr/bin/plutil -replace CFBundleExecutable -string $$TARGET $$plist): error(Cannot set XD executable)
+        !system(/usr/bin/plutil -replace CFBundleDisplayName -string $$shell_quote("XD Console") $$plist): error(Cannot set XD display name)
+    }
 
     APP_BUNDLE_RESOURCES.files = moonlight.icns
     APP_BUNDLE_RESOURCES.path = Contents/Resources

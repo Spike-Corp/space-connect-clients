@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       only:
-        description: 'Plataforma a construir: all, windows, windows-xd, windows-legacy, macos, linux'
+        description: 'Plataforma a construir: all, windows, windows-xd, windows-legacy, macos, macos-preview, linux'
         required: false
         default: 'all'
 
@@ -559,6 +559,59 @@ jobs:
           version=$(tr -d '[:space:]' < app/version.txt)
           dmg=$(ls build/installer-Release/SpaceConnect-*.dmg | head -n1)
           bash ../ci/publish-release.sh "v${version}" "$dmg"
+
+  macos-preview:
+    name: macOS preview (${{ matrix.product }})
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.only == 'macos-preview' }}
+    runs-on: macos-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        product: [SpaceConnect, XDConsole]
+    defaults:
+      run:
+        working-directory: desktop
+        shell: bash
+    env:
+      PRODUCT: ${{ matrix.product }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: jurplel/install-qt-action@v4.3.1
+        with:
+          version: '6.7.3'
+          host: mac
+          target: desktop
+          arch: clang_64
+          modules: 'qtimageformats'
+          cache: true
+      - name: Build universal application
+        run: |
+          npm install --global create-dmg@7.1.0
+          lrelease app/languages/qml_pt_BR.ts app/languages/qml_pt.ts
+          bash scripts/generate-dmg.sh Release "$PRODUCT"
+      - name: Verify the app from the mounted installer
+        run: |
+          version=$(tr -d '[:space:]' < app/version.txt)
+          installer=$(find build -type f -name "$PRODUCT-$version.dmg")
+          test -f "$installer"
+          name="$PRODUCT-$version-macos-universal.dmg"
+          cp "$installer" "$RUNNER_TEMP/$name"
+          bash scripts/verify-macos-dmg.sh "$RUNNER_TEMP/$name" "$PRODUCT" "$version"
+          cd "$RUNNER_TEMP"
+          shasum -a 256 "$name" > "$name.sha256"
+      - name: Upload only to the existing draft preview
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          version=$(tr -d '[:space:]' < app/version.txt)
+          tag="v$version-macos-preview.1"
+          repo=Spike-Corp/space-connect-releases
+          test "$(gh release view "$tag" -R "$repo" --json isDraft,isPrerelease --jq '.isDraft and .isPrerelease')" = true
+          dmg="$RUNNER_TEMP/$PRODUCT-$version-macos-universal.dmg"
+          gh release upload "$tag" "$dmg" "$dmg.sha256" -R "$repo"
 
   linux:
     name: Linux AppImage (x86_64)

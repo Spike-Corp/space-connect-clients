@@ -1,5 +1,7 @@
-# This script requires create-dmg to be installed from https://github.com/sindresorhus/create-dmg
+#!/usr/bin/env bash
+# Requires create-dmg from https://github.com/sindresorhus/create-dmg
 BUILD_CONFIG=$1
+PRODUCT=${2:-SpaceConnect}
 
 fail()
 {
@@ -10,12 +12,16 @@ fail()
 if [ "$BUILD_CONFIG" != "Debug" ] && [ "$BUILD_CONFIG" != "Release" ]; then
   fail "Invalid build configuration - expected 'Debug' or 'Release'"
 fi
+case "$PRODUCT" in
+  SpaceConnect) FLAVOR=(); SUFFIX= ;;
+  XDConsole) FLAVOR=("CONFIG+=xdconsole"); SUFFIX=-XDConsole ;;
+  *) fail "Invalid macOS product: $PRODUCT" ;;
+esac
 
 BUILD_ROOT=$PWD/build
 SOURCE_ROOT=$PWD
-BUILD_FOLDER=$BUILD_ROOT/build-$BUILD_CONFIG
-INSTALLER_FOLDER=$BUILD_ROOT/installer-$BUILD_CONFIG
-VERSION=`cat $SOURCE_ROOT/app/version.txt`
+INSTALLER_FOLDER="$BUILD_ROOT/installer-$BUILD_CONFIG$SUFFIX"
+VERSION=$(tr -d '[:space:]' < "$SOURCE_ROOT/app/version.txt") || fail "Missing app version"
 
 if [ "$SIGNING_PROVIDER_SHORTNAME" == "" ]; then
   SIGNING_PROVIDER_SHORTNAME=$SIGNING_IDENTITY
@@ -26,12 +32,10 @@ fi
 
 [ "$SIGNING_IDENTITY" == "" ] || git diff-index --quiet HEAD -- || fail "Signed release builds must not have unstaged changes!"
 
-echo Cleaning output directories
-rm -rf $BUILD_FOLDER
-rm -rf $INSTALLER_FOLDER
-mkdir $BUILD_ROOT
-mkdir $BUILD_FOLDER
-mkdir $INSTALLER_FOLDER
+mkdir -p "$INSTALLER_FOLDER" || fail "Cannot create installer directory"
+BUILD_FOLDER=$(mktemp -d "$BUILD_ROOT/build-$PRODUCT-$BUILD_CONFIG.XXXXXX") || fail "Cannot create build directory"
+STAGING=$(mktemp -d "$BUILD_ROOT/stage-$PRODUCT.XXXXXX") || fail "Cannot create DMG staging directory"
+BUNDLE="$BUILD_FOLDER/app/$PRODUCT.app"
 
 # Workaround: Qt <= 6.8's qyieldcpu.h calls the ARM ACLE intrinsic __yield()
 # without including <arm_acle.h>. Apple Clang 16 (macOS 15 runners) treats the
@@ -52,49 +56,57 @@ done
 # which fails the final link. Strip it from the installed Qt metadata.
 echo "Stripping obsolete -framework AGL from Qt link metadata"
 if [ -n "$QT_PREFIX" ]; then
-  grep -rlF -- "-framework AGL" "$QT_PREFIX" 2>/dev/null | while read -r f; do
+  find "$QT_PREFIX" -name '*.prl' -type f -exec grep -lF -- "-framework AGL" {} + | while read -r f; do
     sed -i '' -E 's/-framework AGL//g' "$f" && echo "Stripped AGL: $f"
   done
 fi
 
 echo Configuring the project
-pushd $BUILD_FOLDER
-qmake $SOURCE_ROOT/moonlight-qt.pro QMAKE_APPLE_DEVICE_ARCHS="x86_64 arm64" || fail "Qmake failed!"
+pushd "$BUILD_FOLDER" || exit 1
+qmake "$SOURCE_ROOT/moonlight-qt.pro" QMAKE_APPLE_DEVICE_ARCHS="x86_64 arm64" "${FLAVOR[@]}" || fail "Qmake failed!"
 popd
 
-echo Compiling Moonlight in $BUILD_CONFIG configuration
-pushd $BUILD_FOLDER
+echo "Compiling $PRODUCT in $BUILD_CONFIG configuration"
+pushd "$BUILD_FOLDER" || exit 1
 make -j$(sysctl -n hw.logicalcpu) $(echo "$BUILD_CONFIG" | tr '[:upper:]' '[:lower:]') || fail "Make failed!"
 popd
 
 echo Saving dSYM file
-pushd $BUILD_FOLDER
-dsymutil app/SpaceConnect.app/Contents/MacOS/SpaceConnect -o SpaceConnect-$VERSION.dsym || fail "dSYM creation failed!"
-cp -R SpaceConnect-$VERSION.dsym $INSTALLER_FOLDER || fail "dSYM copy failed!"
-popd
+dsymutil "$BUNDLE/Contents/MacOS/$PRODUCT" -o "$BUILD_FOLDER/$PRODUCT-$VERSION.dsym" || fail "dSYM creation failed!"
+ditto "$BUILD_FOLDER/$PRODUCT-$VERSION.dsym" "$INSTALLER_FOLDER/$PRODUCT-$VERSION.dsym" || fail "dSYM copy failed!"
 
 echo Creating app bundle
 EXTRA_ARGS=
 if [ "$BUILD_CONFIG" == "Debug" ]; then EXTRA_ARGS="$EXTRA_ARGS -use-debug-libs"; fi
 echo Extra deployment arguments: $EXTRA_ARGS
-macdeployqt $BUILD_FOLDER/app/SpaceConnect.app $EXTRA_ARGS -qmldir=$SOURCE_ROOT/app/gui -appstore-compliant || fail "macdeployqt failed!"
+macdeployqt "$BUNDLE" $EXTRA_ARGS "-qmldir=$SOURCE_ROOT/app/gui" -appstore-compliant || fail "macdeployqt failed!"
 
-echo Removing dSYM files from app bundle
-find $BUILD_FOLDER/app/SpaceConnect.app/ -name '*.dSYM' | xargs rm -rf
+ICONSET="$BUILD_FOLDER/spaceconnect.iconset"
+mkdir "$ICONSET" || fail "Cannot create icon set"
+for points in 16 32 128 256; do
+  for scale in 1 2; do
+    pixels=$((points * scale))
+    [ "$pixels" -le 256 ] || continue
+    name="icon_${points}x${points}"
+    [ "$scale" -eq 1 ] || name="${name}@2x"
+    sips -z "$pixels" "$pixels" "$SOURCE_ROOT/app/res/spaceconnect_icon_256.png" --out "$ICONSET/$name.png" >/dev/null || fail "Cannot render icon"
+  done
+done
+iconutil -c icns "$ICONSET" -o "$BUNDLE/Contents/Resources/spaceconnect.icns" || fail "Cannot package icon"
 
 if [ "$SIGNING_IDENTITY" != "" ]; then
   echo Signing app bundle
-  codesign --force --deep --options runtime --timestamp --sign "$SIGNING_IDENTITY" $BUILD_FOLDER/app/SpaceConnect.app || fail "Signing failed!"
+  codesign --force --deep --options runtime --timestamp --sign "$SIGNING_IDENTITY" "$BUNDLE" || fail "Signing failed!"
 else
-  echo "No SIGNING_IDENTITY set - applying ad-hoc signature so the bundle launches after Gatekeeper quarantine removal"
-  codesign --force --deep --sign - $BUILD_FOLDER/app/SpaceConnect.app || fail "Ad-hoc signing failed!"
+  echo "Applying an ad-hoc signature for this test build (not a Developer ID signature)"
+  codesign --force --deep --sign - "$BUNDLE" || fail "Ad-hoc signing failed!"
 fi
 
 echo Creating DMG
 if [ "$SIGNING_IDENTITY" != "" ]; then
-  create-dmg $BUILD_FOLDER/app/SpaceConnect.app $INSTALLER_FOLDER --identity="$SIGNING_IDENTITY" || fail "create-dmg failed!"
+  create-dmg "$BUNDLE" "$STAGING" --identity="$SIGNING_IDENTITY" || fail "create-dmg failed!"
 else
-  create-dmg $BUILD_FOLDER/app/SpaceConnect.app $INSTALLER_FOLDER
+  create-dmg "$BUNDLE" "$STAGING"
   case $? in
     0) ;;
     2) ;;
@@ -102,15 +114,17 @@ else
   esac
 fi
 
+shopt -s nullglob
+dmgs=("$STAGING"/*.dmg)
+[ "${#dmgs[@]}" -eq 1 ] || fail "Expected exactly one newly generated DMG"
+GENERATED_DMG=${dmgs[0]}
 if [ "$NOTARY_KEYCHAIN_PROFILE" != "" ]; then
-  DMG_TO_NOTARIZE=$(ls "$INSTALLER_FOLDER"/*.dmg | head -1)
   echo Uploading to App Notary service
-  xcrun notarytool submit --keychain-profile "$NOTARY_KEYCHAIN_PROFILE" --wait "$DMG_TO_NOTARIZE" || fail "Notary submission failed"
+  xcrun notarytool submit --keychain-profile "$NOTARY_KEYCHAIN_PROFILE" --wait "$GENERATED_DMG" || fail "Notary submission failed"
 
   echo Stapling notary ticket to DMG
-  xcrun stapler staple -v "$DMG_TO_NOTARIZE" || fail "Notary ticket stapling failed!"
+  xcrun stapler staple -v "$GENERATED_DMG" || fail "Notary ticket stapling failed!"
 fi
 
-GENERATED_DMG=$(ls "$INSTALLER_FOLDER"/*.dmg | head -1)
-mv "$GENERATED_DMG" "$INSTALLER_FOLDER/SpaceConnect-$VERSION.dmg"
+mv "$GENERATED_DMG" "$INSTALLER_FOLDER/$PRODUCT-$VERSION.dmg" || fail "Cannot deliver DMG"
 echo Build successful
