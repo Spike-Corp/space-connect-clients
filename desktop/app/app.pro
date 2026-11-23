@@ -590,17 +590,9 @@ win32 {
     QMAKE_LFLAGS += /MANIFEST:embed /MANIFESTINPUT:$${PWD}/Moonlight.exe.manifest
 }
 macx {
-    # Create Info.plist in object dir with the correct version string
-    system(cp $$PWD/Info.plist $$OUT_PWD/Info.plist)
-    system(sed -i -e 's/VERSION/$$cat(version.txt)/g' $$OUT_PWD/Info.plist)
-
     QMAKE_INFO_PLIST = $$OUT_PWD/Info.plist
-    xdconsole {
-        plist = $$shell_quote($$QMAKE_INFO_PLIST)
-        !system(/usr/bin/plutil -replace CFBundleIdentifier -string gg.spacecloud.xdconsole $$plist): error(Cannot set XD bundle identifier)
-        !system(/usr/bin/plutil -replace CFBundleExecutable -string $$TARGET $$plist): error(Cannot set XD executable)
-        !system(/usr/bin/plutil -replace CFBundleDisplayName -string $$shell_quote("XD Console") $$plist): error(Cannot set XD display name)
-    }
+    plist_tool = $$shell_quote($$PWD/../scripts/configure-macos-plist.py)
+    !system(python3 $$plist_tool $$shell_quote($$PWD/Info.plist) $$shell_quote($$QMAKE_INFO_PLIST) $$TARGET $$cat(version.txt)): error(Cannot generate macOS bundle metadata)
 
     APP_BUNDLE_RESOURCES.files = moonlight.icns
     APP_BUNDLE_RESOURCES.path = Contents/Resources

@@ -40,16 +40,21 @@ BUNDLE="$BUILD_FOLDER/app/$PRODUCT.app"
 # Workaround: Qt <= 6.8's qyieldcpu.h calls the ARM ACLE intrinsic __yield()
 # without including <arm_acle.h>. Apple Clang 16 (macOS 15 runners) treats the
 # resulting implicit declaration as an error under -Werror, breaking the arm64
-# slice of the universal build. Inject the header at file scope, guarded by arch,
-# so x86_64 is unaffected. Idempotent and applied to the installed Qt only.
+# slice of the universal build. Patch only the SDK dedicated to this build.
 echo "Applying Qt qyieldcpu.h <arm_acle.h> workaround"
-QT_PREFIX=$(qmake -query QT_INSTALL_PREFIX 2>/dev/null)
-for QYH in $(find $QT_PREFIX "$HOME/work" -name qyieldcpu.h 2>/dev/null | sort -u); do
+QT_PREFIX=$(qmake -query QT_INSTALL_PREFIX) || fail "Cannot locate Qt SDK"
+[ -n "$QT_PREFIX" ] || fail "Empty Qt SDK path"
+QT_PREFIX=$(cd "$QT_PREFIX" && pwd -P) || fail "Invalid Qt SDK path"
+BUILD_REAL=$(cd "$BUILD_ROOT" && pwd -P) || exit 1
+if [[ "$QT_PREFIX/" != "$BUILD_REAL/"* && "${RUNNER_ENVIRONMENT:-}" != github-hosted ]]; then
+  fail "Use scripts/build-macos-preview.sh: refusing to patch a shared Qt installation"
+fi
+while IFS= read -r -d '' QYH; do
   if ! grep -q "arm_acle.h" "$QYH"; then
-    perl -0777 -pi -e 's{(#include <QtCore/qtconfigmacros.h>\n)}{$1\n#if defined(__has_include)\n#  if defined(__aarch64__) || defined(__arm__)\n#    if __has_include(<arm_acle.h>)\n#      include <arm_acle.h>\n#    endif\n#  endif\n#endif\n}' "$QYH"
+    perl -0777 -pi -e 's{(#include <QtCore/qtconfigmacros.h>\n)}{$1\n#if defined(__has_include)\n#  if defined(__aarch64__) || defined(__arm__)\n#    if __has_include(<arm_acle.h>)\n#      include <arm_acle.h>\n#    endif\n#  endif\n#endif\n}' "$QYH" || fail "Cannot update Qt ARM header"
     echo "Patched: $QYH"
   fi
-done
+done < <(find "$QT_PREFIX" -type f -name qyieldcpu.h -print0)
 
 # Workaround: Qt's .prl link metadata still references "-framework AGL", but Apple
 # removed the AGL (legacy OpenGL) framework from recent macOS SDKs (Xcode 16+),

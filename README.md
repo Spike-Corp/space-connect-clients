@@ -33,10 +33,8 @@ Windows/Linux binaries or their version. Only entries marked `available` in the
 manifest are published downloads; generating an Android AAB does not submit it
 to the Play Store.
 
-> macOS DMGs from CI are **ad-hoc signed**, not Apple-notarized. First launch
-> requires right-click → Open (or `xattr -dr com.apple.quarantine`). Setting the
-> `SIGNING_IDENTITY` / `NOTARY_KEYCHAIN_PROFILE` secrets enables full signing +
-> notarization automatically.
+> macOS previews are **ad-hoc signed**, not Apple-notarized. Gatekeeper may
+> block them. These test builds must not be advertised as stable downloads.
 
 ## Building
 
@@ -53,7 +51,13 @@ make -j$(nproc)          # Windows: scripts\jom.exe release
 
 - **Linux AppImage:** `scripts/build-appimage.sh` (or linuxdeploy with the
   `app/deploy/linux/gg.spacecloud.connect.desktop` entry).
-- **macOS DMG:** `bash scripts/generate-dmg.sh Release` (universal).
+- **macOS previews (Intel + Apple Silicon):** on a Mac with Xcode selected,
+  Python 3.9+ and Node.js 18+ with npm, run `bash desktop/scripts/build-macos-preview.sh`
+  from the repository root. It installs Qt and the DMG builder under `desktop/build/`
+  without `sudo`, then builds **Space Connect** (customer) and **XD Console** (staff).
+  Pass `SpaceConnect` or `XDConsole` to build just one. The script mounts each DMG
+  read-only and checks its identity, signature, both architectures and `--version`
+  before writing the DMG and SHA-256 file to `desktop/build/macos-preview/`.
 - **Windows portable:** see `.github/workflows/build-desktop.yml`.
 
 ### Android
