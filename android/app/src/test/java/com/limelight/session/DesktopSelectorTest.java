@@ -85,4 +85,90 @@ public class DesktopSelectorTest {
         // Lista nula é segura.
         assertFalse(DesktopSelector.isManagedDesktopApp(null, 10));
     }
+
+    // ===== plan(): decisão de co-op (amigo) x dono =====
+
+    // BUG DO SUDO MAKER: o host está no Virtual Display (Sudo Maker) e um AMIGO
+    // entra. Antes o amigo pedia "Desktop" e dava quit no host -> "outro app aberto".
+    // Agora o amigo ENTRA na tela gerenciada que o host já usa (co-op), sem quit.
+    @Test public void friendJoinsRunningVirtualDisplayInsteadOfQuitting() throws Exception {
+        NvApp desktop = new NvApp("Desktop", 10, false);
+        NvApp virtualDisplay = new NvApp("Virtual Display", 20, false);
+        java.util.List<NvApp> apps = Arrays.asList(desktop, virtualDisplay);
+        DesktopSelector.Plan plan = DesktopSelector.plan(apps, false, 20, true);
+        assertEquals(DesktopSelector.Action.JOIN, plan.action);
+        assertSame(virtualDisplay, plan.app);
+    }
+
+    // Amigo entra e o host está no Desktop normal: junta no Desktop, sem erro.
+    @Test public void friendJoinsRunningDesktop() throws Exception {
+        NvApp desktop = new NvApp("Desktop", 10, false);
+        NvApp virtualDisplay = new NvApp("Virtual Display", 20, false);
+        DesktopSelector.Plan plan = DesktopSelector.plan(Arrays.asList(desktop, virtualDisplay), false, 10, true);
+        assertEquals(DesktopSelector.Action.JOIN, plan.action);
+        assertEquals(10, plan.app.getAppId());
+    }
+
+    // Robustez: host no Virtual Display, amigo entra, e a lista NÃO tem "Desktop".
+    // Antes select() lançaria DESKTOP_MISSING; agora o amigo junta no VD mesmo assim.
+    @Test public void friendJoinsVirtualDisplayEvenWithoutDesktopApp() throws Exception {
+        NvApp virtualDisplay = new NvApp("Virtual Display", 20, false);
+        DesktopSelector.Plan plan = DesktopSelector.plan(Arrays.asList(virtualDisplay), false, 20, true);
+        assertEquals(DesktopSelector.Action.JOIN, plan.action);
+        assertSame(virtualDisplay, plan.app);
+    }
+
+    // Amigo entra e NADA está rodando: abre o Desktop (comportamento atual preservado).
+    @Test public void friendWithNothingRunningLaunchesDesktop() throws Exception {
+        NvApp desktop = new NvApp("Desktop", 10, false);
+        NvApp virtualDisplay = new NvApp("Virtual Display", 20, false);
+        DesktopSelector.Plan plan = DesktopSelector.plan(Arrays.asList(desktop, virtualDisplay), false, 0, true);
+        assertEquals(DesktopSelector.Action.LAUNCH_OR_RESUME, plan.action);
+        assertEquals(10, plan.app.getAppId());
+    }
+
+    // Amigo NUNCA sequestra um jogo real rodando: mantém o "outro app aberto" (BUSY).
+    @Test public void friendCannotHijackRealGame() throws Exception {
+        NvApp desktop = new NvApp("Desktop", 10, false);
+        NvApp game = new NvApp("Steam", 99, false);
+        DesktopSelector.Plan plan = DesktopSelector.plan(Arrays.asList(desktop, game), false, 99, true);
+        assertEquals(DesktopSelector.Action.BUSY, plan.action);
+    }
+
+    // DONO (não-amigo) trocando de desktop gerenciado (Desktop <-> Virtual Display):
+    // continua sendo quit+relaunch, NÃO join. Preserva o comportamento do dono.
+    @Test public void ownerSwitchingManagedDesktopStillQuitRelaunch() throws Exception {
+        NvApp desktop = new NvApp("Desktop", 10, false);
+        NvApp virtualDisplay = new NvApp("Virtual Display", 20, false);
+        // dono em modo padrão (quer Desktop) mas o host está no Virtual Display.
+        DesktopSelector.Plan plan = DesktopSelector.plan(Arrays.asList(desktop, virtualDisplay), false, 20, false);
+        assertEquals(DesktopSelector.Action.QUIT_RELAUNCH, plan.action);
+        assertEquals(10, plan.app.getAppId());
+    }
+
+    // DONO com um jogo real rodando: BUSY (nunca mata o jogo do cliente).
+    @Test public void ownerWithRealGameRunningIsBusy() throws Exception {
+        NvApp desktop = new NvApp("Desktop", 10, false);
+        NvApp game = new NvApp("Steam", 99, false);
+        DesktopSelector.Plan plan = DesktopSelector.plan(Arrays.asList(desktop, game), false, 99, false);
+        assertEquals(DesktopSelector.Action.BUSY, plan.action);
+    }
+
+    // DONO, nada rodando: abre o Desktop (ou Virtual Display em modo Desempenho).
+    @Test public void ownerNothingRunningLaunches() throws Exception {
+        NvApp desktop = new NvApp("Desktop", 10, false);
+        NvApp virtualDisplay = new NvApp("Virtual Display", 20, false);
+        DesktopSelector.Plan plan = DesktopSelector.plan(Arrays.asList(desktop, virtualDisplay), true, 0, false);
+        assertEquals(DesktopSelector.Action.LAUNCH_OR_RESUME, plan.action);
+        assertEquals(20, plan.app.getAppId());
+    }
+
+    // DONO em modo Desempenho, host já no Virtual Display (mesmo app): resume, sem quit.
+    @Test public void ownerResumesSameManagedApp() throws Exception {
+        NvApp desktop = new NvApp("Desktop", 10, false);
+        NvApp virtualDisplay = new NvApp("Virtual Display", 20, false);
+        DesktopSelector.Plan plan = DesktopSelector.plan(Arrays.asList(desktop, virtualDisplay), true, 20, false);
+        assertEquals(DesktopSelector.Action.LAUNCH_OR_RESUME, plan.action);
+        assertEquals(20, plan.app.getAppId());
+    }
 }

@@ -116,12 +116,13 @@ final class ManagedSessionHost implements SessionOrchestrator.Host {
 
             NvApp desktop;
             java.util.List<NvApp> appList;
+            DesktopSelector.Plan plan;
             long authorizationDeadline = SystemClock.elapsedRealtime() + (newlyPaired ? 20_000 : 0);
             while (true) {
                 scope.checkCancelled();
                 try {
                     appList = http.getAppList();
-                    desktop = DesktopSelector.select(appList, preferVirtualDisplay);
+                    plan = DesktopSelector.plan(appList, preferVirtualDisplay, computer.runningGameId, friend);
                     break;
                 } catch (HostHttpResponseException e) {
                     if (e.getErrorCode() != 403 || SystemClock.elapsedRealtime() >= authorizationDeadline) throw e;
@@ -129,21 +130,29 @@ final class ManagedSessionHost implements SessionOrchestrator.Host {
                     Thread.sleep(500);
                 }
             }
-            if (computer.runningGameId != 0 && computer.runningGameId != desktop.getAppId()) {
-                // Trocar entre desktops gerenciados (Desktop <-> Virtual Display no
-                // Sudo Maker) é seguro: encerra aqui mesmo o que está rodando (o
-                // stream nativo não troca de app em sessão gerenciada, allowAppSwitch
-                // é false) e segue pro launch. Só barra se for um jogo real.
-                if (DesktopSelector.isManagedDesktopApp(appList, computer.runningGameId)) {
+            desktop = plan.app;
+            switch (plan.action) {
+                case QUIT_RELAUNCH:
+                    // Dono trocando entre desktops gerenciados (Desktop <-> Virtual
+                    // Display no Sudo Maker): encerra aqui mesmo o que está rodando (o
+                    // stream nativo não troca de app em sessão gerenciada) e segue pro
+                    // launch. Falha de quit vira "outro app aberto".
                     try {
                         http.quitApp();
                         computer.runningGameId = 0;
                     } catch (Exception quitError) {
                         throw new SessionOrchestrator.SessionException(SessionOrchestrator.Failure.HOST_BUSY);
                     }
-                } else {
+                    break;
+                case BUSY:
+                    // Jogo real / app desconhecido rodando: nunca encerra, barra.
                     throw new SessionOrchestrator.SessionException(SessionOrchestrator.Failure.HOST_BUSY);
-                }
+                case JOIN:
+                    // Co-op: amigo entra na tela gerenciada que o host já usa (o app
+                    // alvo já é o runningGameId), sem quit e sem derrubar o host.
+                case LAUNCH_OR_RESUME:
+                default:
+                    break;
             }
             scope.checkCancelled();
             manager.saveSessionComputer(computer, scope);
